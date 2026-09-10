@@ -1,0 +1,201 @@
+@page "/solicitudes/{Id:int}"
+@rendermode InteractiveServer
+@inject SolicitudApiClient SolicitudApi
+@inject MovimientoApiClient MovimientoApi
+@inject UbicacionApiClient UbicacionApi
+
+<PageTitle>Solicitud</PageTitle>
+
+<a href="/solicitudes" style="font-size:13px">‹ Volver a solicitudes</a>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+}
+
+@if (_solicitud is null || _ubicaciones is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="page-head" style="margin-top:12px">
+        <div>
+            <h1 style="margin-bottom:4px">Solicitud @_solicitud.NumeroSolicitud</h1>
+            <p class="text-muted" style="margin:0">@_solicitud.AreaNombre · Solicitado por @_solicitud.SolicitadoPor</p>
+        </div>
+        <span class="@EstadoTagClase(_solicitud.Estado)" style="font-size:13px;padding:6px 14px">@_solicitud.Estado</span>
+    </div>
+
+    @if (_solicitud.Estado == EstadoSolicitud.Rechazada)
+    {
+        <p class="dialog-error">Motivo de rechazo: @_solicitud.MotivoRechazo</p>
+    }
+
+    <div class="table-wrap" style="margin-top:20px">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Producto</th><th>Solicitada</th><th>Aprobada</th><th>Entregada</th>
+                    @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+                    {
+                        <th>Aprobar cantidad</th>
+                    }
+                    else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial)
+                    {
+                        <th>Entregar</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in _solicitud.Detalles)
+                {
+                    <tr>
+                        <td>@d.ProductoNombre</td>
+                        <td>@d.CantidadSolicitada.ToString("N2")</td>
+                        <td class="text-muted">@(d.CantidadAprobada?.ToString("N2") ?? "—")</td>
+                        <td class="text-muted">@d.CantidadEntregada.ToString("N2")</td>
+                        @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+                        {
+                            <td><input class="input" style="max-width:110px" type="number" min="0" step="0.01" @bind="_cantidadAprobada[d.Id]" /></td>
+                        }
+                        else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && d.CantidadAprobada > d.CantidadEntregada)
+                        {
+                            <td>
+                                <div style="display:flex;gap:8px;align-items:center">
+                                    <input class="input" style="max-width:90px" type="number" min="0" step="0.01" @bind="_cantidadEntrega[d.Id]" />
+                                    <select class="input" style="max-width:130px" @bind="_ubicacionEntrega[d.Id]">
+                                        <option value="0">Ubicación…</option>
+                                        @foreach (var u in _ubicaciones)
+                                        {
+                                            <option value="@u.Id">@u.CodigoUbicacion</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => EntregarAsync(d.Id)">Entregar</button>
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+    {
+        <div style="display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AprobarAsync">Aprobar solicitud</button>
+            <input class="input" style="max-width:300px" placeholder="Motivo de rechazo" @bind="_motivoRechazo" />
+            <button type="button" class="btn btn-ghost" style="color:var(--color-accent-800)" disabled="@_guardando" @onclick="RechazarAsync">Rechazar</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private SolicitudDto? _solicitud;
+    private List<UbicacionDto>? _ubicaciones;
+    private readonly Dictionary<int, decimal> _cantidadAprobada = new();
+    private readonly Dictionary<int, decimal> _cantidadEntrega = new();
+    private readonly Dictionary<int, int> _ubicacionEntrega = new();
+    private string? _motivoRechazo;
+    private bool _guardando;
+    private string? _error;
+    private string? _ok;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _solicitud = await SolicitudApi.ObtenerPorIdAsync(Id);
+            _ubicaciones = await UbicacionApi.ListarAsync();
+            if (_solicitud is not null)
+                foreach (var d in _solicitud.Detalles)
+                    _cantidadAprobada.TryAdd(d.Id, d.CantidadSolicitada);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task AprobarAsync()
+    {
+        if (_guardando || _solicitud is null) return;
+        _guardando = true;
+        _error = null;
+
+        try
+        {
+            var lineas = _solicitud.Detalles
+                .Select(d => new AprobarSolicitudDetalleDto(d.Id, _cantidadAprobada.GetValueOrDefault(d.Id)))
+                .Where(l => l.CantidadAprobada > 0)
+                .ToList();
+
+            _solicitud = await SolicitudApi.AprobarAsync(Id, new AprobarSolicitudDto(lineas));
+            _ok = "Solicitud aprobada.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task RechazarAsync()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_motivoRechazo)) { _error = "Indicá el motivo de rechazo."; return; }
+
+        _guardando = true;
+        _error = null;
+
+        try
+        {
+            _solicitud = await SolicitudApi.RechazarAsync(Id, new RechazarSolicitudDto(_motivoRechazo));
+            _ok = "Solicitud rechazada.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task EntregarAsync(int solicitudDetalleId)
+    {
+        if (_guardando || _solicitud is null) return;
+
+        var detalle = _solicitud.Detalles.First(d => d.Id == solicitudDetalleId);
+        var cantidad = _cantidadEntrega.GetValueOrDefault(solicitudDetalleId);
+        var ubicacionId = _ubicacionEntrega.GetValueOrDefault(solicitudDetalleId);
+
+        if (cantidad <= 0) { _error = "Indicá la cantidad a entregar."; return; }
+        if (ubicacionId <= 0) { _error = "Seleccioná desde qué ubicación sale."; return; }
+
+        _guardando = true;
+        _error = null;
+
+        try
+        {
+            await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
+                detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
+                false, null, null, solicitudDetalleId));
+
+            _ok = "Entrega registrada.";
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private static string EstadoTagClase(EstadoSolicitud e) => e switch
+    {
+        EstadoSolicitud.Pendiente => "tag tag-warn",
+        EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial => "tag tag-outline",
+        EstadoSolicitud.Entregada => "tag tag-accent",
+        EstadoSolicitud.Rechazada => "tag tag-neutral",
+        _ => "tag tag-neutral",
+    };
+}

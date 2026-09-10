@@ -1,0 +1,435 @@
+@page "/movimientos"
+@rendermode InteractiveServer
+@inject ProductoApiClient ProductoApi
+@inject UbicacionApiClient UbicacionApi
+@inject CategoriaApiClient CategoriaApi
+@inject MovimientoApiClient MovimientoApi
+
+<PageTitle>Movimientos</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Movimientos</h1>
+        <p class="text-muted" style="margin-top:-6px">Registre entradas, salidas y ajustes de material promocional.</p>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button type="button" class="btn btn-secondary" @onclick="AbrirEntrada">Registrar entrada</button>
+        <button type="button" class="btn btn-secondary" @onclick="AbrirAjuste">Registrar ajuste</button>
+        <button type="button" class="btn btn-primary" @onclick="AbrirSalida">Registrar salida</button>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+}
+
+@if (_movimientos is null || _productos is null || _ubicaciones is null || _categorias is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="filter-row">
+        <select class="input" style="max-width:220px" @bind="_filtroCategoria">
+            <option value="">Todas las categorías</option>
+            @foreach (var c in _categorias)
+            {
+                <option value="@c.CodigoCategoria">@c.CodigoCategoria</option>
+            }
+        </select>
+        <select class="input" style="max-width:180px" @bind="_filtroTipo">
+            <option value="">Todos los tipos</option>
+            <option value="Entrada">Entrada</option>
+            <option value="Salida">Salida</option>
+            <option value="AjustePositivo">Ajuste +</option>
+            <option value="AjusteNegativo">Ajuste -</option>
+        </select>
+    </div>
+
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+            <tbody>
+                @foreach (var m in Filtrados())
+                {
+                    <tr>
+                        <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td>@m.ProductoNombre</td>
+                        <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
+                        <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                        <td>@m.Cantidad.ToString("N2")</td>
+                        <td class="text-muted">@UbicacionORetorna(m)</td>
+                        <td class="text-muted">@m.RegistradoPor</td>
+                        <td class="text-muted">@m.Motivo</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Filtrados().Count == 0)
+    {
+        <p class="text-muted" style="margin-top:20px">Sin movimientos para este filtro.</p>
+    }
+
+    <div class="hr" style="margin-top:32px"></div>
+    <h3>Préstamos pendientes de devolución</h3>
+    <p class="text-muted" style="margin-top:-6px">Salidas registradas con "Retorna" que todavía no se devolvieron por completo.</p>
+
+    @if (_prestamos is null)
+    {
+        <p>Cargando…</p>
+    }
+    else if (_prestamos.Count == 0)
+    {
+        <p class="text-muted">No hay préstamos pendientes.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>N.º movimiento</th><th>Producto</th><th>Cantidad</th><th>Destino</th><th>Retorno esperado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var m in _prestamos)
+                    {
+                        <tr>
+                            <td>@m.NumeroMovimiento</td>
+                            <td>@m.ProductoNombre</td>
+                            <td>@m.Cantidad.ToString("N2")</td>
+                            <td class="text-muted">@m.UbicacionExterna</td>
+                            <td class="text-muted">@(m.FechaRetornoEsperada?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirDevolucion(m)">Registrar devolución</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<!-- ===== Diálogo: Entrada ===== -->
+<Dialog Visible="@(_dialog == "entrada")" Title="Registrar entrada">
+    <Body>
+        <div class="field">
+            <label>Producto</label>
+            <select class="input" @bind="_movProductoId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var p in _productos ?? [])
+                {
+                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Ubicación destino</label>
+            <select class="input" @bind="_movUbicacionId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var u in _ubicaciones ?? [])
+                {
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Motivo</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarEntrada">Confirmar entrada</button>
+    </Actions>
+</Dialog>
+
+<!-- ===== Diálogo: Salida ===== -->
+<Dialog Visible="@(_dialog == "salida")" Title="Registrar salida">
+    <Body>
+        <div class="field">
+            <label>Producto</label>
+            <select class="input" @bind="_movProductoId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var p in _productos ?? [])
+                {
+                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Ubicación origen</label>
+            <select class="input" @bind="_movUbicacionId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var u in _ubicaciones ?? [])
+                {
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field">
+            <label>¿El material va a retornar?</label>
+            <div class="seg" role="radiogroup">
+                <label class="seg-opt @(_movRetorna ? "active" : "")" @onclick="() => _movRetorna = true">Sí</label>
+                <label class="seg-opt @(!_movRetorna ? "active" : "")" @onclick="() => _movRetorna = false">No</label>
+            </div>
+        </div>
+        @if (_movRetorna)
+        {
+            <div class="dialog-grid-2">
+                <div class="field"><label>Ubicación externa / destino</label><input class="input" @bind="_movUbicacionExterna" placeholder="Evento, sucursal, etc." /></div>
+                <div class="field"><label>Retorno esperado</label><input class="input" type="date" @bind="_movFechaRetorno" /></div>
+            </div>
+        }
+        <div class="field"><label>Motivo</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarSalida">Confirmar salida</button>
+    </Actions>
+</Dialog>
+
+<!-- ===== Diálogo: Ajuste ===== -->
+<Dialog Visible="@(_dialog == "ajuste")" Title="Registrar ajuste">
+    <Body>
+        <div class="field">
+            <label>Producto</label>
+            <select class="input" @bind="_movProductoId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var p in _productos ?? [])
+                {
+                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Ubicación</label>
+            <select class="input" @bind="_movUbicacionId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var u in _ubicaciones ?? [])
+                {
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Sentido del ajuste</label>
+            <div class="seg" role="radiogroup">
+                <label class="seg-opt @(_movAjustePositivo ? "active" : "")" @onclick="() => _movAjustePositivo = true">Positivo (+)</label>
+                <label class="seg-opt @(!_movAjustePositivo ? "active" : "")" @onclick="() => _movAjustePositivo = false">Negativo (-)</label>
+            </div>
+        </div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Motivo (obligatorio)</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarAjuste">Confirmar ajuste</button>
+    </Actions>
+</Dialog>
+
+<!-- ===== Diálogo: Devolución ===== -->
+<Dialog Visible="@(_dialog == "devolucion")" Title="Registrar devolución">
+    <Body>
+        @if (_devolviendoMov is not null)
+        {
+            <p class="text-muted" style="margin:0">@_devolviendoMov.NumeroMovimiento — @_devolviendoMov.ProductoNombre (salieron @_devolviendoMov.Cantidad.ToString("N2"))</p>
+        }
+        <div class="field">
+            <label>Ubicación de retorno</label>
+            <select class="input" @bind="_movUbicacionId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var u in _ubicaciones ?? [])
+                {
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Cantidad a devolver</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarDevolucion">Confirmar devolución</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<MovimientoDto>? _movimientos;
+    private List<MovimientoDto>? _prestamos;
+    private List<ProductoDto>? _productos;
+    private List<UbicacionDto>? _ubicaciones;
+    private List<CategoriaDto>? _categorias;
+    private string _filtroCategoria = "";
+    private string _filtroTipo = "";
+    private string? _error;
+    private string? _ok;
+
+    private string? _dialog; // "entrada" | "salida" | "ajuste" | "devolucion" | null
+    private bool _guardando;
+    private string? _dialogError;
+
+    private int _movProductoId;
+    private int _movUbicacionId;
+    private decimal _movCantidad;
+    private string? _movMotivo;
+    private bool _movRetorna;
+    private string? _movUbicacionExterna;
+    private DateTime? _movFechaRetorno;
+    private bool _movAjustePositivo = true;
+    private MovimientoDto? _devolviendoMov;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _movimientos = await MovimientoApi.ListarAsync();
+            _prestamos = await MovimientoApi.ListarPrestamosPendientesAsync();
+            _productos = await ProductoApi.ListarAsync();
+            _ubicaciones = await UbicacionApi.ListarAsync();
+            _categorias = await CategoriaApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _movimientos = []; _prestamos = []; _productos = []; _ubicaciones = []; _categorias = [];
+        }
+    }
+
+    private string CategoriaDe(int productoId) => _productos?.FirstOrDefault(p => p.Id == productoId)?.CategoriaNombre ?? "—";
+
+    private List<MovimientoDto> Filtrados() => (_movimientos ?? [])
+        .Where(m => string.IsNullOrEmpty(_filtroCategoria) || CategoriaDe(m.ProductoId) == _filtroCategoria)
+        .Where(m => string.IsNullOrEmpty(_filtroTipo) || m.TipoMovimiento.ToString() == _filtroTipo)
+        .OrderByDescending(m => m.FechaMovimiento)
+        .ToList();
+
+    private void LimpiarCampos()
+    {
+        _movProductoId = 0; _movUbicacionId = 0; _movCantidad = 0; _movMotivo = null;
+        _movRetorna = false; _movUbicacionExterna = null; _movFechaRetorno = null; _movAjustePositivo = true;
+        _dialogError = null;
+    }
+
+    private void AbrirEntrada() { LimpiarCampos(); _dialog = "entrada"; }
+    private void AbrirSalida() { LimpiarCampos(); _dialog = "salida"; }
+    private void AbrirAjuste() { LimpiarCampos(); _dialog = "ajuste"; }
+    private void AbrirDevolucion(MovimientoDto m) { LimpiarCampos(); _devolviendoMov = m; _dialog = "devolucion"; }
+    private void CerrarDialogo() { _dialog = null; _devolviendoMov = null; }
+
+    private async Task ConfirmarEntrada()
+    {
+        if (_guardando) return;
+        if (_movProductoId <= 0) { _dialogError = "Seleccione un producto."; return; }
+        if (_movUbicacionId <= 0) { _dialogError = "Seleccione una ubicación destino."; return; }
+        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
+
+        _guardando = true; _dialogError = null;
+        try
+        {
+            var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(_movProductoId, _movUbicacionId, _movCantidad, _movMotivo));
+            _ok = $"Entrada {r.NumeroMovimiento} confirmada.";
+            _dialog = null;
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _dialogError = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task ConfirmarSalida()
+    {
+        if (_guardando) return;
+        if (_movProductoId <= 0) { _dialogError = "Seleccione un producto."; return; }
+        if (_movUbicacionId <= 0) { _dialogError = "Seleccione una ubicación origen."; return; }
+        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
+
+        _guardando = true; _dialogError = null;
+        try
+        {
+            var fechaRetorno = _movRetorna && _movFechaRetorno is not null ? DateOnly.FromDateTime(_movFechaRetorno.Value) : (DateOnly?)null;
+            var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
+                _movProductoId, _movUbicacionId, _movCantidad, _movMotivo, _movRetorna,
+                _movRetorna ? _movUbicacionExterna : null, fechaRetorno, null));
+            _ok = $"Salida {r.NumeroMovimiento} confirmada.";
+            _dialog = null;
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _dialogError = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task ConfirmarAjuste()
+    {
+        if (_guardando) return;
+        if (_movProductoId <= 0) { _dialogError = "Seleccione un producto."; return; }
+        if (_movUbicacionId <= 0) { _dialogError = "Seleccione una ubicación."; return; }
+        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
+        if (string.IsNullOrWhiteSpace(_movMotivo)) { _dialogError = "El motivo es obligatorio en un ajuste."; return; }
+
+        _guardando = true; _dialogError = null;
+        try
+        {
+            var r = await MovimientoApi.RegistrarAjusteAsync(new RegistrarAjusteDto(_movProductoId, _movUbicacionId, _movCantidad, _movAjustePositivo, _movMotivo!));
+            _ok = $"Ajuste {r.NumeroMovimiento} confirmado.";
+            _dialog = null;
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _dialogError = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task ConfirmarDevolucion()
+    {
+        if (_guardando || _devolviendoMov is null) return;
+        if (_movUbicacionId <= 0) { _dialogError = "Seleccione dónde vuelve el material."; return; }
+        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
+
+        _guardando = true; _dialogError = null;
+        try
+        {
+            var r = await MovimientoApi.RegistrarDevolucionAsync(new RegistrarDevolucionDto(_devolviendoMov.Id, _movUbicacionId, _movCantidad, "Devolución de préstamo"));
+            _ok = $"Devolución {r.NumeroMovimiento} confirmada.";
+            _dialog = null;
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _dialogError = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private static string TagClase(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-accent",
+        _ => "tag tag-outline",
+    };
+
+    private static string Etiqueta(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida => "Salida",
+        TipoMovimiento.AjustePositivo => "Ajuste +",
+        TipoMovimiento.AjusteNegativo => "Ajuste -",
+        _ => t.ToString(),
+    };
+
+    private static string UbicacionORetorna(MovimientoDto m) =>
+        m.TipoMovimiento == TipoMovimiento.Salida
+            ? $"{m.UbicacionCodigo} · Retorna: {(m.Retorna ? "Sí" : "No")}"
+            : m.UbicacionCodigo;
+}

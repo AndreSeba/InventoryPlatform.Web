@@ -1,0 +1,19 @@
+@page "/"
+@layout Layout.WelcomeLayout
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<PageTitle>Inventario de Material Promocional</PageTitle>
+
+<div class="welcome-screen">
+    <div class="welcome-card">
+        <div class="welcome-mark"></div>
+        <h1 style="margin:0 0 8px">Inventario de Material Promocional</h1>
+        <p class="text-muted" style="margin:0 0 32px">Gestión de existencias, movimientos y ubicaciones para el equipo de Marketing.</p>
+        <button type="button" class="btn btn-primary btn-block" @onclick="Entrar">Ingresar al sistema</button>
+    </div>
+</div>
+
+@code {
+    private void Entrar() => Nav.NavigateTo("/inicio");
+}

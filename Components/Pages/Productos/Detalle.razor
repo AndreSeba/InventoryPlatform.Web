@@ -1,0 +1,213 @@
+@page "/productos/{Id:int}"
+@rendermode InteractiveServer
+@inject ProductoApiClient ProductoApi
+@inject MovimientoApiClient MovimientoApi
+@inject IJSRuntime JS
+
+<PageTitle>Producto</PageTitle>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_producto is null || _historial is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <a href="/productos" class="no-print" style="font-size:13px">‹ Volver a productos</a>
+
+    <div class="detail-grid">
+        <div>
+            <div class="detail-img" style="@(string.IsNullOrWhiteSpace(_producto.ImagenUrl) ? "" : $"background-image:url('{_producto.ImagenUrl}')")">
+                @if (string.IsNullOrWhiteSpace(_producto.ImagenUrl))
+                {
+                    <span>Foto del producto</span>
+                }
+            </div>
+            <div style="margin-top:10px;display:flex;justify-content:space-between">
+                <span class="text-muted" style="font-size:12px">@_producto.CodigoProducto</span>
+                <span class="tag tag-neutral">@_producto.CategoriaNombre</span>
+            </div>
+        </div>
+        <div>
+            <h2 style="margin-bottom:4px">@_producto.Nombre</h2>
+            <p class="text-muted" style="font-size:13px;margin-bottom:20px">Unidad: @_producto.UnidadMedida · Costo unitario: @CostoFmt(_producto.CostoUnitario)</p>
+            <p style="max-width:60ch">@_producto.Detalle</p>
+
+            <div class="hr"></div>
+            <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:20px">
+                <div class="detail-stock-big" style="@(_producto.Existencia <= _producto.StockMinimo ? "color:var(--color-accent-700)" : "")">@_producto.Existencia.ToString("N0")</div>
+                <div class="text-muted" style="font-size:13px">en existencia · mínimo @_producto.StockMinimo.ToString("N0") @_producto.UnidadMedida</div>
+            </div>
+            <button type="button" class="btn btn-primary no-print" @onclick="() => _mostrarEditar = true">Editar producto</button>
+        </div>
+    </div>
+
+    <div class="hr" style="margin-top:36px"></div>
+    <h3>Historial</h3>
+    @if (_historial.Count == 0)
+    {
+        <p class="text-muted">Sin movimientos registrados.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+                <tbody>
+                    @foreach (var m in _historial)
+                    {
+                        <tr>
+                            <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                            <td>@m.Cantidad.ToString("N2")</td>
+                            <td class="text-muted">@UbicacionORetorna(m)</td>
+                            <td class="text-muted">@m.RegistradoPor</td>
+                            <td class="text-muted">@m.Motivo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <div class="hr no-print" style="margin-top:36px"></div>
+    <h3 class="no-print">Ficha imprimible</h3>
+    <div class="card elev-md printable">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <h4 style="margin:0">Ficha de producto</h4>
+            <span class="text-muted" style="font-size:12px">Marketing · Inventario</span>
+        </div>
+        <div class="hr"></div>
+        <p style="margin:0 0 4px"><strong>@_producto.CodigoProducto</strong> — @_producto.Nombre</p>
+        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Categoría: @_producto.CategoriaNombre · Unidad: @_producto.UnidadMedida</p>
+        <p style="font-size:13px">Costo unitario: @CostoFmt(_producto.CostoUnitario)</p>
+        <p style="font-size:13px">Existencia: @_producto.Existencia.ToString("N0") · Mínimo: @_producto.StockMinimo.ToString("N0")</p>
+        <p style="font-size:13px">@_producto.Detalle</p>
+        <div class="hr"></div>
+        <p class="text-muted" style="font-size:11px;margin:0">Generado @DateTime.Now.ToString("dd/MM/yyyy")</p>
+    </div>
+    <button type="button" class="btn btn-primary no-print" style="margin-top:16px" @onclick="Imprimir">
+        <Icon Name="print" Size="14" />
+        Imprimir ficha
+    </button>
+}
+
+<Dialog Visible="_mostrarEditar" Title="Editar producto">
+    <Body>
+        @if (_producto is not null)
+        {
+            <div class="dialog-grid-2">
+                <div class="field"><label>Código</label><input class="input" value="@_producto.CodigoProducto" disabled /></div>
+                <div class="field"><label>Categoría</label><input class="input" value="@_producto.CategoriaNombre" disabled /></div>
+            </div>
+            <div class="field"><label for="ef-nom">Nombre</label><input class="input" id="ef-nom" @bind="_editNombre" /></div>
+            <div class="dialog-grid-2">
+                <div class="field"><label for="ef-cos">Costo unitario</label><input class="input" id="ef-cos" type="number" min="0" step="0.01" @bind="_editCosto" /></div>
+                <div class="field"><label for="ef-sm">Stock mínimo</label><input class="input" id="ef-sm" type="number" min="0" step="0.01" @bind="_editStockMinimo" /></div>
+            </div>
+            <div class="field"><label for="ef-det">Detalle</label><textarea class="input" id="ef-det" rows="3" @bind="_editDetalle"></textarea></div>
+            @if (_dialogError is not null)
+            {
+                <p class="dialog-error">@_dialogError</p>
+            }
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _mostrarEditar = false">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="GuardarEdicion">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ProductoDto? _producto;
+    private List<MovimientoDto>? _historial;
+    private string? _error;
+
+    private bool _mostrarEditar;
+    private bool _guardando;
+    private string? _dialogError;
+    private string _editNombre = "";
+    private decimal? _editCosto;
+    private decimal _editStockMinimo;
+    private string? _editDetalle;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _producto = await ProductoApi.ObtenerPorIdAsync(Id);
+            _historial = (await MovimientoApi.ListarPorProductoAsync(Id)).OrderByDescending(m => m.FechaMovimiento).ToList();
+
+            if (_producto is not null)
+            {
+                _editNombre = _producto.Nombre;
+                _editCosto = _producto.CostoUnitario;
+                _editStockMinimo = _producto.StockMinimo;
+                _editDetalle = _producto.Detalle;
+            }
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _historial = [];
+        }
+    }
+
+    private async Task GuardarEdicion()
+    {
+        if (_guardando || _producto is null) return;
+        if (string.IsNullOrWhiteSpace(_editNombre)) { _dialogError = "El nombre es obligatorio."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            await ProductoApi.ActualizarAsync(_producto.Id, new ActualizarProductoDto(
+                _editNombre, _producto.CategoriaId, _producto.UnidadMedida, _editCosto, _editStockMinimo, _editDetalle, _producto.ImagenUrl));
+
+            _mostrarEditar = false;
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task Imprimir() => await JS.InvokeVoidAsync("print");
+
+    private static string CostoFmt(decimal? c) => c is null ? "—" : $"Bs {c:N2}";
+
+    private static string TagClase(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-accent",
+        _ => "tag tag-outline",
+    };
+
+    private static string Etiqueta(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida => "Salida",
+        TipoMovimiento.AjustePositivo => "Ajuste +",
+        TipoMovimiento.AjusteNegativo => "Ajuste -",
+        _ => t.ToString(),
+    };
+
+    private static string UbicacionORetorna(MovimientoDto m) =>
+        m.TipoMovimiento == TipoMovimiento.Salida
+            ? $"{m.UbicacionCodigo} · Retorna: {(m.Retorna ? "Sí" : "No")}"
+            : m.UbicacionCodigo;
+}

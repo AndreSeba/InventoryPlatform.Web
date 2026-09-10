@@ -1,0 +1,139 @@
+@page "/ubicaciones"
+@rendermode InteractiveServer
+@inject UbicacionApiClient UbicacionApi
+@inject MovimientoApiClient MovimientoApi
+
+<PageTitle>Ubicaciones</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Ubicaciones</h1>
+        <p class="text-muted" style="margin-top:-6px">Racks y muebles donde se almacena físicamente el material.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="AbrirDialogo">+ Nueva ubicación</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_ubicaciones is null || _movimientos is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Tipo</th><th>Nro</th><th>Lado</th><th>Nivel</th><th># Movimientos</th></tr></thead>
+            <tbody>
+                @foreach (var u in _ubicaciones)
+                {
+                    <tr>
+                        <td>@u.CodigoUbicacion</td>
+                        <td class="text-muted">@u.TipoUbicacion</td>
+                        <td class="text-muted">@u.Nro</td>
+                        <td class="text-muted">@u.Lado</td>
+                        <td class="text-muted">@(u.Nivel ?? "—")</td>
+                        <td class="text-muted">@_movimientos.Count(m => m.UbicacionId == u.Id)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="Nueva ubicación">
+    <Body>
+        <div class="field">
+            <label>Tipo</label>
+            <div class="seg" role="radiogroup">
+                <label class="seg-opt @(_tipo == TipoUbicacion.Rack ? "active" : "")" @onclick="() => _tipo = TipoUbicacion.Rack">RACK</label>
+                <label class="seg-opt @(_tipo == TipoUbicacion.Mueble ? "active" : "")" @onclick="() => _tipo = TipoUbicacion.Mueble">MUEBLE</label>
+            </div>
+        </div>
+        <div class="dialog-grid-2">
+            <div class="field"><label for="uf-nro">Nro</label><input class="input" id="uf-nro" @bind="_nro" placeholder="04" /></div>
+            <div class="field"><label for="uf-lado">Lado</label><input class="input" id="uf-lado" @bind="_lado" placeholder="A" /></div>
+        </div>
+        @if (_tipo == TipoUbicacion.Rack)
+        {
+            <div class="field"><label for="uf-nivel">Nivel</label><input class="input" id="uf-nivel" @bind="_nivel" placeholder="01" /></div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<UbicacionDto>? _ubicaciones;
+    private List<MovimientoDto>? _movimientos;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private TipoUbicacion _tipo = TipoUbicacion.Rack;
+    private string _nro = "";
+    private string _lado = "";
+    private string? _nivel;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _ubicaciones = await UbicacionApi.ListarAsync();
+            _movimientos = await MovimientoApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _ubicaciones = [];
+            _movimientos = [];
+        }
+    }
+
+    private void AbrirDialogo()
+    {
+        _tipo = TipoUbicacion.Rack;
+        _nro = ""; _lado = ""; _nivel = null;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar() => _dialogOpen = false;
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_nro) || string.IsNullOrWhiteSpace(_lado)) { _dialogError = "Nro y Lado son obligatorios."; return; }
+        if (_tipo == TipoUbicacion.Rack && string.IsNullOrWhiteSpace(_nivel)) { _dialogError = "Un RACK requiere Nivel."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            await UbicacionApi.CrearAsync(new CrearUbicacionDto(_tipo, _nro, _lado, _tipo == TipoUbicacion.Rack ? _nivel : null));
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

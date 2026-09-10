@@ -1,0 +1,266 @@
+@page "/productos"
+@rendermode InteractiveServer
+@inject ProductoApiClient ProductoApi
+@inject CategoriaApiClient CategoriaApi
+@inject NavigationManager Nav
+
+<PageTitle>Productos</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Productos</h1>
+        <p class="text-muted" style="margin-top:-6px">Filtre por categoría o busque por código y nombre.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo producto</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_productos is null || _categorias is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="filter-row">
+        <input class="input" style="max-width:320px" placeholder="Buscar por código o nombre" value="@_query" @oninput="OnQuery" />
+        <div class="chip-row">
+            <button type="button" class="btn @(_filtroCategoriaId is null ? "btn-primary" : "btn-secondary")" @onclick="() => SetFiltro(null)">Todas</button>
+            @foreach (var c in _categorias)
+            {
+                <button type="button" class="btn @(_filtroCategoriaId == c.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SetFiltro(c.Id)">@c.CodigoCategoria</button>
+            }
+        </div>
+    </div>
+
+    @if (Filtrados().Count == 0)
+    {
+        <p class="text-muted" style="margin-top:24px">No se encontraron productos.</p>
+    }
+    else
+    {
+        <div class="product-grid">
+            @foreach (var p in Filtrados())
+            {
+                <div class="card elev-sm product-card">
+                    <div class="product-card-img" style="@(string.IsNullOrWhiteSpace(p.ImagenUrl) ? "" : $"background-image:url('{p.ImagenUrl}')")">
+                        @if (string.IsNullOrWhiteSpace(p.ImagenUrl))
+                        {
+                            <span>Foto del producto</span>
+                        }
+                    </div>
+                    <div class="product-card-body">
+                        <div class="product-card-top">
+                            <span class="card-kicker" style="color:var(--color-neutral-700)">@p.CodigoProducto</span>
+                            <span class="tag tag-neutral">@p.CategoriaNombre</span>
+                        </div>
+                        <div class="card-title" style="font-size:15px">@p.Nombre</div>
+                        <div class="stock-line @(p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") / mín. @p.StockMinimo.ToString("N0") @p.UnidadMedida</div>
+                        <div style="display:flex;gap:8px;margin-top:4px">
+                            <button type="button" class="btn btn-secondary btn-sm" style="flex:1" @onclick="() => VerProducto(p.Id)">Ver</button>
+                            <button type="button" class="btn btn-ghost btn-sm" style="flex:1" @onclick="() => AbrirEditar(p)">Editar</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo producto" : "Editar producto")">
+    <Body>
+        <div class="dialog-grid-2">
+            <div class="field">
+                <label for="pf-cod">Código</label>
+                <input class="input" id="pf-cod" @bind="_form.Codigo" disabled="@(_editandoId is not null)" />
+            </div>
+            <div class="field">
+                <label for="pf-cat">Categoría</label>
+                <select class="input" id="pf-cat" @bind="_form.CategoriaId">
+                    <option value="0">-- Seleccionar --</option>
+                    @foreach (var c in _categorias ?? [])
+                    {
+                        <option value="@c.Id">@c.CodigoCategoria</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label for="pf-nom">Nombre</label>
+            <input class="input" id="pf-nom" @bind="_form.Nombre" />
+        </div>
+        <div class="dialog-grid-3">
+            <div class="field">
+                <label for="pf-uni">Unidad</label>
+                <select class="input" id="pf-uni" @bind="_form.UnidadMedida">
+                    <option value="UNI">UNI</option>
+                    <option value="CAJA">CAJA</option>
+                    <option value="PQTS">PQTS</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="pf-cos">Costo unitario</label>
+                <input class="input" id="pf-cos" type="number" min="0" step="0.01" @bind="_form.CostoUnitario" />
+            </div>
+            <div class="field">
+                <label for="pf-sm">Stock mínimo</label>
+                <input class="input" id="pf-sm" type="number" min="0" step="0.01" @bind="_form.StockMinimo" />
+            </div>
+        </div>
+        <div class="field">
+            <label for="pf-img">Imagen (URL)</label>
+            <input class="input" id="pf-img" @bind="_form.ImagenUrl" />
+        </div>
+        <div class="field">
+            <label for="pf-det">Detalle</label>
+            <textarea class="input" id="pf-det" rows="3" @bind="_form.Detalle"></textarea>
+        </div>
+        @if (_editandoId is null)
+        {
+            <p class="text-muted" style="font-size:12px;margin:0">La existencia inicial se carga después como un movimiento de Entrada, no acá.</p>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ProductoDto>? _productos;
+    private List<CategoriaDto>? _categorias;
+    private string _query = "";
+    private int? _filtroCategoriaId;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private int? _editandoId;
+    private string? _dialogError;
+    private FormModelo _form = new();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _productos = await ProductoApi.ListarAsync();
+            _categorias = await CategoriaApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _productos = [];
+            _categorias = [];
+        }
+    }
+
+    private void VerProducto(int id) => Nav.NavigateTo($"/productos/{id}");
+    private void OnQuery(ChangeEventArgs e) => _query = e.Value?.ToString() ?? "";
+    private void SetFiltro(int? categoriaId) => _filtroCategoriaId = categoriaId;
+
+    private List<ProductoDto> Filtrados()
+    {
+        var q = _query.Trim();
+        return (_productos ?? [])
+            .Where(p => _filtroCategoriaId is null || p.CategoriaId == _filtroCategoriaId)
+            .Where(p => q.Length == 0
+                || p.CodigoProducto.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || p.Nombre.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _dialogError = null;
+        _form = new FormModelo { CategoriaId = _categorias?.FirstOrDefault()?.Id ?? 0, UnidadMedida = "UNI" };
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(ProductoDto p)
+    {
+        _editandoId = p.Id;
+        _dialogError = null;
+        _form = new FormModelo
+        {
+            Codigo = p.CodigoProducto,
+            Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId,
+            UnidadMedida = p.UnidadMedida,
+            CostoUnitario = p.CostoUnitario,
+            StockMinimo = p.StockMinimo,
+            Detalle = p.Detalle,
+            ImagenUrl = p.ImagenUrl,
+        };
+        _dialogOpen = true;
+    }
+
+    private void Cerrar() => _dialogOpen = false;
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+
+        if (string.IsNullOrWhiteSpace(_form.Nombre) || _form.CategoriaId <= 0)
+        {
+            _dialogError = "Nombre y categoría son obligatorios.";
+            return;
+        }
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_form.Codigo))
+        {
+            _dialogError = "El código es obligatorio.";
+            return;
+        }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+            {
+                await ProductoApi.CrearAsync(new CrearProductoDto(
+                    _form.Codigo, _form.Nombre, _form.CategoriaId, _form.UnidadMedida,
+                    _form.CostoUnitario, _form.StockMinimo, _form.Detalle, _form.ImagenUrl));
+            }
+            else
+            {
+                await ProductoApi.ActualizarAsync(_editandoId.Value, new ActualizarProductoDto(
+                    _form.Nombre, _form.CategoriaId, _form.UnidadMedida,
+                    _form.CostoUnitario, _form.StockMinimo, _form.Detalle, _form.ImagenUrl));
+            }
+
+            _dialogOpen = false;
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private class FormModelo
+    {
+        public string Codigo { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public int CategoriaId { get; set; }
+        public string UnidadMedida { get; set; } = "UNI";
+        public decimal? CostoUnitario { get; set; }
+        public decimal StockMinimo { get; set; }
+        public string? Detalle { get; set; }
+        public string? ImagenUrl { get; set; }
+    }
+}

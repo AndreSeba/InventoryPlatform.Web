@@ -1,0 +1,104 @@
+@page "/inicio"
+@rendermode InteractiveServer
+@inject ProductoApiClient ProductoApi
+@inject MovimientoApiClient MovimientoApi
+@inject NavigationManager Nav
+
+<PageTitle>Inicio</PageTitle>
+
+<h1>Inicio</h1>
+<p class="text-muted" style="margin-top:-6px">Resumen del inventario de material promocional.</p>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_productos is null || _movimientos is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="kpi-grid">
+        <div class="card elev-sm">
+            <div class="card-kicker">Bajo mínimo</div>
+            <div class="card-title kpi-value warn">@_bajoMinimo</div>
+            <p class="card-body">Productos con existencia igual o menor a su stock mínimo.</p>
+        </div>
+        <div class="card elev-sm">
+            <div class="card-kicker">Préstamos pendientes</div>
+            <div class="card-title kpi-value">@_prestamosPendientes</div>
+            <p class="card-body">Salidas marcadas "Retorna" que todavía no se devolvieron por completo.</p>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:36px">
+        <button type="button" class="btn btn-primary" @onclick='() => Nav.NavigateTo("/productos")'>Ver productos</button>
+        <button type="button" class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/movimientos")'>Ver movimientos</button>
+    </div>
+
+    <div class="hr"></div>
+    <h3>Movimientos recientes</h3>
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Registrado por</th></tr></thead>
+            <tbody>
+                @foreach (var m in _recientes)
+                {
+                    <tr>
+                        <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td>@m.ProductoNombre</td>
+                        <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                        <td>@m.Cantidad.ToString("N2")</td>
+                        <td class="text-muted">@m.RegistradoPor</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<ProductoDto>? _productos;
+    private List<MovimientoDto>? _movimientos;
+    private List<MovimientoDto> _recientes = [];
+    private int _bajoMinimo;
+    private int _prestamosPendientes;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _productos = await ProductoApi.ListarAsync();
+            _movimientos = await MovimientoApi.ListarAsync();
+            var prestamos = await MovimientoApi.ListarPrestamosPendientesAsync();
+
+            _bajoMinimo = _productos.Count(p => p.Existencia <= p.StockMinimo);
+            _prestamosPendientes = prestamos.Count;
+            _recientes = _movimientos.OrderByDescending(m => m.FechaMovimiento).Take(5).ToList();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _productos = [];
+            _movimientos = [];
+        }
+    }
+
+    private static string TagClase(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-accent",
+        _ => "tag tag-outline",
+    };
+
+    private static string Etiqueta(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida => "Salida",
+        TipoMovimiento.AjustePositivo => "Ajuste +",
+        TipoMovimiento.AjusteNegativo => "Ajuste -",
+        _ => t.ToString(),
+    };
+}

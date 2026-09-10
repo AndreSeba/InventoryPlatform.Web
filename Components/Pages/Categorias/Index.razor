@@ -1,0 +1,118 @@
+@page "/categorias"
+@rendermode InteractiveServer
+@inject CategoriaApiClient CategoriaApi
+@inject ProductoApiClient ProductoApi
+
+<PageTitle>Categorías</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Categorías</h1>
+        <p class="text-muted" style="margin-top:-6px">Categorías utilizadas para clasificar el material promocional.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva categoría</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_categorias is null || _productos is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Descripción</th><th># Productos</th></tr></thead>
+            <tbody>
+                @foreach (var c in _categorias)
+                {
+                    <tr>
+                        <td>@c.CodigoCategoria</td>
+                        <td class="text-muted">@c.Descripcion</td>
+                        <td class="text-muted">@_productos.Count(p => p.CategoriaId == c.Id)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="Nueva categoría">
+    <Body>
+        <div class="field"><label for="cf-cod">Código</label><input class="input" id="cf-cod" @bind="_codigo" placeholder="CEREALES" /></div>
+        <div class="field"><label for="cf-desc">Descripción</label><input class="input" id="cf-desc" @bind="_descripcion" placeholder="Cereales" /></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<CategoriaDto>? _categorias;
+    private List<ProductoDto>? _productos;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private string _codigo = "";
+    private string? _descripcion;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _categorias = await CategoriaApi.ListarAsync();
+            _productos = await ProductoApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _categorias = [];
+            _productos = [];
+        }
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = "";
+        _descripcion = null;
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingrese un código."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            await CategoriaApi.CrearAsync(new CrearCategoriaDto(_codigo, _descripcion));
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

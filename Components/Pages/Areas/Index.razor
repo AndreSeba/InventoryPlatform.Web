@@ -1,0 +1,117 @@
+@page "/areas"
+@rendermode InteractiveServer
+@inject AreaApiClient AreaApi
+@inject SolicitudApiClient SolicitudApi
+
+<PageTitle>Áreas</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Áreas</h1>
+        <p class="text-muted" style="margin-top:-6px">Áreas que pueden solicitar material promocional.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva área</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_areas is null || _solicitudes is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Nombre</th><th># Solicitudes</th></tr></thead>
+            <tbody>
+                @foreach (var a in _areas)
+                {
+                    <tr>
+                        <td>@a.CodigoArea</td>
+                        <td class="text-muted">@a.NombreArea</td>
+                        <td class="text-muted">@_solicitudes.Count(s => s.AreaId == a.Id)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="Nueva área">
+    <Body>
+        <div class="field"><label for="af-cod">Código</label><input class="input" id="af-cod" @bind="_codigo" placeholder="MARKETING" /></div>
+        <div class="field"><label for="af-nom">Nombre</label><input class="input" id="af-nom" @bind="_nombre" placeholder="Marketing" /></div>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<AreaDto>? _areas;
+    private List<SolicitudDto>? _solicitudes;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private string _codigo = "";
+    private string _nombre = "";
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _areas = await AreaApi.ListarAsync();
+            _solicitudes = await SolicitudApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _areas = [];
+            _solicitudes = [];
+        }
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = ""; _nombre = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_codigo) || string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Código y nombre son obligatorios."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            await AreaApi.CrearAsync(new CrearAreaDto(_codigo, _nombre));
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

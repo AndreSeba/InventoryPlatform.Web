@@ -1,0 +1,15 @@
+@inject NavigationManager Nav
+
+<a href="@Href" class="rail-link @(IsActive ? "active" : "")" title="@Label">
+    <Icon Name="@IconName" />
+    <span>@Label</span>
+</a>
+
+@code {
+    [Parameter] public string Href { get; set; } = "";
+    [Parameter] public string IconName { get; set; } = "box";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string CurrentPath { get; set; } = "";
+
+    private bool IsActive => CurrentPath.StartsWith(Href, StringComparison.OrdinalIgnoreCase);
+}

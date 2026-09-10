@@ -1,0 +1,66 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="app-shell">
+    <div class="app-frame">
+        <nav class="app-rail">
+            <div class="app-rail-mark"></div>
+            <RailLink Href="/inicio" IconName="home" Label="Inicio" CurrentPath="@_path" />
+            <RailLink Href="/productos" IconName="box" Label="Productos" CurrentPath="@_path" />
+            <RailLink Href="/movimientos" IconName="shuffle" Label="Movim." CurrentPath="@_path" />
+            <RailLink Href="/solicitudes" IconName="clipboard" Label="Solicit." CurrentPath="@_path" />
+            <RailLink Href="/conteos" IconName="check-list" Label="Conteo" CurrentPath="@_path" />
+            <RailLink Href="/categorias" IconName="tag" Label="Categ." CurrentPath="@_path" />
+            <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicac." CurrentPath="@_path" />
+            <RailLink Href="/areas" IconName="building" Label="Áreas" CurrentPath="@_path" />
+        </nav>
+
+        <div class="app-body">
+            <div class="app-topbar no-print">
+                <span class="card-title" style="white-space:nowrap">@ScreenTitle()</span>
+                <span class="tag tag-outline" style="margin-left:auto;flex-shrink:0">Marketing · Inventario</span>
+            </div>
+
+            <main class="app-main">
+                @Body
+            </main>
+        </div>
+    </div>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string _path = "";
+
+    protected override void OnInitialized()
+    {
+        _path = new Uri(Nav.Uri).AbsolutePath;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _path = new Uri(e.Location).AbsolutePath;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string ScreenTitle() => _path switch
+    {
+        var p when p.StartsWith("/productos") => "Productos",
+        var p when p.StartsWith("/movimientos") => "Movimientos",
+        var p when p.StartsWith("/solicitudes") => "Solicitudes",
+        var p when p.StartsWith("/conteos") => "Conteo físico",
+        var p when p.StartsWith("/categorias") => "Categorías",
+        var p when p.StartsWith("/ubicaciones") => "Ubicaciones",
+        var p when p.StartsWith("/areas") => "Áreas",
+        _ => "Inicio",
+    };
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}
