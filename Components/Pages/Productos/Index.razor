@@ -79,13 +79,16 @@ else
 <Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo producto" : "Editar producto")">
     <Body>
         <div class="dialog-grid-2">
-            <div class="field">
-                <label for="pf-cod">Código</label>
-                <input class="input" id="pf-cod" @bind="_form.Codigo" disabled="@(_editandoId is not null)" />
-            </div>
+            @if (_editandoId is not null)
+            {
+                <div class="field">
+                    <label for="pf-cod">Código</label>
+                    <input class="input" id="pf-cod" value="@_form.Codigo" disabled />
+                </div>
+            }
             <div class="field">
                 <label for="pf-cat">Categoría</label>
-                <select class="input" id="pf-cat" @bind="_form.CategoriaId">
+                <select class="input" id="pf-cat" @bind="_form.CategoriaId" @bind:after="ActualizarPreviewCodigoAsync">
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var c in _categorias ?? [])
                     {
@@ -94,6 +97,19 @@ else
                 </select>
             </div>
         </div>
+        @if (_editandoId is null)
+        {
+            @if (_form.CategoriaId > 0)
+            {
+                <p class="text-muted" style="font-size:12px;margin:0">
+                    Código: <strong>@(_codigoPreview ?? "…")</strong> (se genera automáticamente a partir de la categoría)
+                </p>
+            }
+            else
+            {
+                <p class="text-muted" style="font-size:12px;margin:0">Seleccioná una categoría para ver el código que se va a generar.</p>
+            }
+        }
         <div class="field">
             <label for="pf-nom">Nombre</label>
             <input class="input" id="pf-nom" @bind="_form.Nombre" />
@@ -161,6 +177,7 @@ else
     private bool _subiendoImagen;
     private int? _editandoId;
     private string? _dialogError;
+    private string? _codigoPreview;
     private FormModelo _form = new();
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
@@ -195,18 +212,21 @@ else
             .ToList();
     }
 
-    private void AbrirNuevo()
+    private async Task AbrirNuevo()
     {
         _editandoId = null;
         _dialogError = null;
+        _codigoPreview = null;
         _form = new FormModelo { CategoriaId = _categorias?.FirstOrDefault()?.Id ?? 0, UnidadMedida = "UNI" };
         _dialogOpen = true;
+        await ActualizarPreviewCodigoAsync();
     }
 
     private void AbrirEditar(ProductoDto p)
     {
         _editandoId = p.Id;
         _dialogError = null;
+        _codigoPreview = null;
         _form = new FormModelo
         {
             Codigo = p.CodigoProducto,
@@ -222,6 +242,25 @@ else
     }
 
     private void Cerrar() => _dialogOpen = false;
+
+    // Solo tiene sentido al crear: al editar el código ya está fijo y no se recalcula.
+    private async Task ActualizarPreviewCodigoAsync()
+    {
+        if (_editandoId is not null || _form.CategoriaId <= 0)
+        {
+            _codigoPreview = null;
+            return;
+        }
+
+        try
+        {
+            _codigoPreview = await ProductoApi.ObtenerSiguienteCodigoAsync(_form.CategoriaId);
+        }
+        catch (ApiException)
+        {
+            _codigoPreview = null;
+        }
+    }
 
     private const long TamanoMaximoImagenBytes = 5 * 1024 * 1024;
 
@@ -262,11 +301,6 @@ else
             _dialogError = "Nombre y categoría son obligatorios.";
             return;
         }
-        if (_editandoId is null && string.IsNullOrWhiteSpace(_form.Codigo))
-        {
-            _dialogError = "El código es obligatorio.";
-            return;
-        }
 
         _guardando = true;
         _dialogError = null;
@@ -276,7 +310,7 @@ else
             if (_editandoId is null)
             {
                 await ProductoApi.CrearAsync(new CrearProductoDto(
-                    _form.Codigo, _form.Nombre, _form.CategoriaId, _form.UnidadMedida,
+                    _form.Nombre, _form.CategoriaId, _form.UnidadMedida,
                     _form.CostoUnitario, _form.StockMinimo, _form.Detalle, _form.ImagenUrl));
             }
             else

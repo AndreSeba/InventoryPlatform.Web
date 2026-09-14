@@ -72,4 +72,11 @@ public class ProductoApiClient
         var resultado = await respuesta.Content.ReadFromJsonAsync<ImagenSubidaDto>(cancellationToken: ct);
         return resultado!.Url;
     }
+    public async Task<string> ObtenerSiguienteCodigoAsync(int categoriaId, CancellationToken ct = default)
+    {
+        var respuesta = await _http.GetAsync($"api/productos/siguiente-codigo?categoriaId={categoriaId}", ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        var resultado = await respuesta.Content.ReadFromJsonAsync<SiguienteCodigoDto>(cancellationToken: ct);
+        return resultado!.Codigo;
+    }
 }
