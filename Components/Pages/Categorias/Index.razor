@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject CategoriaApiClient CategoriaApi
 @inject ProductoApiClient ProductoApi
+@inject AuthState AuthState
 
 <PageTitle>Categorías</PageTitle>
 
@@ -10,7 +11,10 @@
         <h1>Categorías</h1>
         <p class="text-muted" style="margin-top:-6px">Categorías utilizadas para clasificar el material promocional.</p>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva categoría</button>
+    @if (AuthState.HasPermission(Permisos.CategoriasCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva categoría</button>
+    }
 </div>
 
 @if (_error is not null)

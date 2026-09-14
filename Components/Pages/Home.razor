@@ -1,19 +1,74 @@
 @page "/"
 @layout Layout.WelcomeLayout
 @rendermode InteractiveServer
+@inject AuthApiClient AuthApi
+@inject AuthState AuthState
 @inject NavigationManager Nav
 
-<PageTitle>Inventario de Material Promocional</PageTitle>
+<PageTitle>Iniciar sesión — Inventario</PageTitle>
 
 <div class="welcome-screen">
     <div class="welcome-card">
         <div class="welcome-mark"></div>
-        <h1 style="margin:0 0 8px">Inventario de Material Promocional</h1>
-        <p class="text-muted" style="margin:0 0 32px">Gestión de existencias, movimientos y ubicaciones para el equipo de Marketing.</p>
-        <button type="button" class="btn btn-primary btn-block" @onclick="Entrar">Ingresar al sistema</button>
+        <h1 style="margin:0 0 4px">Inventario de Material Promocional</h1>
+        <p class="text-muted" style="margin:0 0 28px">Iniciá sesión para continuar.</p>
+
+        <EditForm Model="_modelo" OnValidSubmit="Entrar">
+            <div class="field" style="margin-bottom:14px">
+                <label for="email">Email</label>
+                <InputText id="email" class="input" @bind-Value="_modelo.Email" autofocus />
+            </div>
+            <div class="field" style="margin-bottom:18px">
+                <label for="pass">Contraseña</label>
+                <InputText id="pass" class="input" type="password" @bind-Value="_modelo.Password" />
+            </div>
+
+            @if (_error is not null)
+            {
+                <p class="dialog-error" style="margin-bottom:14px">@_error</p>
+            }
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@_ingresando">@(_ingresando ? "Ingresando…" : "Ingresar")</button>
+        </EditForm>
     </div>
 </div>
 
 @code {
-    private void Entrar() => Nav.NavigateTo("/inicio");
+    private readonly Modelo _modelo = new();
+    private bool _ingresando;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        if (AuthState.IsAuthenticated)
+            Nav.NavigateTo("/inicio");
+    }
+
+    private async Task Entrar()
+    {
+        if (_ingresando) return;
+        _ingresando = true;
+        _error = null;
+
+        try
+        {
+            var resultado = await AuthApi.LoginAsync(new LoginDto(_modelo.Email, _modelo.Password));
+            AuthState.SignIn(resultado);
+            Nav.NavigateTo("/inicio");
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _ingresando = false;
+        }
+    }
+
+    private class Modelo
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
 }

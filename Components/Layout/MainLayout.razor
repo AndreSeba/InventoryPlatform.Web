@@ -1,25 +1,81 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
+@inject AuthState AuthState
 @implements IDisposable
 
 <div class="app-shell">
     <div class="app-frame">
         <nav class="app-rail">
-            <div class="app-rail-mark"></div>
+            <div class="app-rail-mark">
+                <div class="mark-box"></div>
+                <span class="mark-text">Inventario</span>
+            </div>
+
             <RailLink Href="/inicio" IconName="home" Label="Inicio" CurrentPath="@_path" />
-            <RailLink Href="/productos" IconName="box" Label="Productos" CurrentPath="@_path" />
-            <RailLink Href="/movimientos" IconName="shuffle" Label="Movim." CurrentPath="@_path" />
-            <RailLink Href="/solicitudes" IconName="clipboard" Label="Solicit." CurrentPath="@_path" />
-            <RailLink Href="/conteos" IconName="check-list" Label="Conteo" CurrentPath="@_path" />
-            <RailLink Href="/categorias" IconName="tag" Label="Categ." CurrentPath="@_path" />
-            <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicac." CurrentPath="@_path" />
-            <RailLink Href="/areas" IconName="building" Label="Áreas" CurrentPath="@_path" />
+
+            @if (AuthState.HasPermission(Permisos.ProductosVer))
+            {
+                <RailLink Href="/productos" IconName="box" Label="Productos" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.MovimientosVer))
+            {
+                <RailLink Href="/movimientos" IconName="shuffle" Label="Movimientos" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.SolicitudesVer))
+            {
+                <RailLink Href="/solicitudes" IconName="clipboard" Label="Solicitudes" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.ConteosVer))
+            {
+                <RailLink Href="/conteos" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
+            }
+
+            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer))
+            {
+                <div class="rail-section">Catálogos</div>
+            }
+            @if (AuthState.HasPermission(Permisos.CategoriasVer))
+            {
+                <RailLink Href="/categorias" IconName="tag" Label="Categorías" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.AreasVer))
+            {
+                <RailLink Href="/areas" IconName="building" Label="Áreas" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.UbicacionesVer))
+            {
+                <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicaciones" CurrentPath="@_path" />
+            }
+
+            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar))
+            {
+                <div class="rail-section">Administración</div>
+            }
+            @if (AuthState.HasPermission(Permisos.UsuariosGestionar))
+            {
+                <RailLink Href="/usuarios" IconName="users" Label="Usuarios" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.RolesGestionar))
+            {
+                <RailLink Href="/roles" IconName="shield" Label="Roles" CurrentPath="@_path" />
+            }
+
+            <div class="rail-footer">
+                <div class="rail-user">
+                    <span class="rail-user-name">@AuthState.NombreCompleto</span>
+                    <span class="rail-user-role">@AuthState.RolNombre</span>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--sidebar-text);width:100%;justify-content:flex-start" @onclick="CerrarSesion">
+                    <Icon Name="arrow-left" Size="14" />
+                    Cerrar sesión
+                </button>
+            </div>
         </nav>
 
         <div class="app-body">
             <div class="app-topbar no-print">
                 <span class="card-title" style="white-space:nowrap">@ScreenTitle()</span>
-                <span class="tag tag-outline" style="margin-left:auto;flex-shrink:0">Marketing · Inventario</span>
+                <span class="tag tag-outline" style="margin-left:auto;flex-shrink:0">@AuthState.RolNombre</span>
             </div>
 
             <main class="app-main">
@@ -40,14 +96,27 @@
 
     protected override void OnInitialized()
     {
+        if (!AuthState.IsAuthenticated)
+        {
+            Nav.NavigateTo("/", forceLoad: true);
+            return;
+        }
+
         _path = new Uri(Nav.Uri).AbsolutePath;
         Nav.LocationChanged += OnLocationChanged;
+        AuthState.OnChange += StateHasChanged;
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _path = new Uri(e.Location).AbsolutePath;
         InvokeAsync(StateHasChanged);
+    }
+
+    private void CerrarSesion()
+    {
+        AuthState.SignOut();
+        Nav.NavigateTo("/", forceLoad: true);
     }
 
     private string ScreenTitle() => _path switch
@@ -59,8 +128,14 @@
         var p when p.StartsWith("/categorias") => "Categorías",
         var p when p.StartsWith("/ubicaciones") => "Ubicaciones",
         var p when p.StartsWith("/areas") => "Áreas",
+        var p when p.StartsWith("/usuarios") => "Usuarios",
+        var p when p.StartsWith("/roles") => "Roles",
         _ => "Inicio",
     };
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        AuthState.OnChange -= StateHasChanged;
+    }
 }

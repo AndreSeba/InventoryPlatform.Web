@@ -1,0 +1,179 @@
+@page "/usuarios"
+@rendermode InteractiveServer
+@inject UsuarioApiClient UsuarioApi
+@inject RolApiClient RolApi
+
+<PageTitle>Usuarios</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Usuarios</h1>
+        <p class="text-muted" style="margin-top:-6px">Quién puede entrar al sistema y con qué rol.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo usuario</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_usuarios is null || _roles is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:20px">
+        <table class="table">
+            <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último login</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _usuarios)
+                {
+                    <tr>
+                        <td>@u.NombreCompleto</td>
+                        <td class="text-muted">@u.Email</td>
+                        <td><span class="tag tag-neutral">@u.RolNombre</span></td>
+                        <td><span class="@(u.Activo ? "tag tag-accent" : "tag tag-outline")">@(u.Activo ? "Activo" : "Inactivo")</span></td>
+                        <td class="text-muted">@(u.UltimoLoginEn?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(u)">Editar</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo usuario" : "Editar usuario")">
+    <Body>
+        <div class="field"><label for="uf-nom">Nombre completo</label><input class="input" id="uf-nom" @bind="_form.NombreCompleto" /></div>
+        @if (_editandoId is null)
+        {
+            <div class="dialog-grid-2">
+                <div class="field"><label for="uf-email">Email</label><input class="input" id="uf-email" @bind="_form.Email" /></div>
+                <div class="field"><label for="uf-pass">Contraseña</label><input class="input" id="uf-pass" type="password" @bind="_form.Password" /></div>
+            </div>
+        }
+        <div class="field">
+            <label for="uf-rol">Rol</label>
+            <select class="input" id="uf-rol" @bind="_form.RolId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var r in _roles ?? [])
+                {
+                    <option value="@r.Id">@r.Nombre</option>
+                }
+            </select>
+        </div>
+        @if (_editandoId is not null)
+        {
+            <label class="seg-opt" style="width:fit-content;border:1px solid var(--color-divider);border-radius:var(--radius-md)">
+                <input type="checkbox" style="position:static;opacity:1;width:auto;height:auto;margin-right:6px" @bind="_form.Activo" /> Usuario activo
+            </label>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<UsuarioDto>? _usuarios;
+    private List<RolDto>? _roles;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private int? _editandoId;
+    private string? _dialogError;
+    private FormModelo _form = new();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _usuarios = await UsuarioApi.ListarAsync();
+            _roles = await RolApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _usuarios = [];
+            _roles = [];
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _dialogError = null;
+        _form = new FormModelo { RolId = _roles?.FirstOrDefault()?.Id ?? 0 };
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(UsuarioDto u)
+    {
+        _editandoId = u.Id;
+        _dialogError = null;
+        _form = new FormModelo { NombreCompleto = u.NombreCompleto, RolId = u.RolId, Activo = u.Activo };
+        _dialogOpen = true;
+    }
+
+    private void Cerrar() => _dialogOpen = false;
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_form.NombreCompleto) || _form.RolId <= 0)
+        {
+            _dialogError = "Nombre y rol son obligatorios.";
+            return;
+        }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+            {
+                if (string.IsNullOrWhiteSpace(_form.Email) || _form.Password.Length < 8)
+                {
+                    _dialogError = "Email obligatorio y contraseña de al menos 8 caracteres.";
+                    return;
+                }
+                await UsuarioApi.CrearAsync(new CrearUsuarioDto(_form.Email, _form.NombreCompleto, _form.Password, _form.RolId));
+            }
+            else
+            {
+                await UsuarioApi.ActualizarAsync(_editandoId.Value, new ActualizarUsuarioDto(_form.NombreCompleto, _form.RolId, _form.Activo));
+            }
+
+            _dialogOpen = false;
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private class FormModelo
+    {
+        public string Email { get; set; } = "";
+        public string NombreCompleto { get; set; } = "";
+        public string Password { get; set; } = "";
+        public int RolId { get; set; }
+        public bool Activo { get; set; } = true;
+    }
+}

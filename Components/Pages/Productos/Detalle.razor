@@ -3,6 +3,7 @@
 @inject ProductoApiClient ProductoApi
 @inject MovimientoApiClient MovimientoApi
 @inject IJSRuntime JS
+@inject AuthState AuthState
 
 <PageTitle>Producto</PageTitle>
 
@@ -39,10 +40,13 @@ else
 
             <div class="hr"></div>
             <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:20px">
-                <div class="detail-stock-big" style="@(_producto.Existencia <= _producto.StockMinimo ? "color:var(--color-accent-700)" : "")">@_producto.Existencia.ToString("N0")</div>
+                <div class="detail-stock-big" style="@(_producto.Existencia <= _producto.StockMinimo ? "color:#b42318" : "")">@_producto.Existencia.ToString("N0")</div>
                 <div class="text-muted" style="font-size:13px">en existencia · mínimo @_producto.StockMinimo.ToString("N0") @_producto.UnidadMedida</div>
             </div>
-            <button type="button" class="btn btn-primary no-print" @onclick="() => _mostrarEditar = true">Editar producto</button>
+            @if (AuthState.HasPermission(Permisos.ProductosEditar))
+            {
+                <button type="button" class="btn btn-primary no-print" @onclick="() => _mostrarEditar = true">Editar producto</button>
+            }
         </div>
     </div>
 

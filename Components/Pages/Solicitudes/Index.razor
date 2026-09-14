@@ -4,6 +4,7 @@
 @inject AreaApiClient AreaApi
 @inject ProductoApiClient ProductoApi
 @inject NavigationManager Nav
+@inject AuthState AuthState
 
 <PageTitle>Solicitudes</PageTitle>
 
@@ -12,7 +13,10 @@
         <h1>Solicitudes</h1>
         <p class="text-muted" style="margin-top:-6px">Pedidos de material promocional por área, con aprobación y entrega.</p>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva solicitud</button>
+    @if (AuthState.HasPermission(Permisos.SolicitudesCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva solicitud</button>
+    }
 </div>
 
 @if (_error is not null)

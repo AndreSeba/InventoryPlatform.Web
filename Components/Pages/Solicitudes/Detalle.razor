@@ -3,6 +3,7 @@
 @inject SolicitudApiClient SolicitudApi
 @inject MovimientoApiClient MovimientoApi
 @inject UbicacionApiClient UbicacionApi
+@inject AuthState AuthState
 
 <PageTitle>Solicitud</PageTitle>
 
@@ -41,11 +42,11 @@ else
             <thead>
                 <tr>
                     <th>Producto</th><th>Solicitada</th><th>Aprobada</th><th>Entregada</th>
-                    @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+                    @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
                     {
                         <th>Aprobar cantidad</th>
                     }
-                    else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial)
+                    else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && AuthState.HasPermission(Permisos.SolicitudesEntregar))
                     {
                         <th>Entregar</th>
                     }
@@ -59,11 +60,11 @@ else
                         <td>@d.CantidadSolicitada.ToString("N2")</td>
                         <td class="text-muted">@(d.CantidadAprobada?.ToString("N2") ?? "—")</td>
                         <td class="text-muted">@d.CantidadEntregada.ToString("N2")</td>
-                        @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+                        @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
                         {
                             <td><input class="input" style="max-width:110px" type="number" min="0" step="0.01" @bind="_cantidadAprobada[d.Id]" /></td>
                         }
-                        else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && d.CantidadAprobada > d.CantidadEntregada)
+                        else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && d.CantidadAprobada > d.CantidadEntregada && AuthState.HasPermission(Permisos.SolicitudesEntregar))
                         {
                             <td>
                                 <div style="display:flex;gap:8px;align-items:center">
@@ -85,12 +86,18 @@ else
         </table>
     </div>
 
-    @if (_solicitud.Estado == EstadoSolicitud.Pendiente)
+    @if (_solicitud.Estado == EstadoSolicitud.Pendiente && (AuthState.HasPermission(Permisos.SolicitudesAprobar) || AuthState.HasPermission(Permisos.SolicitudesRechazar)))
     {
         <div style="display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap">
-            <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AprobarAsync">Aprobar solicitud</button>
-            <input class="input" style="max-width:300px" placeholder="Motivo de rechazo" @bind="_motivoRechazo" />
-            <button type="button" class="btn btn-ghost" style="color:var(--color-accent-800)" disabled="@_guardando" @onclick="RechazarAsync">Rechazar</button>
+            @if (AuthState.HasPermission(Permisos.SolicitudesAprobar))
+            {
+                <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AprobarAsync">Aprobar solicitud</button>
+            }
+            @if (AuthState.HasPermission(Permisos.SolicitudesRechazar))
+            {
+                <input class="input" style="max-width:300px" placeholder="Motivo de rechazo" @bind="_motivoRechazo" />
+                <button type="button" class="btn btn-ghost" style="color:#b42318" disabled="@_guardando" @onclick="RechazarAsync">Rechazar</button>
+            }
         </div>
     }
 }

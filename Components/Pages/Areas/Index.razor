@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject AreaApiClient AreaApi
 @inject SolicitudApiClient SolicitudApi
+@inject AuthState AuthState
 
 <PageTitle>Áreas</PageTitle>
 
@@ -10,7 +11,10 @@
         <h1>Áreas</h1>
         <p class="text-muted" style="margin-top:-6px">Áreas que pueden solicitar material promocional.</p>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva área</button>
+    @if (AuthState.HasPermission(Permisos.AreasCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva área</button>
+    }
 </div>
 
 @if (_error is not null)

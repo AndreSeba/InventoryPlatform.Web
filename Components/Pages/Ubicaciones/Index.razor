@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject UbicacionApiClient UbicacionApi
 @inject MovimientoApiClient MovimientoApi
+@inject AuthState AuthState
 
 <PageTitle>Ubicaciones</PageTitle>
 
@@ -10,7 +11,10 @@
         <h1>Ubicaciones</h1>
         <p class="text-muted" style="margin-top:-6px">Racks y muebles donde se almacena físicamente el material.</p>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="AbrirDialogo">+ Nueva ubicación</button>
+    @if (AuthState.HasPermission(Permisos.UbicacionesCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirDialogo">+ Nueva ubicación</button>
+    }
 </div>
 
 @if (_error is not null)

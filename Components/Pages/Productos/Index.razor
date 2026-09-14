@@ -3,6 +3,7 @@
 @inject ProductoApiClient ProductoApi
 @inject CategoriaApiClient CategoriaApi
 @inject NavigationManager Nav
+@inject AuthState AuthState
 
 <PageTitle>Productos</PageTitle>
 
@@ -11,7 +12,10 @@
         <h1>Productos</h1>
         <p class="text-muted" style="margin-top:-6px">Filtre por categoría o busque por código y nombre.</p>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo producto</button>
+    @if (AuthState.HasPermission(Permisos.ProductosCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo producto</button>
+    }
 </div>
 
 @if (_error is not null)
@@ -61,7 +65,10 @@ else
                         <div class="stock-line @(p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") / mín. @p.StockMinimo.ToString("N0") @p.UnidadMedida</div>
                         <div style="display:flex;gap:8px;margin-top:4px">
                             <button type="button" class="btn btn-secondary btn-sm" style="flex:1" @onclick="() => VerProducto(p.Id)">Ver</button>
-                            <button type="button" class="btn btn-ghost btn-sm" style="flex:1" @onclick="() => AbrirEditar(p)">Editar</button>
+                            @if (AuthState.HasPermission(Permisos.ProductosEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" style="flex:1" @onclick="() => AbrirEditar(p)">Editar</button>
+                            }
                         </div>
                     </div>
                 </div>

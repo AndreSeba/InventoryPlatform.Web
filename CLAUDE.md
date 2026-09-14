@@ -33,44 +33,124 @@ al backend). Este repo **nunca** toca la base de datos ni referencia
 
 ## Stack
 
-- .NET 10, Blazor Web App, **Interactive Server** (no WebAssembly, no auth
-  todavía — mismas decisiones que el backend).
+- .NET 10, Blazor Web App, **Interactive Server** (no WebAssembly).
 - Sin base de datos ni Infrastructure propios — solo `HttpClient` tipados en
   `Services/` (`ProductoApiClient`, `MovimientoApiClient`,
   `CategoriaApiClient`, `AreaApiClient`, `UbicacionApiClient`,
-  `SolicitudApiClient`, `ConteoApiClient`), cada uno con el mismo patrón:
-  método por endpoint, `ApiClientHelper.LanzarSiHayErrorAsync` traduce un
-  `ProblemDetails` no-2xx en una `ApiException` que los componentes atrapan
-  para mostrar el mensaje real sin crashear.
+  `SolicitudApiClient`, `ConteoApiClient`, `UsuarioApiClient`, `RolApiClient`),
+  cada uno con el mismo patrón: método por endpoint,
+  `ApiClientHelper.LanzarSiHayErrorAsync` traduce un `ProblemDetails` no-2xx
+  (o un 401/403 sin cuerpo del handler de JWT) en una `ApiException` que los
+  componentes atrapan para mostrar el mensaje real sin crashear.
+- Auth: JWT contra la API — ver "Autenticación y permisos" más abajo.
 
-## Sistema de diseño — "Modernist" (cream/brown)
+## Sistema de diseño — "Corporate" (sobrio, neutro)
 
-Adaptado de un mockup de referencia (`Inventario Marketing - Standalone.html`,
-un bundle de canvas de diseño) que el usuario pidió replicar "adaptado a lo
-que ya tenemos, no cambies nada del back". Todo vive en
+**Reemplaza al "Modernist" cream/brown original** — pedido explícito del
+usuario el 2026-09-13 ("cambia el diseño a uno más sobrio y corporativo").
+El mockup de referencia (`Inventario Marketing - Standalone.html`) sigue
+siendo la base de la *estructura* (rail lateral, cards, tablas, diálogos),
+pero la paleta y la tipografía cambiaron por completo. Todo vive en
 `wwwroot/app.css` como tokens CSS + clases de componente, sin build step
-(sin Tailwind, sin Sass):
+(sin Tailwind, sin Sass) — **los nombres de variable no cambiaron** (sigue
+siendo `--color-bg`, `--color-accent`, `--radius-md`, etc.), solo sus
+valores, así que ningún archivo `.razor` tuvo que tocarse para el cambio de
+paleta en sí — el `app.css` se reescribió completo y listo.
 
-- Paleta: `--color-bg` blanco, `--color-surface` crema (#f3ead8),
-  `--color-accent` marrón (#6b4226), radios en 0 (esquinas rectas a
-  propósito — "Modernist").
-- Tipografía: **Archivo** (Google Fonts, cargada en `Components/App.razor`
-  vía `<link>`, weights 400/600/800), `--font-heading-weight: 800`.
-- Componentes reutilizables: `.btn` (`-primary`/`-secondary`/`-ghost`),
-  `.input`, `.seg` (segmented control, usado en ¿Retorna? Sí/No y en
-  Tipo de ubicación Rack/Mueble), `.card`, `.tag`
+- Paleta: `--color-bg` gris muy claro (#f4f5f7), `--color-surface` blanco,
+  `--color-accent` azul corporativo (#1d4ed8), `--radius-md: 6px` (esquinas
+  suaves, ya no rectas a 0 como el Modernist).
+- Tipografía: **Inter** (Google Fonts, cargada en `Components/App.razor` vía
+  `<link>`, weights 400/500/600/700), `--font-heading-weight: 600` (ya no
+  800 — títulos más discretos).
+- **El rail lateral (sidebar) usa tokens propios**, desacoplados de
+  `--color-text`: `--sidebar-bg` (#111827, oscuro) + `--sidebar-text`/
+  `--sidebar-active-bg`/etc. — a propósito, porque el rail es oscuro aunque
+  el resto de la app sea claro; si se necesita un tema oscuro completo algún
+  día, esos tokens del sidebar ya están separados de los del contenido.
+- El rail pasó de 84px icono-solo a 220px con ícono + etiqueta completa
+  ("Movimientos", no "Movim.") — más legible, estilo panel admin corporativo
+  típico, y con **secciones** ("Catálogos", "Administración") que separan
+  los grupos de links.
+- Componentes reutilizables sin cambios de nombre: `.btn`
+  (`-primary`/`-secondary`/`-ghost`), `.input`, `.seg`, `.card`, `.tag`
   (`-accent`/`-neutral`/`-outline`/`-warn`), `.table`, `.dialog-*`.
-- Layout: `Components/Layout/WelcomeLayout.razor` (pantalla de bienvenida,
-  sin sidebar — solo la ruta `/`) vs. `Components/Layout/MainLayout.razor`
-  (rail lateral de íconos + topbar + `.app-main`, layout por defecto para
-  todo lo demás). El rail resalta el link activo comparando
-  `NavigationManager.Uri` contra el prefijo de cada ruta.
+- Colores "de alarma" (bajo stock, error) ya **no** usan
+  `var(--color-accent-700)`/`-800` como en el Modernist (ahí esos tokens
+  eran un marrón-rojizo que leía como advertencia; ahora son azul oscuro,
+  que no lee como alarma) — se usa un rojo hardcodeado `#b42318` puntual en
+  esos lugares (`Productos/Detalle.razor`, botón Rechazar de
+  `Solicitudes/Detalle.razor`). Si se agrega un nuevo indicador de alarma,
+  usar ese mismo rojo, no `--color-accent-700`.
+- `Components/Layout/WelcomeLayout.razor`: layout sin sidebar, usado solo
+  por `/` (ahora la pantalla de **login real**, no una bienvenida
+  decorativa — ver "Autenticación y permisos"). `Components/Layout/MainLayout.razor`
+  es el layout por defecto para todo lo demás: rail lateral + topbar +
+  `.app-main`, **y además el punto único donde se exige sesión activa** (ver
+  abajo). El rail resalta el link activo comparando `NavigationManager.Uri`
+  contra el prefijo de cada ruta.
 - `Components/Shared/Icon.razor`: íconos de línea inline (stroke=
-  currentColor, viewBox 24x24, mismo estilo Lucide que el mockup) por
-  `Name` — agregar un ícono nuevo ahí, no traer una librería de íconos.
+  currentColor, viewBox 24x24, estilo Lucide) por `Name` — agregar un ícono
+  nuevo ahí, no traer una librería de íconos. Tiene `users` y `shield`
+  agregados para Usuarios/Roles.
 - `Components/Shared/Dialog.razor`: wrapper de `.dialog-backdrop`/`.dialog`
   con `RenderFragment Body` y `Actions` — usarlo en vez de repetir el
   markup del modal en cada página.
+
+## Autenticación y permisos (agregado 2026-09-13, pedido explícito del usuario)
+
+**Sin `AuthenticationStateProvider`/`ClaimsPrincipal`/`[Authorize]` de Blazor
+a propósito** — se implementó un mecanismo propio, más simple, porque la
+autorización *real* ya la exige la API (JWT + policy por permiso); lo que
+hace falta acá es solo UX (esconder botones que el usuario no podría usar
+igual) + un gate de "¿hay sesión?" antes de mostrar cualquier página.
+
+- **`Services/Auth/AuthState.cs`** — scoped (vive un circuito de Blazor
+  Server = una pestaña del navegador). Guarda `IsAuthenticated`, `Token`,
+  `NombreCompleto`, `RolNombre`, y el set de códigos de permiso del usuario
+  logueado. **El JWT nunca sale al navegador** — Blazor Server ejecuta todo
+  del lado del servidor, así que `AuthState` vive en memoria del proceso,
+  nunca en `localStorage`/cookie/JS. `HasPermission(codigo)` es el único
+  método que usan las páginas para gatear UI.
+- **`Services/Auth/AuthHeaderHandler.cs`** — `DelegatingHandler` inyectado
+  vía `.AddHttpMessageHandler<AuthHeaderHandler>()` en cada `HttpClient`
+  tipado real (Producto/Movimiento/Solicitud/etc., ver `Program.cs`) —
+  agrega `Authorization: Bearer {AuthState.Token}` a cada request sin que
+  cada `*ApiClient` sepa nada de auth. **`AuthApiClient` (login) es el único
+  sin este handler** — todavía no hay token cuando se loguea.
+- **Login**: `Components/Pages/Home.razor`, ruta `/`, `WelcomeLayout`. Llama
+  a `AuthApiClient.LoginAsync` → `AuthState.SignIn(resultado)` → navega a
+  `/inicio`. Si ya hay sesión activa (`AuthState.IsAuthenticated`), redirige
+  directo a `/inicio` en `OnInitialized` (no vuelve a mostrar el form).
+- **Gate de sesión**: `MainLayout.OnInitialized` — si `!AuthState.IsAuthenticated`,
+  `Nav.NavigateTo("/", forceLoad: true)`. Como `MainLayout` es el layout por
+  defecto de **todas** las páginas salvo Login, un solo chequeo cubre toda
+  la app. `forceLoad: true` fuerza una recarga completa del navegador (nuevo
+  circuito) — necesario porque `AuthState` es scoped al circuito: sin
+  `forceLoad`, redirigir dentro del mismo circuito no limpia nada raro, pero
+  es el mismo patrón que usa "Cerrar sesión" y ahí sí hace falta un circuito
+  nuevo para que el `AuthState` viejo (ya deslogueado) no persista.
+- **Visibilidad del rail y de los botones de acción por permiso** — cada
+  `RailLink` del sidebar y cada botón de crear/editar/aprobar/rechazar/
+  entregar en las páginas de Productos, Movimientos, Solicitudes,
+  Categorías, Áreas y Ubicaciones está envuelto en
+  `@if (AuthState.HasPermission(Permisos.XxxYyy))`. `Permisos` es
+  `Inventory.Domain.Security.Permisos` — **el mismo catálogo que usa el
+  backend**, llega acá por la referencia a `Inventory.Application` (que a su
+  vez referencia `Inventory.Domain`). Si el backend agrega un permiso nuevo,
+  este proyecto lo ve al recompilar, sin duplicar el código del permiso acá.
+- **`/usuarios` y `/roles`** (nuevas, `Components/Pages/Usuarios/Index.razor`
+  y `Components/Pages/Roles/Index.razor`) — gestión de usuarios (alta con
+  contraseña inicial, editar nombre/rol/activo) y roles (alta/edición con
+  checkboxes de permisos agrupados por módulo, vía
+  `RolApiClient.ListarPermisosDisponiblesAsync`). Solo aparecen en el rail
+  si el usuario tiene `usuarios.gestionar`/`roles.gestionar` — y el backend
+  igual los exige en el endpoint, así que ocultar el link no es la única
+  defensa.
+- **Sin implementar**: cambio/reseteo de contraseña, refresco de token (si
+  expira a las 8h con la pestaña abierta, el próximo request cae en 401 y el
+  usuario ve el mensaje de `ApiClientHelper` pidiendo volver a loguearse —
+  no hay renovación automática).
 
 ## Adaptaciones del mockup al modelo real (deliberadas, no bugs)
 

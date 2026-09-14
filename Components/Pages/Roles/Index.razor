@@ -1,0 +1,176 @@
+@page "/roles"
+@rendermode InteractiveServer
+@inject RolApiClient RolApi
+
+<PageTitle>Roles</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Roles</h1>
+        <p class="text-muted" style="margin-top:-6px">Qué puede hacer cada rol en el sistema.</p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo rol</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_roles is null || _permisosDisponibles is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:20px">
+        <table class="table">
+            <thead><tr><th>Nombre</th><th>Descripción</th><th># Permisos</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in _roles)
+                {
+                    <tr>
+                        <td>@r.Nombre</td>
+                        <td class="text-muted">@r.Descripcion</td>
+                        <td class="text-muted">@r.PermisoCodigos.Count / @_permisosDisponibles.Count</td>
+                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(r)">Editar</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo rol" : "Editar rol")">
+    <Body>
+        <div class="dialog-grid-2">
+            <div class="field"><label for="rf-nom">Nombre</label><input class="input" id="rf-nom" @bind="_form.Nombre" /></div>
+            <div class="field"><label for="rf-desc">Descripción</label><input class="input" id="rf-desc" @bind="_form.Descripcion" /></div>
+        </div>
+        @if (_editandoId is not null)
+        {
+            <label class="seg-opt" style="width:fit-content;border:1px solid var(--color-divider);border-radius:var(--radius-md)">
+                <input type="checkbox" style="position:static;opacity:1;width:auto;height:auto;margin-right:6px" @bind="_form.Activo" /> Rol activo
+            </label>
+        }
+
+        <div class="hr"></div>
+        <label style="font-size:12px;font-weight:500;color:var(--color-neutral-700)">Permisos</label>
+        @foreach (var grupo in (_permisosDisponibles ?? []).GroupBy(p => p.Modulo))
+        {
+            <div style="margin-bottom:8px">
+                <div style="font-size:11px;font-weight:600;color:var(--color-neutral-600);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">@grupo.Key</div>
+                @foreach (var p in grupo)
+                {
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+                        <input type="checkbox" checked="@_form.PermisoCodigos.Contains(p.Codigo)" @onchange="e => TogglePermiso(p.Codigo, e.Value)" />
+                        @p.Descripcion
+                    </label>
+                }
+            </div>
+        }
+
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<RolDto>? _roles;
+    private List<PermisoDto>? _permisosDisponibles;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private int? _editandoId;
+    private string? _dialogError;
+    private FormModelo _form = new();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _roles = await RolApi.ListarAsync();
+            _permisosDisponibles = await RolApi.ListarPermisosDisponiblesAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _roles = [];
+            _permisosDisponibles = [];
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _dialogError = null;
+        _form = new FormModelo();
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(RolDto r)
+    {
+        _editandoId = r.Id;
+        _dialogError = null;
+        _form = new FormModelo { Nombre = r.Nombre, Descripcion = r.Descripcion, Activo = r.Activo, PermisoCodigos = r.PermisoCodigos.ToHashSet() };
+        _dialogOpen = true;
+    }
+
+    private void Cerrar() => _dialogOpen = false;
+
+    private void TogglePermiso(string codigo, object? marcado)
+    {
+        if (marcado is true) _form.PermisoCodigos.Add(codigo);
+        else _form.PermisoCodigos.Remove(codigo);
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_form.Nombre))
+        {
+            _dialogError = "El nombre es obligatorio.";
+            return;
+        }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            var codigos = _form.PermisoCodigos.ToList();
+            if (_editandoId is null)
+                await RolApi.CrearAsync(new CrearRolDto(_form.Nombre, _form.Descripcion, codigos));
+            else
+                await RolApi.ActualizarAsync(_editandoId.Value, new ActualizarRolDto(_form.Nombre, _form.Descripcion, _form.Activo, codigos));
+
+            _dialogOpen = false;
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private class FormModelo
+    {
+        public string Nombre { get; set; } = "";
+        public string? Descripcion { get; set; }
+        public bool Activo { get; set; } = true;
+        public HashSet<string> PermisoCodigos { get; set; } = [];
+    }
+}
