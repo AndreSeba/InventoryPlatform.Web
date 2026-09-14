@@ -112,12 +112,28 @@ igual) + un gate de "¿hay sesión?" antes de mostrar cualquier página.
   del lado del servidor, así que `AuthState` vive en memoria del proceso,
   nunca en `localStorage`/cookie/JS. `HasPermission(codigo)` es el único
   método que usan las páginas para gatear UI.
-- **`Services/Auth/AuthHeaderHandler.cs`** — `DelegatingHandler` inyectado
-  vía `.AddHttpMessageHandler<AuthHeaderHandler>()` en cada `HttpClient`
-  tipado real (Producto/Movimiento/Solicitud/etc., ver `Program.cs`) —
-  agrega `Authorization: Bearer {AuthState.Token}` a cada request sin que
-  cada `*ApiClient` sepa nada de auth. **`AuthApiClient` (login) es el único
-  sin este handler** — todavía no hay token cuando se loguea.
+- **El Bearer se fija en el constructor de cada `*ApiClient` autenticado**
+  (Producto/Movimiento/Solicitud/Categoria/Area/Ubicacion/Conteo/Usuario/Rol),
+  no vía un `DelegatingHandler` de `IHttpClientFactory` — **se probó ese
+  camino primero (`AuthHeaderHandler` + `.AddHttpMessageHandler<T>()`) y
+  falla en silencio: todo el CRUD real daba 401 sin error visible.** Causa
+  raíz, encontrada recién con la app corriendo de punta a punta (login
+  funcionaba, pero `/inicio` nunca cargaba nada): `IHttpClientFactory`
+  arma el pipeline de handlers en su **propio scope de DI interno**
+  (`IServiceScopeFactory.CreateScope()`, cacheado ~2 min), no en el scope
+  del circuito de Blazor — un `DelegatingHandler` que pide `AuthState` ahí
+  nunca ve el del usuario real logueado, así que el header Bearer nunca se
+  agregaba. El *typed client* (`ProductoApiClient`, etc.) en cambio SÍ se
+  resuelve en el scope correcto (el del circuito) cuando un componente lo
+  inyecta con `@inject` — por eso cada `*ApiClient` ahora recibe
+  `HttpClient` **y** `AuthState` en su constructor y fija
+  `_http.DefaultRequestHeaders.Authorization` ahí mismo, una sola vez
+  (alcanza: el token no cambia durante la vida del circuito — logout hace
+  `forceLoad`, circuito nuevo, `ApiClient` nuevo con el token correcto de
+  la próxima sesión). **`AuthApiClient` (login) sigue sin tocar esto** —
+  todavía no hay token cuando se loguea. Si se agrega un `*ApiClient`
+  nuevo que necesite auth, copiar este patrón — no reintroducir un
+  `DelegatingHandler` con estado scoped, es la misma trampa.
 - **Login**: `Components/Pages/Home.razor`, ruta `/`, `WelcomeLayout`. Llama
   a `AuthApiClient.LoginAsync` → `AuthState.SignIn(resultado)` → navega a
   `/inicio`. Si ya hay sesión activa (`AuthState.IsAuthenticated`), redirige
@@ -216,6 +232,13 @@ el comportamiento esperado y ya verificado, no un bug.
   por los `*ApiClient` de `Services/`.
 - ❌ No agregues botones de Editar/Eliminar a Categorías/Ubicaciones/Áreas
   hasta que el backend exponga esos endpoints.
+- ❌ No adjuntes el JWT vía `DelegatingHandler` + `.AddHttpMessageHandler<T>()`
+  para un `HttpClient` tipado — `IHttpClientFactory` resuelve ese handler en
+  un scope de DI propio, no en el del circuito, así que un `AuthState`
+  scoped inyectado ahí siempre está deslogueado y el Bearer nunca se manda
+  (401 en silencio en todo el CRUD, encontrado ya con la app corriendo — ver
+  "Autenticación y permisos"). Fijar el header en el constructor del
+  `*ApiClient` mismo, que sí se resuelve en el scope correcto.
 - ❌ No uses comillas escapadas (`\"`) dentro de un atributo Razor de
   comillas dobles para meter una expresión C# con comillas — Razor no las
   interpreta como escape de HTML y rompe la compilación (`RZ`/`CS1012`).

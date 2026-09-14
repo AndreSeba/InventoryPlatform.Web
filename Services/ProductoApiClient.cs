@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Inventory.Application.Dtos;
+using Inventory.Web.Services.Auth;
 
 namespace Inventory.Web.Services;
 
@@ -9,7 +11,12 @@ public class ProductoApiClient
 {
     private readonly HttpClient _http;
 
-    public ProductoApiClient(HttpClient http) => _http = http;
+    public ProductoApiClient(HttpClient http, AuthState authState)
+    {
+        _http = http;
+        if (authState.IsAuthenticated)
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authState.Token);
+    }
 
     public async Task<List<ProductoDto>> ListarAsync(int? categoriaId = null, bool incluirInactivos = false, CancellationToken ct = default)
     {
@@ -51,5 +58,18 @@ public class ProductoApiClient
     {
         var respuesta = await _http.DeleteAsync($"api/productos/{id}", ct);
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+    }
+
+    public async Task<string> SubirImagenAsync(Stream contenido, string nombreArchivo, string contentType, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(contenido);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(streamContent, "archivo", nombreArchivo);
+
+        var respuesta = await _http.PostAsync("api/productos/imagen", form, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        var resultado = await respuesta.Content.ReadFromJsonAsync<ImagenSubidaDto>(cancellationToken: ct);
+        return resultado!.Url;
     }
 }

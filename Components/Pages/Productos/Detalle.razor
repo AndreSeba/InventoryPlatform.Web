@@ -1,5 +1,4 @@
 @page "/productos/{Id:int}"
-@rendermode InteractiveServer
 @inject ProductoApiClient ProductoApi
 @inject MovimientoApiClient MovimientoApi
 @inject IJSRuntime JS
@@ -113,6 +112,20 @@ else
                 <div class="field"><label for="ef-cos">Costo unitario</label><input class="input" id="ef-cos" type="number" min="0" step="0.01" @bind="_editCosto" /></div>
                 <div class="field"><label for="ef-sm">Stock mínimo</label><input class="input" id="ef-sm" type="number" min="0" step="0.01" @bind="_editStockMinimo" /></div>
             </div>
+            <div class="field">
+                <label for="ef-img">Imagen</label>
+                <div class="form-image-row">
+                    <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_editImagenUrl) ? "" : $"background-image:url('{_editImagenUrl}')")"></div>
+                    <div style="flex:1">
+                        <InputFile id="ef-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_subiendoImagen" />
+                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB.</p>
+                        @if (_subiendoImagen)
+                        {
+                            <p class="text-muted" style="font-size:12px;margin:4px 0 0">Subiendo imagen…</p>
+                        }
+                    </div>
+                </div>
+            </div>
             <div class="field"><label for="ef-det">Detalle</label><textarea class="input" id="ef-det" rows="3" @bind="_editDetalle"></textarea></div>
             @if (_dialogError is not null)
             {
@@ -135,11 +148,13 @@ else
 
     private bool _mostrarEditar;
     private bool _guardando;
+    private bool _subiendoImagen;
     private string? _dialogError;
     private string _editNombre = "";
     private decimal? _editCosto;
     private decimal _editStockMinimo;
     private string? _editDetalle;
+    private string? _editImagenUrl;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -156,6 +171,7 @@ else
                 _editCosto = _producto.CostoUnitario;
                 _editStockMinimo = _producto.StockMinimo;
                 _editDetalle = _producto.Detalle;
+                _editImagenUrl = _producto.ImagenUrl;
             }
         }
         catch (ApiException ex)
@@ -176,7 +192,7 @@ else
         try
         {
             await ProductoApi.ActualizarAsync(_producto.Id, new ActualizarProductoDto(
-                _editNombre, _producto.CategoriaId, _producto.UnidadMedida, _editCosto, _editStockMinimo, _editDetalle, _producto.ImagenUrl));
+                _editNombre, _producto.CategoriaId, _producto.UnidadMedida, _editCosto, _editStockMinimo, _editDetalle, _editImagenUrl));
 
             _mostrarEditar = false;
             await CargarAsync();
@@ -188,6 +204,36 @@ else
         finally
         {
             _guardando = false;
+        }
+    }
+
+    private const long TamanoMaximoImagenBytes = 5 * 1024 * 1024;
+
+    private async Task OnImagenSeleccionada(InputFileChangeEventArgs e)
+    {
+        var archivo = e.File;
+        if (archivo.Size > TamanoMaximoImagenBytes)
+        {
+            _dialogError = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        _subiendoImagen = true;
+        _dialogError = null;
+        StateHasChanged();
+
+        try
+        {
+            await using var contenido = archivo.OpenReadStream(TamanoMaximoImagenBytes);
+            _editImagenUrl = await ProductoApi.SubirImagenAsync(contenido, archivo.Name, archivo.ContentType);
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _subiendoImagen = false;
         }
     }
 

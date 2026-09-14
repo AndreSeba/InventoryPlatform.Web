@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Inventory.Application.Dtos;
+using Inventory.Web.Services.Auth;
 
 namespace Inventory.Web.Services;
 
@@ -7,7 +9,12 @@ public class MovimientoApiClient
 {
     private readonly HttpClient _http;
 
-    public MovimientoApiClient(HttpClient http) => _http = http;
+    public MovimientoApiClient(HttpClient http, AuthState authState)
+    {
+        _http = http;
+        if (authState.IsAuthenticated)
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authState.Token);
+    }
 
     public async Task<List<MovimientoDto>> ListarAsync(DateTime? desde = null, DateTime? hasta = null, CancellationToken ct = default)
     {

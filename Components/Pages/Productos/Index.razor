@@ -1,5 +1,4 @@
 @page "/productos"
-@rendermode InteractiveServer
 @inject ProductoApiClient ProductoApi
 @inject CategoriaApiClient CategoriaApi
 @inject NavigationManager Nav
@@ -118,8 +117,18 @@ else
             </div>
         </div>
         <div class="field">
-            <label for="pf-img">Imagen (URL)</label>
-            <input class="input" id="pf-img" @bind="_form.ImagenUrl" />
+            <label for="pf-img">Imagen</label>
+            <div class="form-image-row">
+                <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_form.ImagenUrl) ? "" : $"background-image:url('{_form.ImagenUrl}')")"></div>
+                <div style="flex:1">
+                    <InputFile id="pf-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_subiendoImagen" />
+                    <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB.</p>
+                    @if (_subiendoImagen)
+                    {
+                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">Subiendo imagen…</p>
+                    }
+                </div>
+            </div>
         </div>
         <div class="field">
             <label for="pf-det">Detalle</label>
@@ -149,6 +158,7 @@ else
 
     private bool _dialogOpen;
     private bool _guardando;
+    private bool _subiendoImagen;
     private int? _editandoId;
     private string? _dialogError;
     private FormModelo _form = new();
@@ -212,6 +222,36 @@ else
     }
 
     private void Cerrar() => _dialogOpen = false;
+
+    private const long TamanoMaximoImagenBytes = 5 * 1024 * 1024;
+
+    private async Task OnImagenSeleccionada(InputFileChangeEventArgs e)
+    {
+        var archivo = e.File;
+        if (archivo.Size > TamanoMaximoImagenBytes)
+        {
+            _dialogError = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        _subiendoImagen = true;
+        _dialogError = null;
+        StateHasChanged();
+
+        try
+        {
+            await using var contenido = archivo.OpenReadStream(TamanoMaximoImagenBytes);
+            _form.ImagenUrl = await ProductoApi.SubirImagenAsync(contenido, archivo.Name, archivo.ContentType);
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _subiendoImagen = false;
+        }
+    }
 
     private async Task Guardar()
     {

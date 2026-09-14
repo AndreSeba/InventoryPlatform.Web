@@ -1,4 +1,11 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿@* Interactividad global: la aplica App.razor en "<Routes @rendermode="InteractiveServer" />",
+   NO acá — RouteView no admite @rendermode propio (RouteData.PageType es un System.Type,
+   no serializable, y el marker de componente interactivo necesita serializar sus
+   parámetros). Con "per-page" (como estaba antes) cada página abría su propio circuito,
+   y la navegación entre páginas destruía el circuito anterior — perdiendo el AuthState
+   recién logueado en cada NavigateTo (bug real encontrado con la app corriendo, ver
+   CLAUDE.md "Autenticación y permisos"). *@
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />

@@ -3,8 +3,11 @@ using Inventory.Application.Dtos;
 namespace Inventory.Web.Services.Auth;
 
 // Scoped = vive mientras dure el circuito de Blazor Server (una pestaña del navegador).
-// El JWT nunca sale al navegador: solo existe acá, del lado del servidor, y viaja como
-// Authorization: Bearer en cada llamada a la API vía AuthHeaderHandler.
+// El JWT nunca sale al navegador: solo existe acá, del lado del servidor. Cada
+// *ApiClient autenticado recibe esta instancia en su propio constructor y fija el
+// Authorization: Bearer ahí mismo — no vía un DelegatingHandler de IHttpClientFactory,
+// que arma su pipeline en un scope interno propio y nunca ve el AuthState real del
+// circuito (bug real encontrado probando la app: todo el CRUD daba 401 en silencio).
 public class AuthState
 {
     public bool IsAuthenticated { get; private set; }

@@ -4,7 +4,7 @@ using Inventory.Web.Services;
 
 namespace Inventory.Web.Services.Auth;
 
-// Sin AuthHeaderHandler a propósito: para loguearse todavía no hay token que mandar.
+// Sin AuthState a propósito: para loguearse todavía no hay token que mandar.
 public class AuthApiClient
 {
     private readonly HttpClient _http;

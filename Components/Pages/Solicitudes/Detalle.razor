@@ -1,21 +1,21 @@
 @page "/solicitudes/{Id:int}"
-@rendermode InteractiveServer
 @inject SolicitudApiClient SolicitudApi
 @inject MovimientoApiClient MovimientoApi
 @inject UbicacionApiClient UbicacionApi
 @inject AuthState AuthState
+@inject IJSRuntime JS
 
 <PageTitle>Solicitud</PageTitle>
 
-<a href="/solicitudes" style="font-size:13px">‹ Volver a solicitudes</a>
+<a href="/solicitudes" class="no-print" style="font-size:13px">‹ Volver a solicitudes</a>
 
 @if (_error is not null)
 {
-    <p class="dialog-error">@_error</p>
+    <p class="dialog-error no-print">@_error</p>
 }
 @if (_ok is not null)
 {
-    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+    <p class="no-print" style="color:var(--color-accent-700);font-size:13px">@_ok</p>
 }
 
 @if (_solicitud is null || _ubicaciones is null)
@@ -24,7 +24,7 @@
 }
 else
 {
-    <div class="page-head" style="margin-top:12px">
+    <div class="page-head no-print" style="margin-top:12px">
         <div>
             <h1 style="margin-bottom:4px">Solicitud @_solicitud.NumeroSolicitud</h1>
             <p class="text-muted" style="margin:0">@_solicitud.AreaNombre · Solicitado por @_solicitud.SolicitadoPor</p>
@@ -34,10 +34,10 @@ else
 
     @if (_solicitud.Estado == EstadoSolicitud.Rechazada)
     {
-        <p class="dialog-error">Motivo de rechazo: @_solicitud.MotivoRechazo</p>
+        <p class="dialog-error no-print">Motivo de rechazo: @_solicitud.MotivoRechazo</p>
     }
 
-    <div class="table-wrap" style="margin-top:20px">
+    <div class="table-wrap no-print" style="margin-top:20px">
         <table class="table">
             <thead>
                 <tr>
@@ -88,7 +88,7 @@ else
 
     @if (_solicitud.Estado == EstadoSolicitud.Pendiente && (AuthState.HasPermission(Permisos.SolicitudesAprobar) || AuthState.HasPermission(Permisos.SolicitudesRechazar)))
     {
-        <div style="display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap">
+        <div class="no-print" style="display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap">
             @if (AuthState.HasPermission(Permisos.SolicitudesAprobar))
             {
                 <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AprobarAsync">Aprobar solicitud</button>
@@ -100,6 +100,73 @@ else
             }
         </div>
     }
+
+    <div class="hr no-print" style="margin-top:36px"></div>
+    <h3 class="no-print">Formulario imprimible</h3>
+    <div class="printable printable-form">
+        <div class="printable-form-fecha">
+            <span class="pf-label">Fecha:</span>
+            <span class="pf-fecha-value">@_solicitud.FechaSolicitud.ToLocalTime().ToString("d/M/yyyy")</span>
+        </div>
+        <p class="printable-form-title">FORMULARIO<br />SOLICITUD MATERIAL PUBLICITARIO</p>
+
+        <div class="printable-form-checks">
+            <span>Movimiento :</span>
+            <span>☐ ENTRADA</span>
+            <span>☑ SALIDA</span>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">Solicitante:</div>
+            <div class="pf-value">@_solicitud.SolicitadoPor</div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">Autorizado por:</div>
+            <div class="pf-value">@(_solicitud.AprobadoPor ?? "")</div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">Categoria</div>
+            <div class="pf-value">@_solicitud.AreaNombre</div>
+        </div>
+
+        <div class="printable-form-table-wrap">
+            <table class="printable-form-table">
+                <thead>
+                    <tr><th>CODIGO</th><th>DESCRIPCION</th><th>CANTIDAD</th><th>UME</th><th>Costo unit.</th><th>LOTE</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _solicitud.Detalles)
+                    {
+                        <tr>
+                            <td>@d.ProductoCodigo</td>
+                            <td>@d.ProductoNombre</td>
+                            <td>@d.CantidadSolicitada.ToString("N0")</td>
+                            <td>@d.UnidadMedida</td>
+                            <td>@(d.CostoUnitario is null ? "" : d.CostoUnitario.Value.ToString("N2"))</td>
+                            <td></td>
+                        </tr>
+                    }
+                    @for (var i = _solicitud.Detalles.Count; i < FilasMinimasTabla; i++)
+                    {
+                        <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="printable-form-motivo">
+            <span class="pf-label">Motivo / Observaciones:</span>
+            <span>@(_solicitud.Estado == EstadoSolicitud.Rechazada ? _solicitud.MotivoRechazo : "")</span>
+        </div>
+
+        <div class="printable-form-firmas">
+            <div>NOMBRE Y FIRMA<br />PROVEEDOR/SOLICITANTE</div>
+            <div>FIRMA ALMACÉN</div>
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary no-print" style="margin-top:16px" @onclick="Imprimir">
+        <Icon Name="print" Size="14" />
+        Imprimir formulario
+    </button>
 }
 
 @code {
@@ -196,6 +263,10 @@ else
         catch (ApiException ex) { _error = ex.Message; }
         finally { _guardando = false; }
     }
+
+    private const int FilasMinimasTabla = 32;
+
+    private async Task Imprimir() => await JS.InvokeVoidAsync("print");
 
     private static string EstadoTagClase(EstadoSolicitud e) => e switch
     {
