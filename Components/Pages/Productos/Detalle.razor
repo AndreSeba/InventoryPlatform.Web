@@ -79,19 +79,39 @@ else
 
     <div class="hr no-print" style="margin-top:36px"></div>
     <h3 class="no-print">Ficha imprimible</h3>
-    <div class="card elev-md printable">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <h4 style="margin:0">Ficha de producto</h4>
-            <span class="text-muted" style="font-size:12px">Marketing · Inventario</span>
+    <div class="printable printable-form">
+        <p class="printable-form-title">PRODUCTO DISPONIBLE / CMP</p>
+
+        <div class="printable-form-row">
+            <div class="pf-label">CATEGORÍA</div>
+            <div class="pf-value" style="text-align:left">@_producto.CategoriaNombre</div>
         </div>
-        <div class="hr"></div>
-        <p style="margin:0 0 4px"><strong>@_producto.CodigoProducto</strong> — @_producto.Nombre</p>
-        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Categoría: @_producto.CategoriaNombre · Unidad: @_producto.UnidadMedida</p>
-        <p style="font-size:13px">Costo unitario: @CostoFmt(_producto.CostoUnitario)</p>
-        <p style="font-size:13px">Existencia: @_producto.Existencia.ToString("N0") · Mínimo: @_producto.StockMinimo.ToString("N0")</p>
-        <p style="font-size:13px">@_producto.Detalle</p>
-        <div class="hr"></div>
-        <p class="text-muted" style="font-size:11px;margin:0">Generado @DateTime.Now.ToString("dd/MM/yyyy")</p>
+        <div class="printable-form-row">
+            <div class="pf-label">CODIGO</div>
+            <div class="pf-value" style="text-align:left">@_producto.CodigoProducto</div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">PRODUCTO</div>
+            <div class="pf-value" style="text-align:left">@_producto.Nombre</div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">OBSERVACIONES</div>
+            <div class="pf-value" style="text-align:left">@_producto.Detalle</div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">FECHA DE INGRESO</div>
+            <div class="pf-value"></div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">FECHA DE VENCIMIENTO</div>
+            <div class="pf-value"></div>
+        </div>
+        <div class="printable-form-row">
+            <div class="pf-label">CANTIDAD (Unidades)</div>
+            <div class="pf-value" style="text-align:left">@_producto.Existencia.ToString("N0")</div>
+            <div class="pf-label" style="border-left:1px solid #000">UBICACIÓN</div>
+            <div class="pf-value"></div>
+        </div>
     </div>
     <button type="button" class="btn btn-primary no-print" style="margin-top:16px" @onclick="Imprimir">
         <Icon Name="print" Size="14" />
