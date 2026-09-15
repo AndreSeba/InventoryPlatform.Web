@@ -1,93 +1,229 @@
 @page "/conteos"
+@using Microsoft.AspNetCore.Components.Forms
 @inject ConteoApiClient ConteoApi
 @inject ProductoApiClient ProductoApi
 @inject UbicacionApiClient UbicacionApi
+@inject CategoriaApiClient CategoriaApi
+@inject MovimientoApiClient MovimientoApi
+@inject IJSRuntime JS
 
 <PageTitle>Conteo físico</PageTitle>
 
 <h1>Conteo físico</h1>
-<p class="text-muted" style="margin-top:-6px">Registre el conteo por sesión y compare contra la existencia calculada por el sistema.</p>
+<p class="text-muted" style="margin-top:-6px">Genere una hoja de Excel para contar, impórtela con las cantidades reales y aplique los ajustes que hagan falta.</p>
 
-@if (_error is not null)
-{
-    <p class="dialog-error">@_error</p>
-}
-@if (_ok is not null)
-{
-    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
-}
-
-<div class="field" style="max-width:320px;margin:20px 0">
-    <label>Sesión de conteo</label>
-    <input class="input" value="@_sesion" placeholder="Ej. INVENTARIO-2026-09" @oninput="OnSesionInput" />
-</div>
-
-@if (_productos is null || _ubicaciones is null)
+@if (_productos is null || _ubicaciones is null || _categorias is null)
 {
     <p>Cargando…</p>
 }
 else
 {
-    <div class="filter-row" style="margin-bottom:24px">
-        <select class="input" style="max-width:260px" @bind="_productoId">
-            <option value="0">-- Producto --</option>
-            @foreach (var p in _productos)
-            {
-                <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
-            }
-        </select>
-        <select class="input" style="max-width:180px" @bind="_ubicacionId">
-            <option value="0">-- Ubicación --</option>
-            @foreach (var u in _ubicaciones)
-            {
-                <option value="@u.Id">@u.CodigoUbicacion</option>
-            }
-        </select>
-        <input class="input" style="max-width:90px" type="number" min="1" title="N.º de conteo" @bind="_numeroConteo" />
-        <input class="input" style="max-width:150px" type="number" min="0" step="0.01" placeholder="Cantidad contada" @bind="_cantidadContada" />
-        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="RegistrarAsync">@(_guardando ? "Guardando…" : "Registrar")</button>
-    </div>
-}
+    <div class="card elev-sm" style="margin:20px 0">
+        <h2 style="margin:0 0 4px">1. Generar hoja de conteo</h2>
+        <p class="card-body" style="margin:0 0 8px">Elija la ubicación a contar y qué productos incluir. Se descarga un Excel con una fila por producto y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
 
-@if (string.IsNullOrWhiteSpace(_sesion))
-{
-    <p class="text-muted">Escribí un nombre de sesión para ver los conteos ya cargados.</p>
-}
-else if (_conteos is null)
-{
-    <p>Cargando…</p>
-}
-else if (_conteos.Count == 0)
-{
-    <p class="text-muted">Todavía no hay conteos en esta sesión.</p>
-}
-else
-{
-    <div class="table-wrap">
-        <table class="table">
-            <thead><tr><th>Producto</th><th>Ubicación</th><th>N.º</th><th>Contado</th><th>Sistema</th><th>Diferencia</th></tr></thead>
-            <tbody>
-                @foreach (var c in _conteos)
+        <div class="filter-row">
+            <select class="input" style="max-width:200px" @bind="_ubicacionIdHoja">
+                <option value="0">-- Ubicación --</option>
+                @foreach (var u in _ubicaciones)
                 {
-                    <tr>
-                        <td>@c.ProductoNombre</td>
-                        <td class="text-muted">@c.UbicacionCodigo</td>
-                        <td class="text-muted">@c.NumeroConteo</td>
-                        <td>@c.CantidadContada.ToString("N2")</td>
-                        <td class="text-muted">@c.ExistenciaSistema.ToString("N2")</td>
-                        <td><span class="@(c.Diferencia != 0 ? "tag tag-warn" : "tag tag-neutral")">@c.Diferencia.ToString("N2")</span></td>
-                    </tr>
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
                 }
-            </tbody>
-        </table>
+            </select>
+
+            <select class="input" style="max-width:200px" @bind="_modoSeleccion">
+                <option value="todos">Todos los productos</option>
+                <option value="categoria">Por categoría</option>
+                <option value="libre">Selección libre</option>
+            </select>
+
+            @if (_modoSeleccion == "categoria")
+            {
+                <select class="input" style="max-width:220px" @bind="_categoriaIdHoja">
+                    <option value="0">-- Categoría --</option>
+                    @foreach (var c in _categorias)
+                    {
+                        <option value="@c.Id">@c.CodigoCategoria</option>
+                    }
+                </select>
+            }
+
+            <button type="button" class="btn btn-primary" disabled="@_generando" @onclick="GenerarHojaAsync">@(_generando ? "Generando…" : "Generar y descargar Excel")</button>
+        </div>
+
+        @if (_modoSeleccion == "libre")
+        {
+            <div style="max-height:220px;overflow-y:auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:10px;margin-top:4px">
+                @foreach (var p in _productos)
+                {
+                    <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+                        <input type="checkbox" checked="@_productosSeleccionados.Contains(p.Id)" @onchange="@(e => AlternarSeleccion(p.Id, e.Value))" />
+                        <span>@p.CodigoProducto — @p.Nombre</span>
+                    </label>
+                }
+            </div>
+        }
+
+        @if (_errorHoja is not null)
+        {
+            <p class="dialog-error">@_errorHoja</p>
+        }
+        @if (_sesionGenerada is not null)
+        {
+            <p style="color:var(--color-accent-700);font-size:13px">Hoja generada: <strong>@_sesionGenerada</strong>. El nombre de la sesión de conteo va dentro del Excel — no hace falta anotarlo, se lee solo al importar.</p>
+        }
+    </div>
+
+    <div class="card elev-sm" style="margin:20px 0">
+        <h2 style="margin:0 0 4px">2. Importar hoja contada</h2>
+        <p class="card-body" style="margin:0 0 8px">Suba el mismo Excel ya con la columna "Cantidad Contada" llena. El sistema calcula qué productos difieren de la existencia del sistema.</p>
+
+        <div class="filter-row">
+            <InputFile OnChange="OnArchivoSeleccionado" accept=".xlsx" />
+            <button type="button" class="btn btn-primary" disabled="@(_importando || _archivoImportar is null)" @onclick="ImportarHojaAsync">@(_importando ? "Importando…" : "Importar")</button>
+        </div>
+
+        @if (_errorImportar is not null)
+        {
+            <p class="dialog-error">@_errorImportar</p>
+        }
+
+        @if (_resultadoImportacion is not null)
+        {
+            <p style="font-size:13px">Sesión <strong>@_resultadoImportacion.SesionConteo</strong>: @_resultadoImportacion.ProductosContados producto(s) contado(s), @_resultadoImportacion.ConDiferencia.Count con diferencia contra el sistema.</p>
+
+            @if (_resultadoImportacion.ConDiferencia.Count > 0)
+            {
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Producto</th><th>Ubicación</th><th>Contado</th><th>Sistema</th><th>Diferencia</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _resultadoImportacion.ConDiferencia)
+                            {
+                                <tr>
+                                    <td>@c.ProductoNombre</td>
+                                    <td class="text-muted">@c.UbicacionCodigo</td>
+                                    <td>@c.CantidadContada.ToString("N2")</td>
+                                    <td class="text-muted">@c.ExistenciaSistema.ToString("N2")</td>
+                                    <td><span class="tag tag-warn">@c.Diferencia.ToString("N2")</span></td>
+                                    <td>
+                                        @if (_ajustesAplicados.Contains(c.Id))
+                                        {
+                                            <span class="tag tag-accent">Ajustado</span>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-ghost" disabled="@_ajustando.Contains(c.Id)" @onclick="() => AplicarAjusteAsync(c)">@(_ajustando.Contains(c.Id) ? "Aplicando…" : "Registrar ajuste")</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
     </div>
 }
+
+<div class="card elev-sm" style="margin:20px 0">
+    <h2 style="margin:0 0 4px">Consultar / registrar suelto</h2>
+    @if (_error is not null)
+    {
+        <p class="dialog-error">@_error</p>
+    }
+    @if (_ok is not null)
+    {
+        <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+    }
+
+    <div class="field" style="max-width:320px;margin:10px 0">
+        <label>Sesión de conteo</label>
+        <input class="input" value="@_sesion" placeholder="Ej. INVENTARIO-2026-09" @oninput="OnSesionInput" />
+    </div>
+
+    @if (_productos is not null && _ubicaciones is not null)
+    {
+        <div class="filter-row" style="margin-bottom:24px">
+            <select class="input" style="max-width:260px" @bind="_productoId">
+                <option value="0">-- Producto --</option>
+                @foreach (var p in _productos)
+                {
+                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
+                }
+            </select>
+            <select class="input" style="max-width:180px" @bind="_ubicacionId">
+                <option value="0">-- Ubicación --</option>
+                @foreach (var u in _ubicaciones)
+                {
+                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                }
+            </select>
+            <input class="input" style="max-width:90px" type="number" min="1" title="N.º de conteo" @bind="_numeroConteo" />
+            <input class="input" style="max-width:150px" type="number" min="0" step="0.01" placeholder="Cantidad contada" @bind="_cantidadContada" />
+            <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="RegistrarAsync">@(_guardando ? "Guardando…" : "Registrar")</button>
+        </div>
+    }
+
+    @if (string.IsNullOrWhiteSpace(_sesion))
+    {
+        <p class="text-muted">Escribí un nombre de sesión para ver los conteos ya cargados.</p>
+    }
+    else if (_conteos is null)
+    {
+        <p>Cargando…</p>
+    }
+    else if (_conteos.Count == 0)
+    {
+        <p class="text-muted">Todavía no hay conteos en esta sesión.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Producto</th><th>Ubicación</th><th>N.º</th><th>Contado</th><th>Sistema</th><th>Diferencia</th></tr></thead>
+                <tbody>
+                    @foreach (var c in _conteos)
+                    {
+                        <tr>
+                            <td>@c.ProductoNombre</td>
+                            <td class="text-muted">@c.UbicacionCodigo</td>
+                            <td class="text-muted">@c.NumeroConteo</td>
+                            <td>@c.CantidadContada.ToString("N2")</td>
+                            <td class="text-muted">@c.ExistenciaSistema.ToString("N2")</td>
+                            <td><span class="@(c.Diferencia != 0 ? "tag tag-warn" : "tag tag-neutral")">@c.Diferencia.ToString("N2")</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
 
 @code {
     private List<ProductoDto>? _productos;
     private List<UbicacionDto>? _ubicaciones;
+    private List<CategoriaDto>? _categorias;
     private List<ConteoDto>? _conteos;
 
+    // Sección 1: generar hoja
+    private int _ubicacionIdHoja;
+    private string _modoSeleccion = "todos";
+    private int _categoriaIdHoja;
+    private readonly HashSet<int> _productosSeleccionados = [];
+    private bool _generando;
+    private string? _errorHoja;
+    private string? _sesionGenerada;
+
+    // Sección 2: importar hoja
+    private IBrowserFile? _archivoImportar;
+    private bool _importando;
+    private string? _errorImportar;
+    private ImportarHojaConteoResultadoDto? _resultadoImportacion;
+    private readonly HashSet<int> _ajustando = [];
+    private readonly HashSet<int> _ajustesAplicados = [];
+
+    // Sección 3: registro suelto (comportamiento original)
     private string _sesion = "";
     private int _productoId;
     private int _ubicacionId;
@@ -97,19 +233,112 @@ else
     private string? _error;
     private string? _ok;
 
+    private const long TamanoMaximoArchivoBytes = 10 * 1024 * 1024;
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _productos = await ProductoApi.ListarAsync();
             _ubicaciones = await UbicacionApi.ListarAsync();
+            _categorias = await CategoriaApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
             _productos = [];
             _ubicaciones = [];
+            _categorias = [];
         }
+    }
+
+    private void AlternarSeleccion(int productoId, object? valorChecked)
+    {
+        var marcado = valorChecked is bool b && b;
+        if (marcado) _productosSeleccionados.Add(productoId);
+        else _productosSeleccionados.Remove(productoId);
+    }
+
+    private async Task GenerarHojaAsync()
+    {
+        if (_generando) return;
+        _errorHoja = null;
+        _sesionGenerada = null;
+
+        if (_ubicacionIdHoja <= 0) { _errorHoja = "Seleccioná una ubicación."; return; }
+        if (_modoSeleccion == "categoria" && _categoriaIdHoja <= 0) { _errorHoja = "Seleccioná una categoría."; return; }
+        if (_modoSeleccion == "libre" && _productosSeleccionados.Count == 0) { _errorHoja = "Seleccioná al menos un producto."; return; }
+
+        _generando = true;
+        try
+        {
+            var dto = new GenerarHojaConteoDto(
+                _ubicacionIdHoja,
+                _modoSeleccion == "categoria" ? _categoriaIdHoja : null,
+                _modoSeleccion == "libre" ? _productosSeleccionados.ToList() : null
+            );
+
+            var (contenido, nombreArchivo) = await ConteoApi.GenerarHojaAsync(dto);
+            await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(contenido));
+
+            _sesionGenerada = nombreArchivo;
+        }
+        catch (ApiException ex) { _errorHoja = ex.Message; }
+        finally { _generando = false; }
+    }
+
+    private void OnArchivoSeleccionado(InputFileChangeEventArgs e)
+    {
+        _errorImportar = null;
+        if (e.File.Size > TamanoMaximoArchivoBytes)
+        {
+            _errorImportar = "El archivo no puede superar los 10 MB.";
+            _archivoImportar = null;
+            return;
+        }
+        _archivoImportar = e.File;
+    }
+
+    private async Task ImportarHojaAsync()
+    {
+        if (_importando || _archivoImportar is null) return;
+
+        _importando = true;
+        _errorImportar = null;
+        _resultadoImportacion = null;
+        _ajustesAplicados.Clear();
+
+        try
+        {
+            await using var contenido = _archivoImportar.OpenReadStream(TamanoMaximoArchivoBytes);
+            _resultadoImportacion = await ConteoApi.ImportarHojaAsync(contenido, _archivoImportar.Name);
+
+            if (!string.IsNullOrWhiteSpace(_resultadoImportacion.SesionConteo))
+            {
+                _sesion = _resultadoImportacion.SesionConteo;
+                await CargarSesionAsync();
+            }
+        }
+        catch (ApiException ex) { _errorImportar = ex.Message; }
+        finally { _importando = false; }
+    }
+
+    private async Task AplicarAjusteAsync(ConteoDto conteo)
+    {
+        if (_ajustando.Contains(conteo.Id)) return;
+        _ajustando.Add(conteo.Id);
+        try
+        {
+            var dto = new RegistrarAjusteDto(
+                conteo.ProductoId, conteo.UbicacionId, Math.Abs(conteo.Diferencia), conteo.Diferencia > 0,
+                $"Ajuste por conteo físico — sesión {conteo.SesionConteo}"
+            );
+            await MovimientoApi.RegistrarAjusteAsync(dto);
+            _ajustesAplicados.Add(conteo.Id);
+        }
+        catch (ApiException ex) { _errorImportar = ex.Message; }
+        finally { _ajustando.Remove(conteo.Id); }
     }
 
     private async Task OnSesionInput(ChangeEventArgs e)

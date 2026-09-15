@@ -29,4 +29,27 @@ public class ConteoApiClient
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
         return (await respuesta.Content.ReadFromJsonAsync<ConteoDto>(cancellationToken: ct))!;
     }
+
+    public async Task<(byte[] Contenido, string NombreArchivo)> GenerarHojaAsync(GenerarHojaConteoDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PostAsJsonAsync("api/conteos/hoja", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        var contenido = await respuesta.Content.ReadAsByteArrayAsync(ct);
+        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileNameStar?.Trim('"')
+            ?? respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            ?? "ConteoFisico.xlsx";
+        return (contenido, nombreArchivo);
+    }
+
+    public async Task<ImportarHojaConteoResultadoDto> ImportarHojaAsync(Stream archivo, string nombreArchivo, CancellationToken ct = default)
+    {
+        using var contenido = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(archivo);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        contenido.Add(streamContent, "archivo", nombreArchivo);
+
+        var respuesta = await _http.PostAsync("api/conteos/importar", contenido, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<ImportarHojaConteoResultadoDto>(cancellationToken: ct))!;
+    }
 }
