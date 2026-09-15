@@ -21,7 +21,7 @@ else
 
     <div class="detail-grid">
         <div>
-            <div class="detail-img" style="@(string.IsNullOrWhiteSpace(_producto.ImagenUrl) ? "" : $"background-image:url('{_producto.ImagenUrl}')")">
+            <div class="detail-img" style="@(string.IsNullOrWhiteSpace(_producto.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{_producto.ImagenUrl}')")">
                 @if (string.IsNullOrWhiteSpace(_producto.ImagenUrl))
                 {
                     <span>Foto del producto</span>
@@ -135,13 +135,13 @@ else
             <div class="field">
                 <label for="ef-img">Imagen</label>
                 <div class="form-image-row">
-                    <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_editImagenUrl) ? "" : $"background-image:url('{_editImagenUrl}')")"></div>
+                    <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_editImagenPreviewUrl) ? "" : $"background-image:url('{_editImagenPreviewUrl}')")"></div>
                     <div style="flex:1">
-                        <InputFile id="ef-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_subiendoImagen" />
+                        <InputFile id="ef-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_procesandoImagen" />
                         <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB.</p>
-                        @if (_subiendoImagen)
+                        @if (_procesandoImagen)
                         {
-                            <p class="text-muted" style="font-size:12px;margin:4px 0 0">Subiendo imagen…</p>
+                            <p class="text-muted" style="font-size:12px;margin:4px 0 0">Procesando imagen…</p>
                         }
                     </div>
                 </div>
@@ -168,13 +168,17 @@ else
 
     private bool _mostrarEditar;
     private bool _guardando;
-    private bool _subiendoImagen;
+    private bool _procesandoImagen;
     private string? _dialogError;
     private string _editNombre = "";
     private decimal? _editCosto;
     private decimal _editStockMinimo;
     private string? _editDetalle;
-    private string? _editImagenUrl;
+    // null = "no tocar la imagen actual" al guardar (ver ActualizarProductoDto). La
+    // preview arranca mostrando la imagen ya guardada; solo cambia si se elige un archivo.
+    private byte[]? _editImagenData;
+    private string? _editImagenContentType;
+    private string? _editImagenPreviewUrl;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -191,7 +195,9 @@ else
                 _editCosto = _producto.CostoUnitario;
                 _editStockMinimo = _producto.StockMinimo;
                 _editDetalle = _producto.Detalle;
-                _editImagenUrl = _producto.ImagenUrl;
+                _editImagenData = null;
+                _editImagenContentType = null;
+                _editImagenPreviewUrl = string.IsNullOrWhiteSpace(_producto.ImagenUrl) ? null : $"{ProductoApi.ApiBaseUrl}{_producto.ImagenUrl}";
             }
         }
         catch (ApiException ex)
@@ -212,7 +218,8 @@ else
         try
         {
             await ProductoApi.ActualizarAsync(_producto.Id, new ActualizarProductoDto(
-                _editNombre, _producto.CategoriaId, _producto.UnidadMedida, _editCosto, _editStockMinimo, _editDetalle, _editImagenUrl));
+                _editNombre, _producto.CategoriaId, _producto.UnidadMedida, _editCosto, _editStockMinimo, _editDetalle,
+                _editImagenData, _editImagenContentType));
 
             _mostrarEditar = false;
             await CargarAsync();
@@ -238,22 +245,27 @@ else
             return;
         }
 
-        _subiendoImagen = true;
+        _procesandoImagen = true;
         _dialogError = null;
         StateHasChanged();
 
         try
         {
-            await using var contenido = archivo.OpenReadStream(TamanoMaximoImagenBytes);
-            _editImagenUrl = await ProductoApi.SubirImagenAsync(contenido, archivo.Name, archivo.ContentType);
+            using var buffer = new MemoryStream();
+            await using (var contenido = archivo.OpenReadStream(TamanoMaximoImagenBytes))
+                await contenido.CopyToAsync(buffer);
+
+            _editImagenData = buffer.ToArray();
+            _editImagenContentType = archivo.ContentType;
+            _editImagenPreviewUrl = $"data:{archivo.ContentType};base64,{Convert.ToBase64String(_editImagenData)}";
         }
-        catch (ApiException ex)
+        catch (Exception ex)
         {
-            _dialogError = ex.Message;
+            _dialogError = $"No se pudo procesar la imagen: {ex.Message}";
         }
         finally
         {
-            _subiendoImagen = false;
+            _procesandoImagen = false;
         }
     }
 

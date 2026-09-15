@@ -60,18 +60,12 @@ public class ProductoApiClient
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
     }
 
-    public async Task<string> SubirImagenAsync(Stream contenido, string nombreArchivo, string contentType, CancellationToken ct = default)
-    {
-        using var form = new MultipartFormDataContent();
-        using var streamContent = new StreamContent(contenido);
-        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
-        form.Add(streamContent, "archivo", nombreArchivo);
+    // El backend devuelve ImagenUrl como ruta RELATIVA ("/api/productos/5/imagen") — los
+    // componentes le anteponen esto para armar la URL completa que va en <img src>/CSS
+    // background-image. Reusa el mismo HttpClient.BaseAddress con el que este cliente ya
+    // habla con la API, no hace falta ninguna configuración nueva.
+    public string ApiBaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? "";
 
-        var respuesta = await _http.PostAsync("api/productos/imagen", form, ct);
-        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
-        var resultado = await respuesta.Content.ReadFromJsonAsync<ImagenSubidaDto>(cancellationToken: ct);
-        return resultado!.Url;
-    }
     public async Task<string> ObtenerSiguienteCodigoAsync(int categoriaId, CancellationToken ct = default)
     {
         var respuesta = await _http.GetAsync($"api/productos/siguiente-codigo?categoriaId={categoriaId}", ct);
