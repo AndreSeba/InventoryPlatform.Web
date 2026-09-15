@@ -254,23 +254,53 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .printable-form-firmas div { border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 10px; font-weight: 600; }
 
 @media print {
-  @page { size: letter; margin: 8mm; }
-  /* El recorte va SOLO en la zona de la tabla (printable-form-table-wrap), nunca en todo
-     el formulario — así Motivo/Observaciones y las Firmas, que van DESPUÉS de la tabla en
-     el documento, quedan siempre completos pase lo que pase con el conteo de filas.
-     FilasMinimasTabla se puso a propósito más alto de lo que entra (32 filas) para que la
-     tabla llegue de sobra hasta el borde del recorte y llene la hoja como en la foto —
-     las filas de más (invisibles) se recortan, nunca contenido real. Altura del wrap =
-     alto útil de una hoja Carta (279.4mm - 16mm de margen, 975px) menos lo que ya ocupan
-     fecha/título/checks/3 filas de datos (227px) y motivo/firmas (104px) = 644px, con un
-     margen de seguridad de ~15px para no quedar pegado al borde del corte. Medido real en
-     el navegador contra el DOM actual (con el wrap ya puesto), no estimado a ojo. */
-  .printable-form { max-width: none; width: 100%; page-break-inside: avoid; break-inside: avoid; }
-  .printable-form-table-wrap { height: 630px; overflow: hidden; }
+  @page { size: letter; margin: 10mm; }
+
   .app-rail, .app-topbar, .no-print { display: none !important; }
-  .app-shell { padding: 0; }
-  .app-frame { width: auto; min-height: 0; }
+  .app-shell { padding: 0; min-height: 0; display: block; }
+  .app-frame { width: auto; min-height: 0; display: block; }
   .app-main { padding: 0; overflow: visible; }
+
+  /* Todo el formulario se mide en MILÍMETROS, no en px: el alto de la hoja es físico, y
+     cualquier número en px tiene que adivinar el mapeo px→papel. Si esa cuenta se pasa
+     aunque sea por poco, Chrome encoge TODO para que entre ("Ajustar al área de impresión")
+     y sale chico, apretado y con un blanco al pie — que es exactamente el síntoma que
+     se veía antes con el alto fijo de 630px.
+     Alto útil de una Carta con 10mm de margen = 279.4 - 20 = 259.4mm; se usan 250mm para
+     dejar ~9mm de holgura: absorbe el encabezado/pie que el diálogo de impresión agrega si
+     está tildado, y el borde no imprimible de la impresora física. Visualmente sigue
+     llenando la hoja (sobran 4mm abajo, ni se notan) pero ya no depende de que el usuario
+     configure el diálogo de una forma puntual.
+     La zona de la tabla es la única flex:1, así que se estira sola hasta llenar lo que
+     sobre: si mañana cambia el bloque de arriba, no hay ningún px que recalibrar. */
+  .printable-form {
+    max-width: none;
+    width: 100%;
+    height: 250mm;
+    display: flex;
+    flex-direction: column;
+    font-size: 11pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Solo la tabla absorbe el espacio sobrante; el resto conserva su alto natural para que
+     Motivo y Firmas nunca se compriman ni se recorten. */
+  .printable-form > * { flex-shrink: 0; }
+  .printable-form-table-wrap { flex: 1; overflow: hidden; }
+
+  /* Medidas pensadas para llenar la hoja y para que se pueda escribir A MANO encima: las
+     filas de 6mm son el interlineado de un papel rayado, no los 22px de la pantalla.
+     El bloque de arriba se mantiene ajustado a propósito — cada mm que se le saca es un mm
+     que gana la tabla, y con 6mm/fila entran ~21 ítems reales antes de que el recorte
+     empiece a comer contenido de verdad (una solicitud típica trae bastante menos). */
+  .printable-form-fecha, .printable-form-checks { padding: 2.5mm 3mm; }
+  .printable-form-title { font-size: 15pt; margin: 3mm 0 4mm; }
+  .printable-form-row .pf-label { width: 45mm; padding: 2mm 3mm; }
+  .printable-form-row .pf-value { padding: 2mm 3mm; }
+  .printable-form-table th, .printable-form-table td { font-size: 10pt; height: 6mm; padding: 0 2mm; }
+  .printable-form-motivo { min-height: 14mm; padding: 3mm; }
+  .printable-form-firmas { margin: 8mm 6mm 4mm; gap: 20mm; }
+  .printable-form-firmas div { font-size: 9pt; padding-top: 2mm; }
 }
 
 /* — Blazor circuit error banner (oculto salvo que Blazor lo active) — */
