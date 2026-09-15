@@ -42,6 +42,17 @@ public class MovimientoApiClient
         return await respuesta.Content.ReadFromJsonAsync<List<MovimientoDto>>(cancellationToken: ct) ?? [];
     }
 
+    public async Task<(byte[] Contenido, string NombreArchivo)> GenerarExcelAsync(GenerarMovimientosExcelDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PostAsJsonAsync("api/movimientos/hoja", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        var contenido = await respuesta.Content.ReadAsByteArrayAsync(ct);
+        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileNameStar?.Trim('"')
+            ?? respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            ?? "Movimientos.xlsx";
+        return (contenido, nombreArchivo);
+    }
+
     public async Task<MovimientoResultadoDto> RegistrarEntradaAsync(RegistrarEntradaDto dto, CancellationToken ct = default)
     {
         var respuesta = await _http.PostAsJsonAsync("api/movimientos/entradas", dto, ct);

@@ -4,6 +4,7 @@
 @inject CategoriaApiClient CategoriaApi
 @inject MovimientoApiClient MovimientoApi
 @inject AuthState AuthState
+@inject IJSRuntime JS
 
 <PageTitle>Movimientos</PageTitle>
 
@@ -58,7 +59,12 @@ else
             <option value="AjustePositivo">Ajuste +</option>
             <option value="AjusteNegativo">Ajuste -</option>
         </select>
+        <button type="button" class="btn btn-ghost" disabled="@_exportando" @onclick="ExportarExcelAsync">@(_exportando ? "Generando…" : "Exportar a Excel")</button>
     </div>
+    @if (_errorExportar is not null)
+    {
+        <p class="dialog-error">@_errorExportar</p>
+    }
 
     <div class="table-wrap">
         <table class="table">
@@ -293,6 +299,8 @@ else
     private string _filtroTipo = "";
     private string? _error;
     private string? _ok;
+    private bool _exportando;
+    private string? _errorExportar;
 
     private string? _dialog; // "entrada" | "salida" | "ajuste" | "devolucion" | null
     private bool _guardando;
@@ -334,6 +342,27 @@ else
         .Where(m => string.IsNullOrEmpty(_filtroTipo) || m.TipoMovimiento.ToString() == _filtroTipo)
         .OrderByDescending(m => m.FechaMovimiento)
         .ToList();
+
+    private async Task ExportarExcelAsync()
+    {
+        if (_exportando) return;
+        _exportando = true;
+        _errorExportar = null;
+
+        try
+        {
+            TipoMovimiento? tipo = Enum.TryParse<TipoMovimiento>(_filtroTipo, out var t) ? t : null;
+            int? categoriaId = string.IsNullOrEmpty(_filtroCategoria)
+                ? null
+                : _categorias?.FirstOrDefault(c => c.CodigoCategoria == _filtroCategoria)?.Id;
+
+            var (contenido, nombreArchivo) = await MovimientoApi.GenerarExcelAsync(new GenerarMovimientosExcelDto(tipo, categoriaId));
+            await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(contenido));
+        }
+        catch (ApiException ex) { _errorExportar = ex.Message; }
+        finally { _exportando = false; }
+    }
 
     private void LimpiarCampos()
     {
