@@ -192,7 +192,17 @@ else
             _ubicaciones = await UbicacionApi.ListarAsync();
             if (_solicitud is not null)
                 foreach (var d in _solicitud.Detalles)
+                {
+                    // Las 3 se pre-cargan acá, no donde se usan — @bind lee la clave del
+                    // diccionario directo (no GetValueOrDefault), y la tabla puede pasar de
+                    // mostrar "Aprobar cantidad" a "Entregar" dentro del MISMO circuito
+                    // (justo después de aprobar, sin recargar la página). Si _cantidadEntrega/
+                    // _ubicacionEntrega no tienen la clave todavía en ese momento, el @bind
+                    // revienta con KeyNotFoundException y tira abajo el circuito entero.
                     _cantidadAprobada.TryAdd(d.Id, d.CantidadSolicitada);
+                    _cantidadEntrega.TryAdd(d.Id, 0);
+                    _ubicacionEntrega.TryAdd(d.Id, 0);
+                }
         }
         catch (ApiException ex)
         {
