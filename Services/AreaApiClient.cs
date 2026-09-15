@@ -29,4 +29,11 @@ public class AreaApiClient
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
         return (await respuesta.Content.ReadFromJsonAsync<AreaDto>(cancellationToken: ct))!;
     }
+
+    public async Task<AreaDto> ActualizarAsync(int id, ActualizarAreaDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PutAsJsonAsync($"api/areas/{id}", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<AreaDto>(cancellationToken: ct))!;
+    }
 }

@@ -184,11 +184,18 @@ adaptarlo al backend real (`InventoryPlatform`, modelo v4):
   `FechaVencimiento` por producto, que el backend real no tiene. Se
   reemplazó por un KPI que sí existe de verdad
   (`MovimientoApiClient.ListarPrestamosPendientesAsync`).
-- **Categorías/Ubicaciones/Áreas sin Editar/Eliminar** — el mockup tenía esos
-  botones; el backend solo expone `Listar`+`Crear` para esas tres entidades
-  (ver `InventoryPlatform/CLAUDE.md`, sección "Operaciones que el backend no
-  expone todavía"). No agregar los botones acá hasta que el backend tenga
-  el endpoint.
+- **Ubicaciones sin Editar/Eliminar** — el mockup tenía ese botón; el backend
+  solo expone `Listar`+`Crear` para `Ubicacion` (ver `InventoryPlatform/CLAUDE.md`,
+  sección "Operaciones que el backend no expone todavía"). No agregar el
+  botón acá hasta que el backend tenga el endpoint.
+  **Categorías y Áreas SÍ tienen Editar/Eliminar desde 2026-09-15** —
+  `Categorias/Index.razor` y `Areas/Index.razor` reusan el mismo diálogo de
+  crear con un botón "Editar" por fila; "eliminar" es destildar el checkbox
+  "Activa" del formulario de edición y guardar (llama al mismo
+  `ActualizarAsync` con `Activo: false`), no hay un endpoint de DELETE
+  aparte. La categoría/área sigue en la base, solo deja de listarse (el
+  `ListarAsync` que usan estas páginas no pide `incluirInactivas`) y de
+  poder elegirse en productos/solicitudes nuevos.
 - **Pantallas nuevas que el mockup no tenía**: `/solicitudes` (crear,
   aprobar, rechazar, entregar) y `/conteos` (conteo físico por sesión,
   comparado contra la existencia calculada) — porque el modelo real sí
@@ -230,8 +237,8 @@ el comportamiento esperado y ya verificado, no un bug.
   referencia de proyecto.
 - ❌ No agregues acceso a datos ni `Inventory.Infrastructure` acá — todo pasa
   por los `*ApiClient` de `Services/`.
-- ❌ No agregues botones de Editar/Eliminar a Categorías/Ubicaciones/Áreas
-  hasta que el backend exponga esos endpoints.
+- ❌ No agregues un botón de Editar/Eliminar a Ubicaciones hasta que el
+  backend exponga ese endpoint (Categorías y Áreas ya lo tienen).
 - ❌ No adjuntes el JWT vía `DelegatingHandler` + `.AddHttpMessageHandler<T>()`
   para un `HttpClient` tipado — `IHttpClientFactory` resuelve ese handler en
   un scope de DI propio, no en el del circuito, así que un `AuthState`

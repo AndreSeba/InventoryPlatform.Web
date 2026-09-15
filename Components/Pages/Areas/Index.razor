@@ -12,7 +12,7 @@
     </div>
     @if (AuthState.HasPermission(Permisos.AreasCrear))
     {
-        <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva área</button>
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva área</button>
     }
 </div>
 
@@ -29,7 +29,7 @@ else
 {
     <div class="table-wrap" style="margin-top:24px">
         <table class="table">
-            <thead><tr><th>Código</th><th>Nombre</th><th># Solicitudes</th></tr></thead>
+            <thead><tr><th>Código</th><th>Nombre</th><th># Solicitudes</th><th></th></tr></thead>
             <tbody>
                 @foreach (var a in _areas)
                 {
@@ -37,6 +37,12 @@ else
                         <td>@a.CodigoArea</td>
                         <td class="text-muted">@a.NombreArea</td>
                         <td class="text-muted">@_solicitudes.Count(s => s.AreaId == a.Id)</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.AreasEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(a)">Editar</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -44,10 +50,19 @@ else
     </div>
 }
 
-<Dialog Visible="_dialogOpen" Title="Nueva área">
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva área" : "Editar área")">
     <Body>
         <div class="field"><label for="af-cod">Código</label><input class="input" id="af-cod" @bind="_codigo" placeholder="MARKETING" /></div>
         <div class="field"><label for="af-nom">Nombre</label><input class="input" id="af-nom" @bind="_nombre" placeholder="Marketing" /></div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activa (destildar para eliminarla — sigue existiendo para no romper el historial, pero deja de listarse y de poder usarse en solicitudes nuevas)
+                </label>
+            </div>
+        }
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
@@ -67,8 +82,10 @@ else
     private bool _dialogOpen;
     private bool _guardando;
     private string? _dialogError;
+    private int? _editandoId;
     private string _codigo = "";
     private string _nombre = "";
+    private bool _activo;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -85,6 +102,24 @@ else
             _areas = [];
             _solicitudes = [];
         }
+    }
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _codigo = ""; _nombre = "";
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(AreaDto a)
+    {
+        _editandoId = a.Id;
+        _codigo = a.CodigoArea;
+        _nombre = a.NombreArea;
+        _activo = a.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
     }
 
     private void Cerrar()
@@ -104,7 +139,11 @@ else
 
         try
         {
-            await AreaApi.CrearAsync(new CrearAreaDto(_codigo, _nombre));
+            if (_editandoId is null)
+                await AreaApi.CrearAsync(new CrearAreaDto(_codigo, _nombre));
+            else
+                await AreaApi.ActualizarAsync(_editandoId.Value, new ActualizarAreaDto(_codigo, _nombre, _activo));
+
             Cerrar();
             await CargarAsync();
         }

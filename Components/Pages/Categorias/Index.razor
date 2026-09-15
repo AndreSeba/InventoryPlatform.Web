@@ -12,7 +12,7 @@
     </div>
     @if (AuthState.HasPermission(Permisos.CategoriasCrear))
     {
-        <button type="button" class="btn btn-primary" @onclick="() => _dialogOpen = true">+ Nueva categoría</button>
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva categoría</button>
     }
 </div>
 
@@ -29,7 +29,7 @@ else
 {
     <div class="table-wrap" style="margin-top:24px">
         <table class="table">
-            <thead><tr><th>Código</th><th>Descripción</th><th># Productos</th></tr></thead>
+            <thead><tr><th>Código</th><th>Descripción</th><th># Productos</th><th></th></tr></thead>
             <tbody>
                 @foreach (var c in _categorias)
                 {
@@ -37,6 +37,12 @@ else
                         <td>@c.CodigoCategoria</td>
                         <td class="text-muted">@c.Descripcion</td>
                         <td class="text-muted">@_productos.Count(p => p.CategoriaId == c.Id)</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.CategoriasEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(c)">Editar</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -44,10 +50,19 @@ else
     </div>
 }
 
-<Dialog Visible="_dialogOpen" Title="Nueva categoría">
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva categoría" : "Editar categoría")">
     <Body>
         <div class="field"><label for="cf-cod">Código</label><input class="input" id="cf-cod" @bind="_codigo" placeholder="CEREALES" /></div>
         <div class="field"><label for="cf-desc">Descripción</label><input class="input" id="cf-desc" @bind="_descripcion" placeholder="Cereales" /></div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activa (destildar para eliminarla — sigue existiendo para no romper el historial, pero deja de listarse y de poder usarse en productos nuevos)
+                </label>
+            </div>
+        }
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
@@ -67,8 +82,10 @@ else
     private bool _dialogOpen;
     private bool _guardando;
     private string? _dialogError;
+    private int? _editandoId;
     private string _codigo = "";
     private string? _descripcion;
+    private bool _activo;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -85,6 +102,25 @@ else
             _categorias = [];
             _productos = [];
         }
+    }
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _descripcion = null;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(CategoriaDto c)
+    {
+        _editandoId = c.Id;
+        _codigo = c.CodigoCategoria;
+        _descripcion = c.Descripcion;
+        _activo = c.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
     }
 
     private void Cerrar()
@@ -105,7 +141,11 @@ else
 
         try
         {
-            await CategoriaApi.CrearAsync(new CrearCategoriaDto(_codigo, _descripcion));
+            if (_editandoId is null)
+                await CategoriaApi.CrearAsync(new CrearCategoriaDto(_codigo, _descripcion));
+            else
+                await CategoriaApi.ActualizarAsync(_editandoId.Value, new ActualizarCategoriaDto(_codigo, _descripcion, _activo));
+
             Cerrar();
             await CargarAsync();
         }

@@ -29,4 +29,11 @@ public class CategoriaApiClient
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
         return (await respuesta.Content.ReadFromJsonAsync<CategoriaDto>(cancellationToken: ct))!;
     }
+
+    public async Task<CategoriaDto> ActualizarAsync(int id, ActualizarCategoriaDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PutAsJsonAsync($"api/categorias/{id}", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<CategoriaDto>(cancellationToken: ct))!;
+    }
 }
