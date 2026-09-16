@@ -11,7 +11,10 @@
                 <span class="mark-text">Inventario</span>
             </div>
 
-            <RailLink Href="/inicio" IconName="home" Label="Inicio" CurrentPath="@_path" />
+            @if (AuthState.HasPermission(Permisos.InicioVer))
+            {
+                <RailLink Href="/inicio" IconName="home" Label="Inicio" CurrentPath="@_path" />
+            }
 
             @if (AuthState.HasPermission(Permisos.ProductosVer))
             {
@@ -24,6 +27,10 @@
             @if (AuthState.HasPermission(Permisos.SolicitudesVer))
             {
                 <RailLink Href="/solicitudes" IconName="clipboard" Label="Solicitudes" CurrentPath="@_path" />
+            }
+            else if (AuthState.HasPermission(Permisos.SolicitudesCrear))
+            {
+                <RailLink Href="/solicitudes/mias" IconName="clipboard" Label="Mis solicitudes" CurrentPath="@_path" />
             }
             @if (AuthState.HasPermission(Permisos.ConteosVer))
             {
@@ -123,6 +130,7 @@
     {
         var p when p.StartsWith("/productos") => "Productos",
         var p when p.StartsWith("/movimientos") => "Movimientos",
+        "/solicitudes/mias" => "Mis solicitudes",
         var p when p.StartsWith("/solicitudes") => "Solicitudes",
         var p when p.StartsWith("/conteos") => "Conteo físico",
         var p when p.StartsWith("/categorias") => "Categorías",

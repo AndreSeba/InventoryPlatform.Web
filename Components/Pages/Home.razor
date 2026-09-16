@@ -40,7 +40,7 @@
     protected override void OnInitialized()
     {
         if (AuthState.IsAuthenticated)
-            Nav.NavigateTo("/inicio");
+            Nav.NavigateTo(PaginaDeInicio());
     }
 
     private async Task Entrar()
@@ -53,7 +53,7 @@
         {
             var resultado = await AuthApi.LoginAsync(new LoginDto(_modelo.Email, _modelo.Password));
             AuthState.SignIn(resultado);
-            Nav.NavigateTo("/inicio");
+            Nav.NavigateTo(PaginaDeInicio());
         }
         catch (ApiException ex)
         {
@@ -64,6 +64,11 @@
             _ingresando = false;
         }
     }
+
+    // Quien no puede ver Inicio (rol Solicitante) entra derecho a lo único que le sirve:
+    // sus propias solicitudes. El resto de los roles sigue yendo a Inicio como siempre.
+    private string PaginaDeInicio() =>
+        AuthState.HasPermission(Permisos.InicioVer) ? "/inicio" : "/solicitudes/mias";
 
     private class Modelo
     {

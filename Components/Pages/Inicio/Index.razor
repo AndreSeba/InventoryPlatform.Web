@@ -2,6 +2,7 @@
 @inject ProductoApiClient ProductoApi
 @inject MovimientoApiClient MovimientoApi
 @inject NavigationManager Nav
+@inject AuthState AuthState
 
 <PageTitle>Inicio</PageTitle>
 
@@ -68,6 +69,15 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Defensa en profundidad: el link del nav ya se esconde para quien no tiene este
+        // permiso (rol Solicitante), pero si igual entra por URL directa, lo mandamos a lo
+        // único que le sirve en vez de dejarlo pedir datos que el backend le va a rechazar.
+        if (!AuthState.HasPermission(Permisos.InicioVer))
+        {
+            Nav.NavigateTo("/solicitudes/mias");
+            return;
+        }
+
         try
         {
             _productos = await ProductoApi.ListarAsync();
