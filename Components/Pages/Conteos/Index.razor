@@ -3,6 +3,7 @@
 @inject ConteoApiClient ConteoApi
 @inject ProductoApiClient ProductoApi
 @inject UbicacionApiClient UbicacionApi
+@inject CategoriaApiClient CategoriaApi
 @inject MovimientoApiClient MovimientoApi
 @inject IJSRuntime JS
 
@@ -11,7 +12,7 @@
 <h1>Conteo físico</h1>
 <p class="text-muted" style="margin-top:-6px">Genere una hoja de Excel para contar, impórtela con las cantidades reales y aplique los ajustes que hagan falta.</p>
 
-@if (_productos is null || _ubicaciones is null)
+@if (_productos is null || _ubicaciones is null || _categorias is null)
 {
     <p>Cargando…</p>
 }
@@ -19,10 +20,61 @@ else
 {
     <div class="card elev-sm" style="margin:20px 0">
         <h2 style="margin:0 0 4px">1. Generar hoja de conteo</h2>
-        <p class="card-body" style="margin:0 0 8px">Se descarga un Excel con todos los productos activos, una fila por cada producto y ubicación donde tenga stock, y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
+        <p class="card-body" style="margin:0 0 8px">Marcá <strong>uno por uno</strong> los productos que vas a contar. Se descarga un Excel listo para imprimir, con una fila por cada producto y ubicación donde tenga stock ahora mismo, y la columna «Cantidad Contada» en blanco. La hoja nunca se genera con el catálogo completo: un conteo físico se hace sobre un conjunto acotado.</p>
 
         <div class="filter-row">
-            <button type="button" class="btn btn-primary" disabled="@_generando" @onclick="GenerarHojaAsync">@(_generando ? "Generando…" : "Generar y descargar Excel")</button>
+            @* Categoría y búsqueda solo FILTRAN la lista de abajo: no seleccionan nada
+               por sí solas. La selección siempre es marcando productos. *@
+            <select class="input" style="max-width:220px" @bind="_categoriaIdHoja">
+                <option value="0">Todas las categorías</option>
+                @foreach (var c in _categorias)
+                {
+                    <option value="@c.Id">@c.CodigoCategoria</option>
+                }
+            </select>
+
+            <input class="input" style="max-width:220px" placeholder="Buscar código o nombre…"
+                   value="@_buscarProducto" @oninput="OnBuscarProducto" />
+
+            <button type="button" class="btn btn-primary"
+                    disabled="@(_generando || _productosSeleccionados.Count == 0)"
+                    @onclick="GenerarHojaAsync">
+                @(_generando ? "Generando…" : $"Generar Excel ({_productosSeleccionados.Count})")
+            </button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+            <span class="text-muted" style="font-size:13px">
+                @if (_productosSeleccionados.Count == 0)
+                {
+                    <span>Ningún producto seleccionado todavía.</span>
+                }
+                else
+                {
+                    <span><strong>@_productosSeleccionados.Count</strong> producto(s) seleccionado(s) de @(_productos?.Count ?? 0).</span>
+                }
+            </span>
+            @if (_productosSeleccionados.Count > 0)
+            {
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="LimpiarSeleccion">Limpiar selección</button>
+            }
+        </div>
+
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:10px;margin-top:4px">
+            @* Se llama dos veces en vez de guardar en una variable con un bloque de código: ese bloque,
+               abierto después de markup dentro del else de arriba, rompe la compilación
+               con RZ1010 (ver CLAUDE.md). La lista está en memoria, no cuesta nada. *@
+            @if (ProductosFiltrados().Count == 0)
+            {
+                <p class="text-muted" style="font-size:13px;margin:4px 0">Ningún producto coincide con el filtro.</p>
+            }
+            @foreach (var p in ProductosFiltrados())
+            {
+                <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+                    <input type="checkbox" checked="@_productosSeleccionados.Contains(p.Id)" @onchange="@(e => AlternarSeleccion(p.Id, e.Value))" />
+                    <span>@p.CodigoProducto — @p.Nombre</span>
+                </label>
+            }
         </div>
 
         @if (_errorHoja is not null)
@@ -164,9 +216,13 @@ else
 @code {
     private List<ProductoDto>? _productos;
     private List<UbicacionDto>? _ubicaciones;
+    private List<CategoriaDto>? _categorias;
     private List<ConteoDto>? _conteos;
 
     // Sección 1: generar hoja
+    private int _categoriaIdHoja;
+    private string _buscarProducto = "";
+    private readonly HashSet<int> _productosSeleccionados = [];
     private bool _generando;
     private string? _errorHoja;
     private string? _sesionGenerada;
@@ -197,13 +253,39 @@ else
         {
             _productos = await ProductoApi.ListarAsync();
             _ubicaciones = await UbicacionApi.ListarAsync();
+            _categorias = await CategoriaApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
             _productos = [];
             _ubicaciones = [];
+            _categorias = [];
         }
+    }
+
+    private void OnBuscarProducto(ChangeEventArgs e) => _buscarProducto = e.Value?.ToString() ?? "";
+
+    private void LimpiarSeleccion() => _productosSeleccionados.Clear();
+
+    // Categoría y búsqueda solo acotan lo que se ve; lo que entra en la hoja es siempre
+    // lo que está tildado en _productosSeleccionados.
+    private List<ProductoDto> ProductosFiltrados()
+    {
+        var q = _buscarProducto.Trim();
+        return (_productos ?? [])
+            .Where(p => _categoriaIdHoja <= 0 || p.CategoriaId == _categoriaIdHoja)
+            .Where(p => q.Length == 0
+                || p.CodigoProducto.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || p.Nombre.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void AlternarSeleccion(int productoId, object? valorChecked)
+    {
+        var marcado = valorChecked is bool b && b;
+        if (marcado) _productosSeleccionados.Add(productoId);
+        else _productosSeleccionados.Remove(productoId);
     }
 
     private async Task GenerarHojaAsync()
@@ -212,10 +294,19 @@ else
         _errorHoja = null;
         _sesionGenerada = null;
 
+        if (_productosSeleccionados.Count == 0)
+        {
+            // El backend también lo rechaza (SeleccionDeProductosVaciaException); acá se
+            // avisa antes de gastar el viaje a la API.
+            _errorHoja = "Seleccioná al menos un producto para la hoja de conteo. La hoja no se genera con todo el catálogo: un conteo físico se hace sobre un conjunto acotado de productos.";
+            return;
+        }
+
         _generando = true;
         try
         {
-            var dto = new GenerarHojaConteoDto(null, null);
+            var dto = new GenerarHojaConteoDto(_productosSeleccionados.ToList());
+
             var (contenido, nombreArchivo) = await ConteoApi.GenerarHojaAsync(dto);
             await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(contenido));

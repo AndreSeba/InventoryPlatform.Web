@@ -1,6 +1,7 @@
 @page "/productos"
 @inject ProductoApiClient ProductoApi
 @inject CategoriaApiClient CategoriaApi
+@inject UnidadApiClient UnidadApi
 @inject NavigationManager Nav
 @inject AuthState AuthState
 
@@ -118,9 +119,10 @@ else
             <div class="field">
                 <label for="pf-uni">Unidad</label>
                 <select class="input" id="pf-uni" @bind="_form.UnidadMedida">
-                    <option value="UNI">UNI</option>
-                    <option value="CAJA">CAJA</option>
-                    <option value="PQTS">PQTS</option>
+                    @foreach (var u in _unidades ?? [])
+                    {
+                        <option value="@u.CodigoUnidad">@u.CodigoUnidad — @u.Nombre</option>
+                    }
                 </select>
             </div>
             <div class="field">
@@ -168,6 +170,7 @@ else
 @code {
     private List<ProductoDto>? _productos;
     private List<CategoriaDto>? _categorias;
+    private List<UnidadDto>? _unidades;
     private string _query = "";
     private int? _filtroCategoriaId;
     private string? _error;
@@ -188,12 +191,14 @@ else
         {
             _productos = await ProductoApi.ListarAsync();
             _categorias = await CategoriaApi.ListarAsync();
+            _unidades = await UnidadApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
             _productos = [];
             _categorias = [];
+            _unidades = [];
         }
     }
 
@@ -217,7 +222,13 @@ else
         _editandoId = null;
         _dialogError = null;
         _codigoPreview = null;
-        _form = new FormModelo { CategoriaId = _categorias?.FirstOrDefault()?.Id ?? 0, UnidadMedida = "UNI" };
+        _form = new FormModelo
+        {
+            CategoriaId = _categorias?.FirstOrDefault()?.Id ?? 0,
+            // Primera unidad del catálogo, ya no "UNI" fijo: el catálogo es editable
+            // y "UNI" podría estar desactivada.
+            UnidadMedida = _unidades?.FirstOrDefault()?.CodigoUnidad ?? "",
+        };
         _dialogOpen = true;
         await ActualizarPreviewCodigoAsync();
     }
