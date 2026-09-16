@@ -263,6 +263,19 @@ Categorías y Áreas: tabla + diálogo, "eliminar" es destildar «Activa».
   seedeado (lo necesitan para el formulario de producto).
 - `Icon.razor` tiene el ícono `ruler` agregado para este módulo.
 
+## Conteo físico: la selección es siempre explícita (2026-09-16)
+
+`Conteos/Index.razor` tenía un desplegable con tres modos (Todos los productos / Por
+categoría / Selección libre). **Se eliminó por pedido explícito del usuario**: la hoja se
+arma marcando productos uno por uno, y nunca con el catálogo entero.
+
+- La categoría y el buscador **solo filtran la lista** que se ve; no seleccionan nada.
+  Lo que entra en la hoja es siempre lo tildado en `_productosSeleccionados`.
+- El botón "Generar Excel (n)" está deshabilitado con 0 seleccionados y muestra la
+  cuenta. Si igual se intenta, sale un mensaje explicando por qué no se genera con todo.
+- El backend lo rechaza también (`SeleccionDeProductosVaciaException`, 400) — la
+  validación del front es para no gastar el viaje, no es la única defensa.
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por
