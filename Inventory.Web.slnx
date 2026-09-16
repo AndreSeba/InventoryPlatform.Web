@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Inventory.Web.csproj" />
+  <Folder Name="/backend/">
+    <Project Path="../InventoryPlatform/src/Inventory.Application/Inventory.Application.csproj" />
+    <Project Path="../InventoryPlatform/src/Inventory.Domain/Inventory.Domain.csproj" />
+  </Folder>
+</Solution>

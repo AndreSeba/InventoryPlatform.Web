@@ -30,6 +30,19 @@ al backend). Este repo **nunca** toca la base de datos ni referencia
   hay que avisar para actualizar `CorsOrigenesPermitidos` del lado del
   backend con los puertos nuevos (http y https) — si no, el navegador
   bloquea las respuestas aunque el request llegue bien.
+- **`Inventory.Web.slnx` incluye los proyectos del backend a propósito**
+  (`Inventory.Application` + `Inventory.Domain`, por ruta relativa, en la
+  carpeta virtual `backend/`). Sin eso, abrir el `.csproj` suelto en Visual
+  Studio falla al hacer restore con *"Unable to find project information for
+  '...Inventory.Application.csproj'. ... the project is unloaded or not part
+  of the current solution"* al dar F5: VS solo restaura los proyectos que
+  están **dentro de la solución**, y la `ProjectReference` apunta afuera
+  (`dotnet build` por consola sí funciona, porque el CLI recorre las
+  referencias sin depender de la solución). Los dos proyectos del backend se
+  agregan como referencia, no se copian — siguen viviendo en su repo. Si
+  algún día hace falta levantar API y front juntos desde acá, se puede sumar
+  `Inventory.Api` a la misma solución y usar varios proyectos de inicio; hoy
+  no está, para no arrastrar `Inventory.Infrastructure` a este repo.
 
 ## Stack
 
