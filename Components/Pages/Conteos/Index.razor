@@ -3,7 +3,6 @@
 @inject ConteoApiClient ConteoApi
 @inject ProductoApiClient ProductoApi
 @inject UbicacionApiClient UbicacionApi
-@inject CategoriaApiClient CategoriaApi
 @inject MovimientoApiClient MovimientoApi
 @inject IJSRuntime JS
 
@@ -12,7 +11,7 @@
 <h1>Conteo físico</h1>
 <p class="text-muted" style="margin-top:-6px">Genere una hoja de Excel para contar, impórtela con las cantidades reales y aplique los ajustes que hagan falta.</p>
 
-@if (_productos is null || _ubicaciones is null || _categorias is null)
+@if (_productos is null || _ubicaciones is null)
 {
     <p>Cargando…</p>
 }
@@ -20,41 +19,11 @@ else
 {
     <div class="card elev-sm" style="margin:20px 0">
         <h2 style="margin:0 0 4px">1. Generar hoja de conteo</h2>
-        <p class="card-body" style="margin:0 0 8px">Elija qué productos incluir. Se descarga un Excel con una fila por cada producto y ubicación donde tenga stock, y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
+        <p class="card-body" style="margin:0 0 8px">Se descarga un Excel con todos los productos activos, una fila por cada producto y ubicación donde tenga stock, y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
 
         <div class="filter-row">
-            <select class="input" style="max-width:200px" @bind="_modoSeleccion">
-                <option value="todos">Todos los productos</option>
-                <option value="categoria">Por categoría</option>
-                <option value="libre">Selección libre</option>
-            </select>
-
-            @if (_modoSeleccion == "categoria")
-            {
-                <select class="input" style="max-width:220px" @bind="_categoriaIdHoja">
-                    <option value="0">-- Categoría --</option>
-                    @foreach (var c in _categorias)
-                    {
-                        <option value="@c.Id">@c.CodigoCategoria</option>
-                    }
-                </select>
-            }
-
             <button type="button" class="btn btn-primary" disabled="@_generando" @onclick="GenerarHojaAsync">@(_generando ? "Generando…" : "Generar y descargar Excel")</button>
         </div>
-
-        @if (_modoSeleccion == "libre")
-        {
-            <div style="max-height:220px;overflow-y:auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:10px;margin-top:4px">
-                @foreach (var p in _productos)
-                {
-                    <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
-                        <input type="checkbox" checked="@_productosSeleccionados.Contains(p.Id)" @onchange="@(e => AlternarSeleccion(p.Id, e.Value))" />
-                        <span>@p.CodigoProducto — @p.Nombre</span>
-                    </label>
-                }
-            </div>
-        }
 
         @if (_errorHoja is not null)
         {
@@ -195,13 +164,9 @@ else
 @code {
     private List<ProductoDto>? _productos;
     private List<UbicacionDto>? _ubicaciones;
-    private List<CategoriaDto>? _categorias;
     private List<ConteoDto>? _conteos;
 
     // Sección 1: generar hoja
-    private string _modoSeleccion = "todos";
-    private int _categoriaIdHoja;
-    private readonly HashSet<int> _productosSeleccionados = [];
     private bool _generando;
     private string? _errorHoja;
     private string? _sesionGenerada;
@@ -232,22 +197,13 @@ else
         {
             _productos = await ProductoApi.ListarAsync();
             _ubicaciones = await UbicacionApi.ListarAsync();
-            _categorias = await CategoriaApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
             _productos = [];
             _ubicaciones = [];
-            _categorias = [];
         }
-    }
-
-    private void AlternarSeleccion(int productoId, object? valorChecked)
-    {
-        var marcado = valorChecked is bool b && b;
-        if (marcado) _productosSeleccionados.Add(productoId);
-        else _productosSeleccionados.Remove(productoId);
     }
 
     private async Task GenerarHojaAsync()
@@ -256,17 +212,10 @@ else
         _errorHoja = null;
         _sesionGenerada = null;
 
-        if (_modoSeleccion == "categoria" && _categoriaIdHoja <= 0) { _errorHoja = "Seleccioná una categoría."; return; }
-        if (_modoSeleccion == "libre" && _productosSeleccionados.Count == 0) { _errorHoja = "Seleccioná al menos un producto."; return; }
-
         _generando = true;
         try
         {
-            var dto = new GenerarHojaConteoDto(
-                _modoSeleccion == "categoria" ? _categoriaIdHoja : null,
-                _modoSeleccion == "libre" ? _productosSeleccionados.ToList() : null
-            );
-
+            var dto = new GenerarHojaConteoDto(null, null);
             var (contenido, nombreArchivo) = await ConteoApi.GenerarHojaAsync(dto);
             await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(contenido));
