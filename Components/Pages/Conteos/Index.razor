@@ -20,17 +20,9 @@ else
 {
     <div class="card elev-sm" style="margin:20px 0">
         <h2 style="margin:0 0 4px">1. Generar hoja de conteo</h2>
-        <p class="card-body" style="margin:0 0 8px">Elija la ubicación a contar y qué productos incluir. Se descarga un Excel con una fila por producto y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
+        <p class="card-body" style="margin:0 0 8px">Elija qué productos incluir. Se descarga un Excel con una fila por cada producto y ubicación donde tenga stock, y la columna "Cantidad Contada" en blanco para llenar a mano.</p>
 
         <div class="filter-row">
-            <select class="input" style="max-width:200px" @bind="_ubicacionIdHoja">
-                <option value="0">-- Ubicación --</option>
-                @foreach (var u in _ubicaciones)
-                {
-                    <option value="@u.Id">@u.CodigoUbicacion</option>
-                }
-            </select>
-
             <select class="input" style="max-width:200px" @bind="_modoSeleccion">
                 <option value="todos">Todos los productos</option>
                 <option value="categoria">Por categoría</option>
@@ -207,7 +199,6 @@ else
     private List<ConteoDto>? _conteos;
 
     // Sección 1: generar hoja
-    private int _ubicacionIdHoja;
     private string _modoSeleccion = "todos";
     private int _categoriaIdHoja;
     private readonly HashSet<int> _productosSeleccionados = [];
@@ -265,7 +256,6 @@ else
         _errorHoja = null;
         _sesionGenerada = null;
 
-        if (_ubicacionIdHoja <= 0) { _errorHoja = "Seleccioná una ubicación."; return; }
         if (_modoSeleccion == "categoria" && _categoriaIdHoja <= 0) { _errorHoja = "Seleccioná una categoría."; return; }
         if (_modoSeleccion == "libre" && _productosSeleccionados.Count == 0) { _errorHoja = "Seleccioná al menos un producto."; return; }
 
@@ -273,7 +263,6 @@ else
         try
         {
             var dto = new GenerarHojaConteoDto(
-                _ubicacionIdHoja,
                 _modoSeleccion == "categoria" ? _categoriaIdHoja : null,
                 _modoSeleccion == "libre" ? _productosSeleccionados.ToList() : null
             );

@@ -73,4 +73,13 @@ public class ProductoApiClient
         var resultado = await respuesta.Content.ReadFromJsonAsync<SiguienteCodigoDto>(cancellationToken: ct);
         return resultado!.Codigo;
     }
+
+    // Usado por Movimientos (Salida/Ajuste negativo) y Conteo físico para no dejar elegir
+    // una ubicación donde este producto no tiene nada guardado.
+    public async Task<List<UbicacionConExistenciaDto>> ListarUbicacionesConStockAsync(int productoId, CancellationToken ct = default)
+    {
+        var respuesta = await _http.GetAsync($"api/productos/{productoId}/ubicaciones", ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return await respuesta.Content.ReadFromJsonAsync<List<UbicacionConExistenciaDto>>(cancellationToken: ct) ?? [];
+    }
 }

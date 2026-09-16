@@ -172,7 +172,7 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <select class="input" @bind="_movProductoId">
+            <select class="input" @bind="_movProductoId" @bind:after="ActualizarUbicacionesDisponiblesAsync">
                 <option value="0">-- Seleccionar --</option>
                 @foreach (var p in _productos ?? [])
                 {
@@ -182,13 +182,28 @@ else
         </div>
         <div class="field">
             <label>Ubicación origen</label>
-            <select class="input" @bind="_movUbicacionId">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var u in _ubicaciones ?? [])
-                {
-                    <option value="@u.Id">@u.CodigoUbicacion</option>
-                }
-            </select>
+            @if (_movProductoId <= 0)
+            {
+                <select class="input" disabled><option>Elegí primero un producto</option></select>
+            }
+            else if (_cargandoUbicaciones)
+            {
+                <select class="input" disabled><option>Cargando…</option></select>
+            }
+            else if ((_ubicacionesConStock?.Count ?? 0) == 0)
+            {
+                <select class="input" disabled><option>Este producto no tiene stock en ninguna ubicación</option></select>
+            }
+            else
+            {
+                <select class="input" @bind="_movUbicacionId">
+                    <option value="0">-- Seleccionar --</option>
+                    @foreach (var u in _ubicacionesConStock!)
+                    {
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N2"))</option>
+                    }
+                </select>
+            }
         </div>
         <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
         <div class="field">
@@ -213,7 +228,7 @@ else
     </Body>
     <Actions>
         <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarSalida">Confirmar salida</button>
+        <button type="button" class="btn btn-primary" disabled="@(_guardando || SinStockParaFiltro)" @onclick="ConfirmarSalida">Confirmar salida</button>
     </Actions>
 </Dialog>
 
@@ -222,7 +237,7 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <select class="input" @bind="_movProductoId">
+            <select class="input" @bind="_movProductoId" @bind:after="ActualizarUbicacionesDisponiblesAsync">
                 <option value="0">-- Seleccionar --</option>
                 @foreach (var p in _productos ?? [])
                 {
@@ -231,21 +246,46 @@ else
             </select>
         </div>
         <div class="field">
-            <label>Ubicación</label>
-            <select class="input" @bind="_movUbicacionId">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var u in _ubicaciones ?? [])
-                {
-                    <option value="@u.Id">@u.CodigoUbicacion</option>
-                }
-            </select>
-        </div>
-        <div class="field">
             <label>Sentido del ajuste</label>
             <div class="seg" role="radiogroup">
-                <label class="seg-opt @(_movAjustePositivo ? "active" : "")" @onclick="() => _movAjustePositivo = true">Positivo (+)</label>
-                <label class="seg-opt @(!_movAjustePositivo ? "active" : "")" @onclick="() => _movAjustePositivo = false">Negativo (-)</label>
+                <label class="seg-opt @(_movAjustePositivo ? "active" : "")" @onclick="() => CambiarSentidoAjusteAsync(true)">Positivo (+)</label>
+                <label class="seg-opt @(!_movAjustePositivo ? "active" : "")" @onclick="() => CambiarSentidoAjusteAsync(false)">Negativo (-)</label>
             </div>
+        </div>
+        <div class="field">
+            <label>Ubicación</label>
+            @if (_movAjustePositivo)
+            {
+                <select class="input" @bind="_movUbicacionId">
+                    <option value="0">-- Seleccionar --</option>
+                    @foreach (var u in _ubicaciones ?? [])
+                    {
+                        <option value="@u.Id">@u.CodigoUbicacion</option>
+                    }
+                </select>
+            }
+            else if (_movProductoId <= 0)
+            {
+                <select class="input" disabled><option>Elegí primero un producto</option></select>
+            }
+            else if (_cargandoUbicaciones)
+            {
+                <select class="input" disabled><option>Cargando…</option></select>
+            }
+            else if ((_ubicacionesConStock?.Count ?? 0) == 0)
+            {
+                <select class="input" disabled><option>Este producto no tiene stock en ninguna ubicación</option></select>
+            }
+            else
+            {
+                <select class="input" @bind="_movUbicacionId">
+                    <option value="0">-- Seleccionar --</option>
+                    @foreach (var u in _ubicacionesConStock!)
+                    {
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N2"))</option>
+                    }
+                </select>
+            }
         </div>
         <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
         <div class="field"><label>Motivo (obligatorio)</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
@@ -256,7 +296,7 @@ else
     </Body>
     <Actions>
         <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarAjuste">Confirmar ajuste</button>
+        <button type="button" class="btn btn-primary" disabled="@(_guardando || SinStockParaFiltro)" @onclick="ConfirmarAjuste">Confirmar ajuste</button>
     </Actions>
 </Dialog>
 
@@ -316,6 +356,15 @@ else
     private bool _movAjustePositivo = true;
     private MovimientoDto? _devolviendoMov;
 
+    // Salida y Ajuste negativo solo dejan elegir ubicaciones donde el producto realmente
+    // tiene stock (Entrada/Ajuste positivo/Devolución siguen con la lista completa, porque
+    // ahí es donde un producto se guarda por primera vez en un lugar nuevo).
+    private List<UbicacionConExistenciaDto>? _ubicacionesConStock;
+    private bool _cargandoUbicaciones;
+
+    private bool RequiereFiltroUbicacion => _dialog == "salida" || (_dialog == "ajuste" && !_movAjustePositivo);
+    private bool SinStockParaFiltro => RequiereFiltroUbicacion && _movProductoId > 0 && !_cargandoUbicaciones && (_ubicacionesConStock?.Count ?? 0) == 0;
+
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
     private async Task CargarAsync()
@@ -368,7 +417,29 @@ else
     {
         _movProductoId = 0; _movUbicacionId = 0; _movCantidad = 0; _movMotivo = null;
         _movRetorna = false; _movUbicacionExterna = null; _movFechaRetorno = null; _movAjustePositivo = true;
-        _dialogError = null;
+        _dialogError = null; _ubicacionesConStock = null; _cargandoUbicaciones = false;
+    }
+
+    private async Task CambiarSentidoAjusteAsync(bool positivo)
+    {
+        _movAjustePositivo = positivo;
+        await ActualizarUbicacionesDisponiblesAsync();
+    }
+
+    private async Task ActualizarUbicacionesDisponiblesAsync()
+    {
+        _movUbicacionId = 0;
+        if (!RequiereFiltroUbicacion || _movProductoId <= 0)
+        {
+            _ubicacionesConStock = null;
+            return;
+        }
+
+        _cargandoUbicaciones = true;
+        _ubicacionesConStock = null;
+        try { _ubicacionesConStock = await ProductoApi.ListarUbicacionesConStockAsync(_movProductoId); }
+        catch (ApiException ex) { _dialogError = ex.Message; _ubicacionesConStock = []; }
+        finally { _cargandoUbicaciones = false; }
     }
 
     private void AbrirEntrada() { LimpiarCampos(); _dialog = "entrada"; }
