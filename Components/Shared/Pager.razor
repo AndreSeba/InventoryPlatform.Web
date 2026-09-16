@@ -1,0 +1,32 @@
+@if (TotalPaginas > 1)
+{
+    <div class="pager-row">
+        <span class="text-muted" style="font-size:13px">
+            Mostrando @DesdeMostrado–@HastaMostrado de @TotalItems
+        </span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@(PaginaActual <= 1)" @onclick="() => CambiarPagina(PaginaActual - 1)">Anterior</button>
+            <span class="text-muted" style="font-size:13px">Página @PaginaActual de @TotalPaginas</span>
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@(PaginaActual >= TotalPaginas)" @onclick="() => CambiarPagina(PaginaActual + 1)">Siguiente</button>
+        </div>
+    </div>
+}
+
+@code {
+    // 1-based: la primera página es la 1, no la 0.
+    [Parameter] public int PaginaActual { get; set; } = 1;
+    [Parameter] public EventCallback<int> PaginaActualChanged { get; set; }
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public int TamanoPagina { get; set; } = 10;
+
+    private int TotalPaginas => Math.Max(1, (int)Math.Ceiling(TotalItems / (double)TamanoPagina));
+    private int DesdeMostrado => TotalItems == 0 ? 0 : (PaginaActual - 1) * TamanoPagina + 1;
+    private int HastaMostrado => Math.Min(PaginaActual * TamanoPagina, TotalItems);
+
+    private async Task CambiarPagina(int nueva)
+    {
+        if (nueva < 1 || nueva > TotalPaginas || nueva == PaginaActual) return;
+        PaginaActual = nueva;
+        await PaginaActualChanged.InvokeAsync(nueva);
+    }
+}

@@ -196,7 +196,7 @@ else
             <table class="table">
                 <thead><tr><th>Producto</th><th>Ubicación</th><th>N.º</th><th>Contado</th><th>Sistema</th><th>Diferencia</th></tr></thead>
                 <tbody>
-                    @foreach (var c in _conteos)
+                    @foreach (var c in ConteosPaginados())
                     {
                         <tr>
                             <td>@c.ProductoNombre</td>
@@ -210,6 +210,7 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager TotalItems="_conteos.Count" PaginaActual="_paginaConteos" PaginaActualChanged="p => _paginaConteos = p" TamanoPagina="TamanoPagina" />
     }
 </div>
 
@@ -218,6 +219,14 @@ else
     private List<UbicacionDto>? _ubicaciones;
     private List<CategoriaDto>? _categorias;
     private List<ConteoDto>? _conteos;
+
+    private const int TamanoPagina = 10;
+    private int _paginaConteos = 1;
+
+    private List<ConteoDto> ConteosPaginados() => (_conteos ?? [])
+        .Skip((_paginaConteos - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     // Sección 1: generar hoja
     private int _categoriaIdHoja;
@@ -373,6 +382,7 @@ else
     private async Task OnSesionInput(ChangeEventArgs e)
     {
         _sesion = e.Value?.ToString() ?? "";
+        _paginaConteos = 1;
         await CargarSesionAsync();
     }
 

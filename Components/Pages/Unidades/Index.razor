@@ -31,7 +31,7 @@ else
         <table class="table">
             <thead><tr><th>Código</th><th>Nombre</th><th># Productos</th><th></th></tr></thead>
             <tbody>
-                @foreach (var u in _unidades)
+                @foreach (var u in Paginados())
                 {
                     <tr>
                         <td>@u.CodigoUnidad</td>
@@ -48,6 +48,7 @@ else
             </tbody>
         </table>
     </div>
+    <Pager TotalItems="_unidades.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
 <Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva unidad" : "Editar unidad")">
@@ -96,6 +97,14 @@ else
 @code {
     private List<UnidadDto>? _unidades;
     private List<ProductoDto>? _productos;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<UnidadDto> Paginados() => (_unidades ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
     private string? _error;
 
     private bool _dialogOpen;

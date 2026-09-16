@@ -27,7 +27,7 @@ else
         <table class="table">
             <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último login</th><th></th></tr></thead>
             <tbody>
-                @foreach (var u in _usuarios)
+                @foreach (var u in Paginados())
                 {
                     <tr>
                         <td>@u.NombreCompleto</td>
@@ -41,6 +41,7 @@ else
             </tbody>
         </table>
     </div>
+    <Pager TotalItems="_usuarios.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
 <Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo usuario" : "Editar usuario")">
@@ -84,6 +85,14 @@ else
     private List<UsuarioDto>? _usuarios;
     private List<RolDto>? _roles;
     private string? _error;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<UsuarioDto> Paginados() => (_usuarios ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     private bool _dialogOpen;
     private bool _guardando;

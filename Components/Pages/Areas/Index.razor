@@ -31,7 +31,7 @@ else
         <table class="table">
             <thead><tr><th>Código</th><th>Nombre</th><th># Solicitudes</th><th></th></tr></thead>
             <tbody>
-                @foreach (var a in _areas)
+                @foreach (var a in Paginados())
                 {
                     <tr>
                         <td>@a.CodigoArea</td>
@@ -48,6 +48,7 @@ else
             </tbody>
         </table>
     </div>
+    <Pager TotalItems="_areas.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
 <Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva área" : "Editar área")">
@@ -78,6 +79,14 @@ else
     private List<AreaDto>? _areas;
     private List<SolicitudDto>? _solicitudes;
     private string? _error;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<AreaDto> Paginados() => (_areas ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     private bool _dialogOpen;
     private bool _guardando;

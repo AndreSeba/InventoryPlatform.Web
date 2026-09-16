@@ -50,7 +50,7 @@ else
             <table class="table">
                 <thead><tr><th>N.º</th><th>Área</th><th>Estado</th><th>Solicitado por</th><th>Fecha</th><th></th></tr></thead>
                 <tbody>
-                    @foreach (var s in _solicitudes)
+                    @foreach (var s in Paginados())
                     {
                         <tr>
                             <td>@s.NumeroSolicitud</td>
@@ -64,6 +64,7 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager TotalItems="_solicitudes.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 }
 
@@ -124,6 +125,14 @@ else
     private string _filtroEstado = "";
     private string? _error;
 
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<SolicitudDto> Paginados() => (_solicitudes ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
+
     private bool _dialogOpen;
     private bool _guardando;
     private string? _dialogError;
@@ -152,6 +161,7 @@ else
     private async Task SetFiltro(string estado)
     {
         _filtroEstado = estado;
+        _pagina = 1;
         try { _solicitudes = await SolicitudApi.ListarAsync(string.IsNullOrEmpty(estado) ? null : estado); }
         catch (ApiException ex) { _error = ex.Message; }
     }

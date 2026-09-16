@@ -45,14 +45,14 @@
 else
 {
     <div class="filter-row">
-        <select class="input" style="max-width:220px" @bind="_filtroCategoria">
+        <select class="input" style="max-width:220px" @bind="_filtroCategoria" @bind:after="() => _pagina = 1">
             <option value="">Todas las categorías</option>
             @foreach (var c in _categorias)
             {
                 <option value="@c.CodigoCategoria">@c.CodigoCategoria</option>
             }
         </select>
-        <select class="input" style="max-width:180px" @bind="_filtroTipo">
+        <select class="input" style="max-width:180px" @bind="_filtroTipo" @bind:after="() => _pagina = 1">
             <option value="">Todos los tipos</option>
             <option value="Entrada">Entrada</option>
             <option value="Salida">Salida</option>
@@ -70,7 +70,7 @@ else
         <table class="table">
             <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Registrado por</th><th>Motivo</th></tr></thead>
             <tbody>
-                @foreach (var m in Filtrados())
+                @foreach (var m in Paginados())
                 {
                     <tr>
                         <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
@@ -89,6 +89,10 @@ else
     @if (Filtrados().Count == 0)
     {
         <p class="text-muted" style="margin-top:20px">Sin movimientos para este filtro.</p>
+    }
+    else
+    {
+        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 
     <div class="hr" style="margin-top:32px"></div>
@@ -341,6 +345,14 @@ else
     private string? _ok;
     private bool _exportando;
     private string? _errorExportar;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<MovimientoDto> Paginados() => Filtrados()
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     private string? _dialog; // "entrada" | "salida" | "ajuste" | "devolucion" | null
     private bool _guardando;

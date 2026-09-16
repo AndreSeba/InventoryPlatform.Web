@@ -26,7 +26,7 @@ else
         <table class="table">
             <thead><tr><th>Nombre</th><th>Descripción</th><th># Permisos</th><th></th></tr></thead>
             <tbody>
-                @foreach (var r in _roles)
+                @foreach (var r in Paginados())
                 {
                     <tr>
                         <td>@r.Nombre</td>
@@ -38,6 +38,7 @@ else
             </tbody>
         </table>
     </div>
+    <Pager TotalItems="_roles.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
 <Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo rol" : "Editar rol")">
@@ -84,6 +85,14 @@ else
     private List<RolDto>? _roles;
     private List<PermisoDto>? _permisosDisponibles;
     private string? _error;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    private List<RolDto> Paginados() => (_roles ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     private bool _dialogOpen;
     private bool _guardando;

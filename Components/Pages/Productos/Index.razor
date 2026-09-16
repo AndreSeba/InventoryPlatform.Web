@@ -47,7 +47,7 @@ else
     else
     {
         <div class="product-grid">
-            @foreach (var p in Filtrados())
+            @foreach (var p in Paginados())
             {
                 <div class="card elev-sm product-card">
                     <div class="product-card-img" style="@(string.IsNullOrWhiteSpace(p.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{p.ImagenUrl}')")">
@@ -74,6 +74,7 @@ else
                 </div>
             }
         </div>
+        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 }
 
@@ -175,6 +176,9 @@ else
     private int? _filtroCategoriaId;
     private string? _error;
 
+    private const int TamanoPagina = 8;
+    private int _pagina = 1;
+
     private bool _dialogOpen;
     private bool _guardando;
     private bool _procesandoImagen;
@@ -203,8 +207,8 @@ else
     }
 
     private void VerProducto(int id) => Nav.NavigateTo($"/productos/{id}");
-    private void OnQuery(ChangeEventArgs e) => _query = e.Value?.ToString() ?? "";
-    private void SetFiltro(int? categoriaId) => _filtroCategoriaId = categoriaId;
+    private void OnQuery(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; _pagina = 1; }
+    private void SetFiltro(int? categoriaId) { _filtroCategoriaId = categoriaId; _pagina = 1; }
 
     private List<ProductoDto> Filtrados()
     {
@@ -216,6 +220,13 @@ else
                 || p.Nombre.Contains(q, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
+
+    // Filtrados() ya trae la lista completa que matchea el filtro/búsqueda;
+    // Paginados() recorta solo la página actual para el @foreach de la grilla.
+    private List<ProductoDto> Paginados() => Filtrados()
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
 
     private async Task AbrirNuevo()
     {
