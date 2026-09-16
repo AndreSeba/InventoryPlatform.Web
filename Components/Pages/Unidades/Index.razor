@@ -1,0 +1,181 @@
+@page "/unidades"
+@inject UnidadApiClient UnidadApi
+@inject ProductoApiClient ProductoApi
+@inject AuthState AuthState
+
+<PageTitle>Unidades</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Unidades</h1>
+        <p class="text-muted" style="margin-top:-6px">Unidades de medida disponibles al dar de alta un producto.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.UnidadesCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva unidad</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_unidades is null || _productos is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Nombre</th><th># Productos</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _unidades)
+                {
+                    <tr>
+                        <td>@u.CodigoUnidad</td>
+                        <td class="text-muted">@u.Nombre</td>
+                        <td class="text-muted">@_productos.Count(p => p.UnidadMedida == u.CodigoUnidad)</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.UnidadesEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(u)">Editar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva unidad" : "Editar unidad")">
+    <Body>
+        <div class="field">
+            <label for="uf-cod">Código</label>
+            @if (_editandoId is null)
+            {
+                <input class="input" id="uf-cod" @bind="_codigo" placeholder="KG" maxlength="10" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Corto y en mayúsculas. No se puede cambiar después: forma parte de la clave de cada producto que la use.
+                </p>
+            }
+            else
+            {
+                <input class="input" id="uf-cod" value="@_codigo" disabled />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    El código no se puede cambiar. Si está mal, destildá «Activa» y creá una unidad nueva.
+                </p>
+            }
+        </div>
+        <div class="field">
+            <label for="uf-nom">Nombre</label>
+            <input class="input" id="uf-nom" @bind="_nombre" placeholder="Kilogramo" />
+        </div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activa (destildar para eliminarla — los productos que ya la usan la conservan, pero deja de poder elegirse en productos nuevos)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<UnidadDto>? _unidades;
+    private List<ProductoDto>? _productos;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _codigo = "";
+    private string _nombre = "";
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _unidades = await UnidadApi.ListarAsync();
+            _productos = await ProductoApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _unidades = [];
+            _productos = [];
+        }
+    }
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _nombre = "";
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(UnidadDto u)
+    {
+        _editandoId = u.Id;
+        _codigo = u.CodigoUnidad;
+        _nombre = u.Nombre;
+        _activo = u.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = "";
+        _nombre = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingrese un código."; return; }
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingrese un nombre."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await UnidadApi.CrearAsync(new CrearUnidadDto(_codigo, _nombre));
+            else
+                await UnidadApi.ActualizarAsync(_editandoId.Value, new ActualizarUnidadDto(_nombre, _activo));
+
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

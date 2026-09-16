@@ -30,7 +30,7 @@
                 <RailLink Href="/conteos" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer))
+            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer) || AuthState.HasPermission(Permisos.UnidadesVer))
             {
                 <div class="rail-section">Catálogos</div>
             }
@@ -45,6 +45,10 @@
             @if (AuthState.HasPermission(Permisos.UbicacionesVer))
             {
                 <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicaciones" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.UnidadesVer))
+            {
+                <RailLink Href="/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
             }
 
             @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar))

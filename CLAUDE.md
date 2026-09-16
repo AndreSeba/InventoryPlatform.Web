@@ -50,7 +50,8 @@ al backend). Este repo **nunca** toca la base de datos ni referencia
 - Sin base de datos ni Infrastructure propios — solo `HttpClient` tipados en
   `Services/` (`ProductoApiClient`, `MovimientoApiClient`,
   `CategoriaApiClient`, `AreaApiClient`, `UbicacionApiClient`,
-  `SolicitudApiClient`, `ConteoApiClient`, `UsuarioApiClient`, `RolApiClient`),
+  `SolicitudApiClient`, `ConteoApiClient`, `UsuarioApiClient`, `RolApiClient`,
+  `UnidadApiClient`),
   cada uno con el mismo patrón: método por endpoint,
   `ApiClientHelper.LanzarSiHayErrorAsync` traduce un `ProblemDetails` no-2xx
   (o un 401/403 sin cuerpo del handler de JWT) en una `ApiException` que los
@@ -231,6 +232,7 @@ adaptarlo al backend real (`InventoryPlatform`, modelo v4):
 | `/solicitudes/{id}` | Detalle de solicitud | Aprobar (por línea)/Rechazar (Pendiente) o Entregar (Aprobada/EntregadaParcial → crea una Salida real) |
 | `/conteos` | Conteo físico | Por sesión: registrar conteo + comparación contra existencia del sistema |
 | `/categorias`, `/areas`, `/ubicaciones` | Catálogos simples | Tabla + diálogo de alta. Sin editar/eliminar (ver arriba) |
+| `/unidades` | Unidades de medida | Tabla + diálogo de alta/edición. El código es de solo lectura al editar (ver abajo) |
 
 ## Comandos
 
@@ -244,6 +246,23 @@ dotnet run --launch-profile https      # https://localhost:7126
 genérico controlado ("Ocurrió un error inesperado") en vez de datos, que es
 el comportamiento esperado y ya verificado, no un bug.
 
+## Unidades de medida (agregado 2026-09-16)
+
+`/unidades` (`Components/Pages/Unidades/Index.razor`) administra el catálogo de unidades
+que antes eran 3 `<option>` fijas en el formulario de producto. Mismo patrón visual que
+Categorías y Áreas: tabla + diálogo, "eliminar" es destildar «Activa».
+
+- **El campo Código está deshabilitado al editar** — el backend no lo expone en
+  `ActualizarUnidadDto` porque ese código va embebido en la `ClaveProducto` de cada
+  producto que lo usa (ver `InventoryPlatform/CLAUDE.md`). No agregar un input editable
+  acá: el PUT lo ignoraría igual.
+- **`Productos/Index.razor` carga el `<select>` de unidad desde `UnidadApiClient`**, no
+  de una lista fija, y el valor por defecto al crear es la primera unidad del catálogo,
+  ya no `"UNI"` — que podría estar desactivada.
+- El rail muestra el link con `unidades.ver`, que `Operador` y `Consulta` ya traen
+  seedeado (lo necesitan para el formulario de producto).
+- `Icon.razor` tiene el ícono `ruler` agregado para este módulo.
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por
@@ -252,6 +271,9 @@ el comportamiento esperado y ya verificado, no un bug.
   por los `*ApiClient` de `Services/`.
 - ❌ No agregues un botón de Editar/Eliminar a Ubicaciones hasta que el
   backend exponga ese endpoint (Categorías y Áreas ya lo tienen).
+- ❌ No vuelvas a hardcodear las unidades de medida en un `<select>` — salen de
+  `UnidadApiClient.ListarAsync()`. Y no hagas editable el código de una unidad ya
+  creada (ver "Unidades de medida").
 - ❌ No adjuntes el JWT vía `DelegatingHandler` + `.AddHttpMessageHandler<T>()`
   para un `HttpClient` tipado — `IHttpClientFactory` resuelve ese handler en
   un scope de DI propio, no en el del circuito, así que un `AuthState`
