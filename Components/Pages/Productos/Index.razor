@@ -132,7 +132,7 @@ else
             </div>
             <div class="field">
                 <label for="pf-sm">Stock mínimo</label>
-                <input class="input" id="pf-sm" type="number" min="0" step="0.01" @bind="_form.StockMinimo" />
+                <input class="input" id="pf-sm" type="number" min="0" step="1" @bind="_form.StockMinimo" />
             </div>
         </div>
         <div class="field">
@@ -373,7 +373,7 @@ else
         public int CategoriaId { get; set; }
         public string UnidadMedida { get; set; } = "UNI";
         public decimal? CostoUnitario { get; set; }
-        public decimal StockMinimo { get; set; }
+        public int StockMinimo { get; set; }
         public string? Detalle { get; set; }
         public byte[]? ImagenData { get; set; }
         public string? ImagenContentType { get; set; }

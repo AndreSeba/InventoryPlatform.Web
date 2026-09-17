@@ -116,9 +116,9 @@ else
                                 <tr>
                                     <td>@c.ProductoNombre</td>
                                     <td class="text-muted">@c.UbicacionCodigo</td>
-                                    <td>@c.CantidadContada.ToString("N2")</td>
-                                    <td class="text-muted">@c.ExistenciaSistema.ToString("N2")</td>
-                                    <td><span class="tag tag-warn">@c.Diferencia.ToString("N2")</span></td>
+                                    <td>@c.CantidadContada.ToString("N0")</td>
+                                    <td class="text-muted">@c.ExistenciaSistema.ToString("N0")</td>
+                                    <td><span class="tag tag-warn">@c.Diferencia.ToString("N0")</span></td>
                                     <td>
                                         @if (_ajustesAplicados.Contains(c.Id))
                                         {
@@ -173,7 +173,7 @@ else
                 }
             </select>
             <input class="input" style="max-width:90px" type="number" min="1" title="N.º de conteo" @bind="_numeroConteo" />
-            <input class="input" style="max-width:150px" type="number" min="0" step="0.01" placeholder="Cantidad contada" @bind="_cantidadContada" />
+            <input class="input" style="max-width:150px" type="number" min="0" step="1" placeholder="Cantidad contada" @bind="_cantidadContada" />
             <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="RegistrarAsync">@(_guardando ? "Guardando…" : "Registrar")</button>
         </div>
     }
@@ -202,9 +202,9 @@ else
                             <td>@c.ProductoNombre</td>
                             <td class="text-muted">@c.UbicacionCodigo</td>
                             <td class="text-muted">@c.NumeroConteo</td>
-                            <td>@c.CantidadContada.ToString("N2")</td>
-                            <td class="text-muted">@c.ExistenciaSistema.ToString("N2")</td>
-                            <td><span class="@(c.Diferencia != 0 ? "tag tag-warn" : "tag tag-neutral")">@c.Diferencia.ToString("N2")</span></td>
+                            <td>@c.CantidadContada.ToString("N0")</td>
+                            <td class="text-muted">@c.ExistenciaSistema.ToString("N0")</td>
+                            <td><span class="@(c.Diferencia != 0 ? "tag tag-warn" : "tag tag-neutral")">@c.Diferencia.ToString("N0")</span></td>
                         </tr>
                     }
                 </tbody>
@@ -249,7 +249,7 @@ else
     private int _productoId;
     private int _ubicacionId;
     private int _numeroConteo = 1;
-    private decimal _cantidadContada;
+    private int _cantidadContada;
     private bool _guardando;
     private string? _error;
     private string? _ok;

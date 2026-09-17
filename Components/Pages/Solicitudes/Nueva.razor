@@ -1,0 +1,407 @@
+@page "/solicitudes/nueva"
+@inject SolicitudApiClient SolicitudApi
+@inject AreaApiClient AreaApi
+@inject ProductoApiClient ProductoApi
+@inject CategoriaApiClient CategoriaApi
+@inject UnidadApiClient UnidadApi
+@inject NavigationManager Nav
+
+<PageTitle>Nueva solicitud</PageTitle>
+
+<a href="/solicitudes" style="font-size:13px">‹ Volver a solicitudes</a>
+
+<div class="page-head" style="margin-top:12px">
+    <div>
+        <h1>Nueva solicitud</h1>
+        <p class="text-muted" style="margin-top:-6px">Elegí el área y el tipo, agregá productos al carrito y enviá la solicitud.</p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_productos is null || _areas is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="dialog-grid-2" style="margin-top:8px">
+        <div class="field">
+            <label>Área solicitante</label>
+            <select class="input" @bind="_areaId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var a in _areas)
+                {
+                    <option value="@a.Id">@a.NombreArea</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Tipo de solicitud</label>
+            <div class="seg" role="radiogroup">
+                <label class="seg-opt @(_tipo == TipoSolicitud.Salida ? "active" : "")" @onclick="() => CambiarTipo(TipoSolicitud.Salida)">Salida</label>
+                <label class="seg-opt @(_tipo == TipoSolicitud.Entrada ? "active" : "")" @onclick="() => CambiarTipo(TipoSolicitud.Entrada)">Entrada</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="filter-row" style="margin-top:20px">
+        <input class="input" style="max-width:320px" placeholder="Buscar por código o nombre" value="@_query" @oninput="OnQuery" />
+        <div class="chip-row">
+            <button type="button" class="btn @(_filtroCategoriaId is null ? "btn-primary" : "btn-secondary")" @onclick="() => SetFiltro(null)">Todas</button>
+            @foreach (var c in _categorias ?? [])
+            {
+                <button type="button" class="btn @(_filtroCategoriaId == c.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SetFiltro(c.Id)">@c.CodigoCategoria</button>
+            }
+        </div>
+        @if (_tipo == TipoSolicitud.Entrada)
+        {
+            <button type="button" class="btn btn-secondary" style="margin-left:auto" @onclick="AbrirProductoNuevo">+ Producto nuevo</button>
+        }
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;margin-top:16px;align-items:start">
+        <div>
+            @if (Filtrados().Count == 0)
+            {
+                <p class="text-muted" style="margin-top:24px">No se encontraron productos.</p>
+            }
+            else
+            {
+                <div class="product-grid">
+                    @foreach (var p in Paginados())
+                    {
+                        <div class="card elev-sm product-card">
+                            <div class="product-card-img" style="@(string.IsNullOrWhiteSpace(p.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{p.ImagenUrl}')")">
+                                @if (string.IsNullOrWhiteSpace(p.ImagenUrl))
+                                {
+                                    <span>Foto del producto</span>
+                                }
+                            </div>
+                            <div class="product-card-body">
+                                <div class="product-card-top">
+                                    <span class="card-kicker" style="color:var(--color-neutral-700)">@p.CodigoProducto</span>
+                                    <span class="tag tag-neutral">@p.CategoriaNombre</span>
+                                </div>
+                                <div class="card-title" style="font-size:15px">@p.Nombre</div>
+                                <div class="stock-line @(_tipo == TipoSolicitud.Salida && p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") @p.UnidadMedida</div>
+                                <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+                                    <input class="input" style="max-width:70px" type="number" min="1" step="1" @bind="_cantidadUi[p.Id]" />
+                                    <button type="button" class="btn btn-secondary btn-sm" style="flex:1" @onclick="() => AgregarAlCarrito(p)">Agregar</button>
+                                </div>
+                                @{ var mensaje = StockInsuficienteMensaje(p, CantidadElegida(p.Id)); }
+                                @if (mensaje is not null)
+                                {
+                                    <p class="dialog-error" style="margin:4px 0 0;font-size:12px">@mensaje</p>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+            }
+        </div>
+
+        <div class="card elev-sm" style="padding:16px;position:sticky;top:16px">
+            <div class="card-title" style="font-size:15px;margin-bottom:8px">Carrito (@_carrito.Count)</div>
+            @if (_carrito.Count == 0)
+            {
+                <p class="text-muted" style="font-size:13px">Todavía no agregaste productos.</p>
+            }
+            else
+            {
+                @foreach (var linea in _carrito)
+                {
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--color-divider)">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                            <span style="font-size:13px">@linea.ProductoNombre</span>
+                            <button type="button" class="btn btn-ghost btn-icon" title="Quitar" @onclick="() => QuitarDelCarrito(linea)"><Icon Name="x" Size="14" /></button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <input class="input" style="max-width:70px" type="number" min="1" step="1" @bind="linea.Cantidad" @bind:event="oninput" />
+                            <span class="text-muted" style="font-size:12px">@linea.UnidadMedida</span>
+                        </div>
+                    </div>
+                }
+            }
+            @if (_dialogError is not null)
+            {
+                <p class="dialog-error" style="font-size:12px">@_dialogError</p>
+            }
+            <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px" disabled="@(_guardando || _carrito.Count == 0)" @onclick="EnviarAsync">@(_guardando ? "Enviando…" : "Enviar solicitud")</button>
+        </div>
+    </div>
+}
+
+<Dialog Visible="_productoNuevoOpen" Title="Producto nuevo">
+    <Body>
+        <div class="field">
+            <label>Nombre</label>
+            <input class="input" @bind="_nuevoNombre" @bind:event="oninput" placeholder="Nombre del material" />
+        </div>
+        @if (ProductosSimilares().Count > 0)
+        {
+            <p class="dialog-error" style="font-size:12px">
+                Ya existen productos con un nombre parecido — revisá que no sea el mismo antes de crear uno nuevo:
+                @string.Join(", ", ProductosSimilares().Select(p => p.Nombre))
+            </p>
+        }
+        <div class="dialog-grid-2">
+            <div class="field">
+                <label>Categoría</label>
+                <select class="input" @bind="_nuevoCategoriaId">
+                    <option value="0">-- Seleccionar --</option>
+                    @foreach (var c in _categorias ?? [])
+                    {
+                        <option value="@c.Id">@c.CodigoCategoria</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Unidad</label>
+                <select class="input" @bind="_nuevoUnidad">
+                    <option value="">-- Seleccionar --</option>
+                    @foreach (var u in _unidades ?? [])
+                    {
+                        <option value="@u.CodigoUnidad">@u.CodigoUnidad — @u.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="dialog-grid-2">
+            <div class="field">
+                <label>Costo unitario (opcional)</label>
+                <input class="input" type="number" min="0" step="0.01" @bind="_nuevoCosto" />
+            </div>
+            <div class="field">
+                <label>Cantidad a solicitar</label>
+                <input class="input" type="number" min="1" step="1" @bind="_nuevoCantidad" />
+            </div>
+        </div>
+        @if (_productoNuevoError is not null)
+        {
+            <p class="dialog-error">@_productoNuevoError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _productoNuevoOpen = false">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_creandoProducto" @onclick="CrearProductoNuevoAsync">@(_creandoProducto ? "Creando…" : "Crear y agregar al carrito")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ProductoDto>? _productos;
+    private List<AreaDto>? _areas;
+    private List<CategoriaDto>? _categorias;
+    private List<UnidadDto>? _unidades;
+    private string _query = "";
+    private int? _filtroCategoriaId;
+    private string? _error;
+    private string? _dialogError;
+    private bool _guardando;
+
+    private const int TamanoPagina = 8;
+    private int _pagina = 1;
+
+    private int _areaId;
+    private TipoSolicitud _tipo = TipoSolicitud.Salida;
+    private readonly Dictionary<int, int> _cantidadUi = new();
+    private readonly List<LineaCarrito> _carrito = [];
+
+    private bool _productoNuevoOpen;
+    private bool _creandoProducto;
+    private string? _productoNuevoError;
+    private string _nuevoNombre = "";
+    private int _nuevoCategoriaId;
+    private string _nuevoUnidad = "";
+    private decimal? _nuevoCosto;
+    private int _nuevoCantidad = 1;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try { _productos = await ProductoApi.ListarAsync(); }
+        catch (ApiException ex) { _error = ex.Message; _productos = []; }
+
+        try { _areas = await AreaApi.ListarAsync(); }
+        catch (ApiException ex) { _error ??= ex.Message; _areas = []; }
+
+        // categorias.ver/unidades.ver pueden faltar en un rol custom que solo tiene
+        // solicitudes.crear — sin ellos el carrito igual funciona, solo no hay chips de
+        // categoría ni selector de categoría/unidad para el alta rápida de producto nuevo.
+        try { _categorias = await CategoriaApi.ListarAsync(); }
+        catch (ApiException) { _categorias = null; }
+
+        try { _unidades = await UnidadApi.ListarAsync(); }
+        catch (ApiException) { _unidades = null; }
+
+        // @bind sobre un indexador de diccionario lee la clave directo (no
+        // GetValueOrDefault) — sin precargarla acá, la primera vez que se renderiza el
+        // input de cada card tira KeyNotFoundException y tumba el circuito entero
+        // (mismo problema ya documentado en Detalle.razor con _cantidadEntrega/_ubicacionEntrega).
+        foreach (var p in _productos)
+            _cantidadUi.TryAdd(p.Id, 1);
+    }
+
+    private void CambiarTipo(TipoSolicitud tipo) => _tipo = tipo;
+
+    private void OnQuery(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; _pagina = 1; }
+    private void SetFiltro(int? categoriaId) { _filtroCategoriaId = categoriaId; _pagina = 1; }
+
+    private List<ProductoDto> Filtrados()
+    {
+        var q = _query.Trim();
+        return (_productos ?? [])
+            .Where(p => _filtroCategoriaId is null || p.CategoriaId == _filtroCategoriaId)
+            .Where(p => q.Length == 0
+                || p.CodigoProducto.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || p.Nombre.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private List<ProductoDto> Paginados() => Filtrados()
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
+
+    private int CantidadElegida(int productoId) => _cantidadUi.GetValueOrDefault(productoId, 1);
+
+    // Solo aplica a Salida — para Entrada se está sumando stock, no tiene sentido topear
+    // por la existencia actual (ver plan: "Decisiones de diseño").
+    private string? StockInsuficienteMensaje(ProductoDto p, int cantidad)
+    {
+        if (_tipo != TipoSolicitud.Salida || cantidad <= 0) return null;
+        if (cantidad > p.Existencia)
+            return $"Sin stock suficiente. Stock actual: {p.Existencia:N0} {p.UnidadMedida}.";
+        return null;
+    }
+
+    private void AgregarAlCarrito(ProductoDto p)
+    {
+        var cantidad = CantidadElegida(p.Id);
+        if (cantidad <= 0) return;
+        if (StockInsuficienteMensaje(p, cantidad) is not null) return;
+
+        var existente = _carrito.FirstOrDefault(l => l.ProductoId == p.Id);
+        if (existente is not null)
+            existente.Cantidad += cantidad;
+        else
+            _carrito.Add(new LineaCarrito { ProductoId = p.Id, ProductoNombre = p.Nombre, UnidadMedida = p.UnidadMedida, Cantidad = cantidad });
+
+        _dialogError = null;
+    }
+
+    private void QuitarDelCarrito(LineaCarrito linea) => _carrito.Remove(linea);
+
+    private bool HayLineaSinStock() => _tipo == TipoSolicitud.Salida && _carrito.Any(l =>
+    {
+        var producto = (_productos ?? []).FirstOrDefault(p => p.Id == l.ProductoId);
+        return producto is not null && l.Cantidad > producto.Existencia;
+    });
+
+    private async Task EnviarAsync()
+    {
+        if (_guardando) return;
+        if (_areaId <= 0) { _dialogError = "Seleccioná el área solicitante."; return; }
+        if (_carrito.Count == 0) { _dialogError = "Agregá al menos un producto al carrito."; return; }
+        if (HayLineaSinStock()) { _dialogError = "Alguna línea del carrito supera el stock disponible."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            var detalles = _carrito.Select(l => new CrearSolicitudDetalleDto(l.ProductoId, l.Cantidad)).ToList();
+            var creada = await SolicitudApi.CrearAsync(new CrearSolicitudDto(_areaId, _tipo, detalles));
+            Nav.NavigateTo($"/solicitudes/{creada.Id}");
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    // ---- alta rápida de producto nuevo (solo Entrada) ----
+    // El solicitante es quien se entera del material nuevo (aviso externo del proveedor/
+    // categoría) — puede darlo de alta él mismo en vez de texto libre, que generaría
+    // productos duplicados con variaciones de nombre (decisión explícita del usuario).
+
+    private void AbrirProductoNuevo()
+    {
+        _nuevoNombre = "";
+        _nuevoCategoriaId = 0;
+        _nuevoUnidad = "";
+        _nuevoCosto = null;
+        _nuevoCantidad = 1;
+        _productoNuevoError = null;
+        _productoNuevoOpen = true;
+    }
+
+    // Aviso NO bloqueante — normaliza (sin acentos, sin mayúsculas, espacios colapsados) y
+    // marca cualquier producto existente cuyo nombre contenga o esté contenido en el
+    // nombre tipeado, para frenar duplicados como "Cuaderno rayado" vs "Cuadernos Rayados".
+    private List<ProductoDto> ProductosSimilares()
+    {
+        var norm = Normalizar(_nuevoNombre);
+        if (norm.Length < 3) return [];
+
+        return (_productos ?? [])
+            .Where(p => { var pn = Normalizar(p.Nombre); return pn.Contains(norm) || norm.Contains(pn); })
+            .ToList();
+    }
+
+    private static string Normalizar(string s)
+    {
+        var sinAcentos = string.Concat(s.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark));
+        return string.Join(' ', sinAcentos.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private async Task CrearProductoNuevoAsync()
+    {
+        if (_creandoProducto) return;
+        if (string.IsNullOrWhiteSpace(_nuevoNombre)) { _productoNuevoError = "Ingresá un nombre."; return; }
+        if (_nuevoCategoriaId <= 0) { _productoNuevoError = "Seleccioná una categoría."; return; }
+        if (string.IsNullOrWhiteSpace(_nuevoUnidad)) { _productoNuevoError = "Seleccioná una unidad."; return; }
+        if (_nuevoCantidad <= 0) { _productoNuevoError = "La cantidad a solicitar debe ser mayor a cero."; return; }
+
+        _creandoProducto = true;
+        _productoNuevoError = null;
+
+        try
+        {
+            var nuevo = await ProductoApi.CrearRapidoAsync(new CrearProductoDto(
+                _nuevoNombre, _nuevoCategoriaId, _nuevoUnidad, _nuevoCosto, 0, null, null, null));
+
+            (_productos ??= []).Add(nuevo);
+            _cantidadUi.TryAdd(nuevo.Id, 1);
+            _carrito.Add(new LineaCarrito { ProductoId = nuevo.Id, ProductoNombre = nuevo.Nombre, UnidadMedida = nuevo.UnidadMedida, Cantidad = _nuevoCantidad });
+
+            _productoNuevoOpen = false;
+        }
+        catch (ApiException ex)
+        {
+            _productoNuevoError = ex.Message;
+        }
+        finally
+        {
+            _creandoProducto = false;
+        }
+    }
+
+    private class LineaCarrito
+    {
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = "";
+        public string UnidadMedida { get; set; } = "";
+        public int Cantidad { get; set; }
+    }
+}

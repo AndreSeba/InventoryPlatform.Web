@@ -1,7 +1,5 @@
 @page "/solicitudes/mias"
 @inject SolicitudApiClient SolicitudApi
-@inject AreaApiClient AreaApi
-@inject ProductoApiClient ProductoApi
 @inject NavigationManager Nav
 @inject AuthState AuthState
 
@@ -14,7 +12,7 @@
     </div>
     @if (AuthState.HasPermission(Permisos.SolicitudesCrear))
     {
-        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva solicitud</button>
+        <button type="button" class="btn btn-primary" @onclick="IrANueva">+ Nueva solicitud</button>
     }
 </div>
 
@@ -48,13 +46,14 @@ else
     {
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>N.º</th><th>Área</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+                <thead><tr><th>N.º</th><th>Área</th><th>Tipo</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var s in _solicitudes)
                     {
                         <tr>
                             <td>@s.NumeroSolicitud</td>
                             <td>@s.AreaNombre</td>
+                            <td><span class="@(s.Tipo == TipoSolicitud.Entrada ? "tag tag-accent" : "tag tag-outline")">@s.Tipo</span></td>
                             <td><span class="@EstadoTagClase(s.Estado)">@s.Estado</span></td>
                             <td class="text-muted">@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy")</td>
                             <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => VerSolicitud(s.Id)">Ver</button></td>
@@ -66,68 +65,10 @@ else
     }
 }
 
-<Dialog Visible="_dialogOpen" Title="Nueva solicitud">
-    <Body>
-        <div class="field">
-            <label>Área solicitante</label>
-            <select class="input" @bind="_areaId">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var a in _areas ?? [])
-                {
-                    <option value="@a.Id">@a.NombreArea</option>
-                }
-            </select>
-        </div>
-
-        <div class="hr"></div>
-        <label style="font-size:12px;color:var(--color-text)">Líneas</label>
-        @foreach (var linea in _lineas)
-        {
-            <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:6px">
-                <div style="display:flex;gap:10px;align-items:center">
-                    <select class="input" @bind="linea.ProductoId">
-                        <option value="0">-- Producto --</option>
-                        @foreach (var p in _productos ?? [])
-                        {
-                            <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
-                        }
-                    </select>
-                    <input class="input" style="max-width:110px" type="number" min="0" step="0.01" placeholder="Cant."
-                           @bind="linea.Cantidad" @bind:event="oninput" />
-                    <button type="button" class="btn btn-ghost btn-icon" title="Quitar" @onclick="() => _lineas.Remove(linea)"><Icon Name="x" Size="16" /></button>
-                </div>
-                @{ var mensajeStock = StockInsuficienteMensaje(linea); }
-                @if (mensajeStock is not null)
-                {
-                    <p class="dialog-error" style="margin:0;font-size:12px">@mensajeStock</p>
-                }
-            </div>
-        }
-        <button type="button" class="btn btn-secondary btn-sm" style="align-self:flex-start" @onclick="() => _lineas.Add(new LineaForm())">+ Agregar línea</button>
-
-        @if (_dialogError is not null)
-        {
-            <p class="dialog-error">@_dialogError</p>
-        }
-    </Body>
-    <Actions>
-        <button type="button" class="btn btn-ghost" @onclick="() => _dialogOpen = false">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@(_guardando || HayLineaSinStock())" @onclick="Enviar">@(_guardando ? "Enviando…" : "Enviar solicitud")</button>
-    </Actions>
-</Dialog>
-
 @code {
     private List<SolicitudDto>? _solicitudes;
-    private List<AreaDto>? _areas;
-    private List<ProductoDto>? _productos;
     private string _filtroEstado = "";
     private string? _error;
-
-    private bool _dialogOpen;
-    private bool _guardando;
-    private string? _dialogError;
-    private int _areaId;
-    private List<LineaForm> _lineas = [new()];
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -136,86 +77,22 @@ else
         try
         {
             _solicitudes = await SolicitudApi.ListarMiasAsync(string.IsNullOrEmpty(_filtroEstado) ? null : _filtroEstado);
-            _areas = await AreaApi.ListarAsync();
-            _productos = await ProductoApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
-            _solicitudes = []; _areas = []; _productos = [];
+            _solicitudes = [];
         }
     }
 
     private void VerSolicitud(int id) => Nav.NavigateTo($"/solicitudes/{id}");
+    private void IrANueva() => Nav.NavigateTo("/solicitudes/nueva");
 
     private async Task SetFiltro(string estado)
     {
         _filtroEstado = estado;
         try { _solicitudes = await SolicitudApi.ListarMiasAsync(string.IsNullOrEmpty(estado) ? null : estado); }
         catch (ApiException ex) { _error = ex.Message; }
-    }
-
-    private void AbrirNueva()
-    {
-        _areaId = 0;
-        _lineas = [new()];
-        _dialogError = null;
-        _dialogOpen = true;
-    }
-
-    private ProductoDto? ProductoDeLinea(LineaForm l) => (_productos ?? []).FirstOrDefault(p => p.Id == l.ProductoId);
-
-    private string? StockInsuficienteMensaje(LineaForm l)
-    {
-        if (l.ProductoId <= 0 || l.Cantidad <= 0) return null;
-
-        var producto = ProductoDeLinea(l);
-        if (producto is null) return null;
-
-        if (producto.Existencia <= 0)
-            return $"{producto.Nombre} no tiene stock disponible.";
-
-        if (l.Cantidad > producto.Existencia)
-            return $"Sin stock suficiente. Stock actual: {producto.Existencia:N0} {producto.UnidadMedida}.";
-
-        return null;
-    }
-
-    private bool HayLineaSinStock() => _lineas.Any(l => StockInsuficienteMensaje(l) is not null);
-
-    private async Task Enviar()
-    {
-        if (_guardando) return;
-        if (_areaId <= 0) { _dialogError = "Seleccioná el área solicitante."; return; }
-
-        var lineasValidas = _lineas.Where(l => l.ProductoId > 0 && l.Cantidad > 0).ToList();
-        if (lineasValidas.Count == 0) { _dialogError = "Agregá al menos una línea con producto y cantidad."; return; }
-
-        var lineaSinStock = lineasValidas.FirstOrDefault(l => StockInsuficienteMensaje(l) is not null);
-        if (lineaSinStock is not null)
-        {
-            _dialogError = StockInsuficienteMensaje(lineaSinStock);
-            return;
-        }
-
-        _guardando = true;
-        _dialogError = null;
-
-        try
-        {
-            var detalles = lineasValidas.Select(l => new CrearSolicitudDetalleDto(l.ProductoId, l.Cantidad)).ToList();
-            var creada = await SolicitudApi.CrearAsync(new CrearSolicitudDto(_areaId, detalles));
-            _dialogOpen = false;
-            Nav.NavigateTo($"/solicitudes/{creada.Id}");
-        }
-        catch (ApiException ex)
-        {
-            _dialogError = ex.Message;
-        }
-        finally
-        {
-            _guardando = false;
-        }
     }
 
     private static string EstadoTagClase(EstadoSolicitud e) => e switch
@@ -226,10 +103,4 @@ else
         EstadoSolicitud.Rechazada => "tag tag-neutral",
         _ => "tag tag-neutral",
     };
-
-    private class LineaForm
-    {
-        public int ProductoId { get; set; }
-        public decimal Cantidad { get; set; }
-    }
 }

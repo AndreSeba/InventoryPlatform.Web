@@ -77,7 +77,7 @@ else
                         <td>@m.ProductoNombre</td>
                         <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
                         <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
-                        <td>@m.Cantidad.ToString("N2")</td>
+                        <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@UbicacionORetorna(m)</td>
                         <td class="text-muted">@m.RegistradoPor</td>
                         <td class="text-muted">@m.Motivo</td>
@@ -118,7 +118,7 @@ else
                         <tr>
                             <td>@m.NumeroMovimiento</td>
                             <td>@m.ProductoNombre</td>
-                            <td>@m.Cantidad.ToString("N2")</td>
+                            <td>@m.Cantidad.ToString("N0")</td>
                             <td class="text-muted">@m.UbicacionExterna</td>
                             <td class="text-muted">@(m.FechaRetornoEsperada?.ToString("dd/MM/yyyy") ?? "—")</td>
                             <td>
@@ -158,7 +158,7 @@ else
                 }
             </select>
         </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
         <div class="field"><label>Motivo</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
         @if (_dialogError is not null)
         {
@@ -204,12 +204,12 @@ else
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var u in _ubicacionesConStock!)
                     {
-                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N2"))</option>
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N0"))</option>
                     }
                 </select>
             }
         </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
         <div class="field">
             <label>¿El material va a retornar?</label>
             <div class="seg" role="radiogroup">
@@ -286,12 +286,12 @@ else
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var u in _ubicacionesConStock!)
                     {
-                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N2"))</option>
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N0"))</option>
                     }
                 </select>
             }
         </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
         <div class="field"><label>Motivo (obligatorio)</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
         @if (_dialogError is not null)
         {
@@ -309,7 +309,7 @@ else
     <Body>
         @if (_devolviendoMov is not null)
         {
-            <p class="text-muted" style="margin:0">@_devolviendoMov.NumeroMovimiento — @_devolviendoMov.ProductoNombre (salieron @_devolviendoMov.Cantidad.ToString("N2"))</p>
+            <p class="text-muted" style="margin:0">@_devolviendoMov.NumeroMovimiento — @_devolviendoMov.ProductoNombre (salieron @_devolviendoMov.Cantidad.ToString("N0"))</p>
         }
         <div class="field">
             <label>Ubicación de retorno</label>
@@ -321,7 +321,7 @@ else
                 }
             </select>
         </div>
-        <div class="field"><label>Cantidad a devolver</label><input class="input" type="number" min="0" step="0.01" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad a devolver</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
@@ -360,7 +360,7 @@ else
 
     private int _movProductoId;
     private int _movUbicacionId;
-    private decimal _movCantidad;
+    private int _movCantidad;
     private string? _movMotivo;
     private bool _movRetorna;
     private string? _movUbicacionExterna;

@@ -50,7 +50,7 @@ else
                         <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
                         <td>@m.ProductoNombre</td>
                         <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
-                        <td>@m.Cantidad.ToString("N2")</td>
+                        <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@m.RegistradoPor</td>
                     </tr>
                 }

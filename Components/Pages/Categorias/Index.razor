@@ -1,6 +1,7 @@
 @page "/categorias"
 @inject CategoriaApiClient CategoriaApi
 @inject ProductoApiClient ProductoApi
+@inject UsuarioApiClient UsuarioApi
 @inject AuthState AuthState
 
 <PageTitle>Categorías</PageTitle>
@@ -29,7 +30,7 @@ else
 {
     <div class="table-wrap" style="margin-top:24px">
         <table class="table">
-            <thead><tr><th>Código</th><th>Descripción</th><th># Productos</th><th></th></tr></thead>
+            <thead><tr><th>Código</th><th>Descripción</th><th># Productos</th><th>Encargado</th><th></th></tr></thead>
             <tbody>
                 @foreach (var c in Paginados())
                 {
@@ -37,6 +38,7 @@ else
                         <td>@c.CodigoCategoria</td>
                         <td class="text-muted">@c.Descripcion</td>
                         <td class="text-muted">@_productos.Count(p => p.CategoriaId == c.Id)</td>
+                        <td class="text-muted">@(c.EncargadoNombre ?? "—")</td>
                         <td>
                             @if (AuthState.HasPermission(Permisos.CategoriasEditar))
                             {
@@ -55,6 +57,24 @@ else
     <Body>
         <div class="field"><label for="cf-cod">Código</label><input class="input" id="cf-cod" @bind="_codigo" placeholder="CEREALES" /></div>
         <div class="field"><label for="cf-desc">Descripción</label><input class="input" id="cf-desc" @bind="_descripcion" placeholder="Cereales" /></div>
+        <div class="field">
+            <label for="cf-enc">Encargado</label>
+            @if (_usuarios is null)
+            {
+                <p class="text-muted" style="font-size:12px;margin:0">No se pudo cargar la lista de usuarios — dejando el encargado como está.</p>
+            }
+            else
+            {
+                <select class="input" id="cf-enc" @bind="_encargadoId">
+                    <option value="0">-- Sin encargado --</option>
+                    @foreach (var u in _usuarios)
+                    {
+                        <option value="@u.Id">@u.NombreCompleto</option>
+                    }
+                </select>
+                <p class="text-muted" style="font-size:12px;margin:4px 0 0">Recibe el aviso cuando se cree una solicitud con productos de esta categoría.</p>
+            }
+        </div>
         @if (_editandoId is not null)
         {
             <div class="field">
@@ -78,6 +98,7 @@ else
 @code {
     private List<CategoriaDto>? _categorias;
     private List<ProductoDto>? _productos;
+    private List<UsuarioDto>? _usuarios;
     private string? _error;
 
     private const int TamanoPagina = 10;
@@ -95,6 +116,7 @@ else
     private string _codigo = "";
     private string? _descripcion;
     private bool _activo;
+    private int _encargadoId;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -111,6 +133,18 @@ else
             _categorias = [];
             _productos = [];
         }
+
+        // usuarios.gestionar puede faltar en roles custom que solo tienen categorias.editar —
+        // sin esa lista igual se puede editar la categoría, solo no se puede elegir un
+        // encargado nuevo (ver mensaje en el diálogo).
+        try
+        {
+            _usuarios = await UsuarioApi.ListarAsync();
+        }
+        catch (ApiException)
+        {
+            _usuarios = null;
+        }
     }
 
     private void AbrirNueva()
@@ -118,6 +152,7 @@ else
         _editandoId = null;
         _codigo = "";
         _descripcion = null;
+        _encargadoId = 0;
         _dialogError = null;
         _dialogOpen = true;
     }
@@ -128,6 +163,7 @@ else
         _codigo = c.CodigoCategoria;
         _descripcion = c.Descripcion;
         _activo = c.Activo;
+        _encargadoId = c.EncargadoId ?? 0;
         _dialogError = null;
         _dialogOpen = true;
     }
@@ -148,12 +184,14 @@ else
         _guardando = true;
         _dialogError = null;
 
+        var encargadoId = _encargadoId > 0 ? _encargadoId : (int?)null;
+
         try
         {
             if (_editandoId is null)
-                await CategoriaApi.CrearAsync(new CrearCategoriaDto(_codigo, _descripcion));
+                await CategoriaApi.CrearAsync(new CrearCategoriaDto(_codigo, _descripcion, encargadoId));
             else
-                await CategoriaApi.ActualizarAsync(_editandoId.Value, new ActualizarCategoriaDto(_codigo, _descripcion, _activo));
+                await CategoriaApi.ActualizarAsync(_editandoId.Value, new ActualizarCategoriaDto(_codigo, _descripcion, _activo, encargadoId));
 
             Cerrar();
             await CargarAsync();

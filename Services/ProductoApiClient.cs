@@ -47,6 +47,16 @@ public class ProductoApiClient
         return (await respuesta.Content.ReadFromJsonAsync<ProductoDto>(cancellationToken: ct))!;
     }
 
+    // Alta rápida desde el carrito de una solicitud de Entrada — mismo servicio que
+    // CrearAsync, pero gateada por solicitudes.crear en vez de productos.crear (ver
+    // ProductosController.CrearRapido).
+    public async Task<ProductoDto> CrearRapidoAsync(CrearProductoDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PostAsJsonAsync("api/productos/rapido", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<ProductoDto>(cancellationToken: ct))!;
+    }
+
     public async Task<ProductoDto> ActualizarAsync(int id, ActualizarProductoDto dto, CancellationToken ct = default)
     {
         var respuesta = await _http.PutAsJsonAsync($"api/productos/{id}", dto, ct);
