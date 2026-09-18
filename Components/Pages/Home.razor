@@ -1,6 +1,5 @@
 @page "/"
 @layout Layout.WelcomeLayout
-@inject AuthApiClient AuthApi
 @inject PaisApiClient PaisApi
 @inject AuthState AuthState
 @inject NavigationManager Nav
@@ -43,14 +42,20 @@
         }
         else
         {
-            <EditForm Model="_modelo" OnValidSubmit="Entrar">
+            @* Form HTML nativo (no EditForm/@onclick) a propósito: el login tiene que
+               terminar en un POST HTTP real a /login-cookie, no en un evento por SignalR —
+               es el único lugar donde el servidor puede mandar un Set-Cookie (ver
+               Program.cs). Por eso los campos son <input name="..."> planos, no
+               @bind-Value: el navegador arma el body del POST solo, sin pasar por C#. *@
+            <form method="post" action="/login-cookie">
+                <input type="hidden" name="PaisId" value="@_modelo.PaisId" />
                 <div class="field" style="margin-bottom:14px">
                     <label for="email">Email</label>
-                    <InputText id="email" class="input" @bind-Value="_modelo.Email" autofocus />
+                    <input id="email" name="Email" class="input" autofocus />
                 </div>
                 <div class="field" style="margin-bottom:18px">
                     <label for="pass">Contraseña</label>
-                    <InputText id="pass" class="input" type="password" @bind-Value="_modelo.Password" />
+                    <input id="pass" name="Password" type="password" class="input" />
                 </div>
 
                 @if (_error is not null)
@@ -58,18 +63,21 @@
                     <p class="dialog-error" style="margin-bottom:14px">@_error</p>
                 }
 
-                <button type="submit" class="btn btn-primary btn-block" disabled="@_ingresando">@(_ingresando ? "Ingresando…" : "Ingresar")</button>
-            </EditForm>
+                <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+            </form>
         }
     </div>
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorQuery { get; set; }
+
     private List<PaisDto>? _paises;
     private PaisDto? _paisSeleccionado;
     private bool _menuAbierto;
     private readonly Modelo _modelo = new();
-    private bool _ingresando;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -79,6 +87,12 @@
             Nav.NavigateTo(PaginaDeInicio());
             return;
         }
+
+        // /login-cookie (Program.cs) redirige acá con ?error=1 si el email/contraseña
+        // no matchean — mismo mensaje genérico que ya usaba ApiException para no revelar
+        // si el email existe en otro país.
+        if (ErrorQuery is not null)
+            _error = "Email o contraseña incorrectos.";
 
         try
         {
@@ -100,30 +114,6 @@
         _menuAbierto = false;
     }
 
-    private async Task Entrar()
-    {
-        if (_ingresando) return;
-        if (_modelo.PaisId <= 0) { _error = "Elegí un país."; return; }
-
-        _ingresando = true;
-        _error = null;
-
-        try
-        {
-            var resultado = await AuthApi.LoginAsync(new LoginDto(_modelo.Email, _modelo.Password, _modelo.PaisId));
-            AuthState.SignIn(resultado);
-            Nav.NavigateTo(PaginaDeInicio());
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _ingresando = false;
-        }
-    }
-
     // Quien no puede ver Inicio (rol Solicitante) entra derecho a lo único que le sirve:
     // sus propias solicitudes. El resto de los roles sigue yendo a Inicio como siempre.
     private string PaginaDeInicio() =>
@@ -132,7 +122,5 @@
     private class Modelo
     {
         public int PaisId { get; set; }
-        public string Email { get; set; } = "";
-        public string Password { get; set; } = "";
     }
 }

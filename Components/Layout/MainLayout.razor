@@ -85,10 +85,15 @@
                     <span class="rail-user-name">@AuthState.NombreCompleto</span>
                     <span class="rail-user-role">@AuthState.RolNombre</span>
                 </div>
-                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--sidebar-text);width:100%;justify-content:flex-start" @onclick="CerrarSesion">
-                    <Icon Name="arrow-left" Size="14" />
-                    Cerrar sesión
-                </button>
+                @* POST HTTP normal, no @onclick — /logout-cookie necesita borrar el
+                   Set-Cookie de verdad, algo que un circuito ya interactivo no puede
+                   hacer (ver Program.cs y el mismo comentario en Home.razor). *@
+                <form method="post" action="/logout-cookie">
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--sidebar-text);width:100%;justify-content:flex-start">
+                        <Icon Name="arrow-left" Size="14" />
+                        Cerrar sesión
+                    </button>
+                </form>
             </div>
         </nav>
 
@@ -146,12 +151,6 @@
     }
 
     private void CerrarRail() => _railAbierto = false;
-
-    private void CerrarSesion()
-    {
-        AuthState.SignOut();
-        Nav.NavigateTo("/", forceLoad: true);
-    }
 
     private string ScreenTitle() => _path switch
     {

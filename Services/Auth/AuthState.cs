@@ -1,4 +1,5 @@
-using Inventory.Application.Dtos;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Inventory.Web.Services.Auth;
 
@@ -28,34 +29,40 @@ public class AuthState
 
     public event Action? OnChange;
 
-    public void SignIn(LoginResultDto resultado)
+    // Login real vive en el endpoint /login-cookie (Program.cs, no un componente Blazor —
+    // necesita mandar un Set-Cookie de verdad, algo que un circuito ya interactivo no
+    // puede hacer). Esto reconstruye el AuthState de ESTE circuito a partir del JWT que
+    // guardó esa cookie, para que un F5 no desloguee — se llama una vez desde App.razor
+    // (única parte del árbol que todavía tiene HttpContext disponible para leer la cookie).
+    // No valida la firma del JWT acá: si alguien edita el valor de la cookie a mano, el
+    // peor caso es que la UI muestre links de más — cualquier llamada real a la API igual
+    // la rechaza (401), porque ahí sí se valida la firma contra Jwt:SecretKey.
+    public bool RestaurarDesdeToken(string token)
     {
-        IsAuthenticated = true;
-        Token = resultado.Token;
-        UsuarioId = resultado.Usuario.Id;
-        Email = resultado.Usuario.Email;
-        NombreCompleto = resultado.Usuario.NombreCompleto;
-        RolNombre = resultado.Usuario.RolNombre;
-        PaisId = resultado.PaisId;
-        PaisNombre = resultado.PaisNombre;
-        PaisCodigoIso = resultado.PaisCodigoIso;
-        Permisos = resultado.Usuario.Permisos.ToHashSet();
-        OnChange?.Invoke();
-    }
+        try
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            if (jwt.ValidTo < DateTime.UtcNow)
+                return false;
 
-    public void SignOut()
-    {
-        IsAuthenticated = false;
-        Token = "";
-        UsuarioId = 0;
-        Email = "";
-        NombreCompleto = "";
-        RolNombre = "";
-        PaisId = 0;
-        PaisNombre = "";
-        PaisCodigoIso = "";
-        Permisos = [];
-        OnChange?.Invoke();
+            IsAuthenticated = true;
+            Token = token;
+            UsuarioId = int.Parse(jwt.Claims.First(c => c.Type == JwtRegisteredClaimNames.Sub).Value);
+            Email = jwt.Claims.First(c => c.Type == JwtRegisteredClaimNames.Email).Value;
+            NombreCompleto = jwt.Claims.First(c => c.Type == ClaimTypes.Name).Value;
+            RolNombre = jwt.Claims.First(c => c.Type == ClaimTypes.Role).Value;
+            PaisId = int.Parse(jwt.Claims.First(c => c.Type == "pais").Value);
+            PaisNombre = jwt.Claims.First(c => c.Type == "pais_nombre").Value;
+            PaisCodigoIso = jwt.Claims.First(c => c.Type == "pais_codigo").Value;
+            Permisos = jwt.Claims.Where(c => c.Type == "permiso").Select(c => c.Value).ToHashSet();
+
+            OnChange?.Invoke();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public bool HasPermission(string codigo) => IsAuthenticated && Permisos.Contains(codigo);

@@ -4,6 +4,12 @@
     <ProjectReference Include="..\InventoryPlatform\src\Inventory.Application\Inventory.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Para decodificar el JWT de la cookie de sesión al reconstruir AuthState tras un
+         F5 (ver AuthState.RestaurarDesdeToken) — misma versión que ya usa el backend. -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

@@ -1,3 +1,6 @@
+@using Microsoft.AspNetCore.Http
+@inject Inventory.Web.Services.Auth.AuthState AuthState
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -23,3 +26,22 @@
 </body>
 
 </html>
+
+@code {
+    // Único lugar del árbol donde HttpContext todavía existe de forma confiable — App
+    // renderiza antes que <Routes @rendermode="InteractiveServer"/>, así que esto corre
+    // en el request HTTP normal (todavía sin circuito SignalR). Reconstruye la sesión
+    // desde la cookie "token" (puesta por /login-cookie) ANTES de que MainLayout decida
+    // si redirige a "/" por no estar logueado — así un F5 no desloguea.
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (AuthState.IsAuthenticated) return;
+
+        var token = HttpContext?.Request.Cookies["token"];
+        if (token is not null)
+            AuthState.RestaurarDesdeToken(token);
+    }
+}

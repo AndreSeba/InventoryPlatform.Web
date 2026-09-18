@@ -1,6 +1,8 @@
+using Inventory.Application.Dtos;
 using Inventory.Web.Components;
 using Inventory.Web.Services;
 using Inventory.Web.Services.Auth;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,5 +55,34 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Login/logout viven acá (endpoints HTTP normales), no en un componente Blazor — un
+// circuito ya interactivo no puede mandar Set-Cookie (la respuesta HTTP original ya se
+// envió). Un <form method="post"> normal en Home.razor/MainLayout.razor postea acá.
+app.MapPost("/login-cookie", async (HttpContext ctx, AuthApiClient authApi, [FromForm] string email, [FromForm] string password, [FromForm] int paisId) =>
+{
+    try
+    {
+        var resultado = await authApi.LoginAsync(new LoginDto(email, password, paisId));
+        ctx.Response.Cookies.Append("token", resultado.Token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = new DateTimeOffset(resultado.ExpiraEn, TimeSpan.Zero),
+        });
+        return Results.Redirect("/inicio");
+    }
+    catch (ApiException)
+    {
+        return Results.Redirect("/?error=1");
+    }
+}).DisableAntiforgery();
+
+app.MapPost("/logout-cookie", (HttpContext ctx) =>
+{
+    ctx.Response.Cookies.Delete("token");
+    return Results.Redirect("/");
+}).DisableAntiforgery();
 
 app.Run();
