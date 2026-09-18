@@ -1,0 +1,198 @@
+@* Registrar entrada/salida siempre parte de una Solicitud aprobada — pedido explícito del
+   usuario (antes se elegía producto libre, uno por uno; ahora se elige la solicitud y salen
+   sus líneas pendientes). Mismo patrón de "una línea, un Registrar" que ya usa
+   Solicitudes/Detalle.razor (EntregarAsync) — acá se reusa esa misma llamada a la API, solo
+   que disparada desde Movimientos en vez de desde el detalle de la solicitud. *@
+@inject SolicitudApiClient SolicitudApi
+@inject MovimientoApiClient MovimientoApi
+@inject ProductoApiClient ProductoApi
+
+<div class="field">
+    <label>Solicitud</label>
+    @if (_solicitudes is null)
+    {
+        <p class="text-muted">Cargando…</p>
+    }
+    else if (_solicitudes.Count == 0)
+    {
+        <p class="text-muted">No hay solicitudes @(Tipo == TipoSolicitud.Entrada ? "de entrada" : "de salida") aprobadas pendientes.</p>
+    }
+    else
+    {
+        <ComboBuscable TItem="SolicitudDto" Items="_solicitudes" SelectedId="_solicitudId" SelectedIdChanged="SeleccionarAsync"
+            GetId="ObtenerIdSolicitud" GetLabel="EtiquetaSolicitud" Placeholder="-- Elegí una solicitud --" />
+    }
+</div>
+
+@if (_cargandoLineas)
+{
+    <p class="text-muted">Cargando líneas…</p>
+}
+else if (_solicitud is not null)
+{
+    var pendientes = LineasPendientes();
+    if (pendientes.Count == 0)
+    {
+        <p class="text-muted">Esta solicitud ya está completamente @(Tipo == TipoSolicitud.Entrada ? "recibida" : "entregada").</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr><th>Producto</th><th>Pendiente</th><th>Cantidad</th><th>Ubicación</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in pendientes)
+                    {
+                        var pendiente = d.CantidadAprobada!.Value - d.CantidadEntregada;
+                        <tr>
+                            <td>@d.ProductoNombre</td>
+                            <td class="text-muted">@pendiente.ToString("N0")</td>
+                            <td><input class="input" style="max-width:90px" type="number" min="0" step="1" @bind="_cantidad[d.Id]" /></td>
+                            <td>
+                                <select class="input" style="max-width:190px" @bind="_ubicacion[d.Id]">
+                                    <option value="0">-- Ubicación --</option>
+                                    @foreach (var u in UbicacionesPara(d.ProductoId))
+                                    {
+                                        <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><button type="button" class="btn btn-secondary btn-sm" disabled="@_guardandoLinea" @onclick="() => RegistrarLineaAsync(d)">Registrar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px;margin:0">@_ok</p>
+}
+
+@code {
+    [Parameter] public TipoSolicitud Tipo { get; set; }
+    [Parameter] public IReadOnlyList<UbicacionDto>? UbicacionesTodas { get; set; }
+    [Parameter] public EventCallback OnRegistrado { get; set; }
+
+    private List<SolicitudDto>? _solicitudes;
+    private int _solicitudId;
+    private SolicitudDto? _solicitud;
+    private bool _cargandoLineas;
+    private bool _guardandoLinea;
+    private string? _error;
+    private string? _ok;
+
+    private readonly Dictionary<int, int> _cantidad = [];
+    private readonly Dictionary<int, int> _ubicacion = [];
+    private readonly Dictionary<int, List<UbicacionConExistenciaDto>> _stockPorProducto = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var todas = await SolicitudApi.ListarAsync();
+            _solicitudes = todas
+                .Where(s => s.Tipo == Tipo && s.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial)
+                .OrderBy(s => s.NumeroSolicitud)
+                .ToList();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _solicitudes = [];
+        }
+    }
+
+    private static int ObtenerIdSolicitud(SolicitudDto s) => s.Id;
+    private static string EtiquetaSolicitud(SolicitudDto s) => $"{s.NumeroSolicitud} — {s.AreaNombre}";
+
+    private List<SolicitudDetalleDto> LineasPendientes() =>
+        _solicitud?.Detalles.Where(d => d.CantidadAprobada is not null && d.CantidadAprobada > d.CantidadEntregada).ToList() ?? [];
+
+    private List<UbicacionDto> UbicacionesPara(int productoId)
+    {
+        if (Tipo == TipoSolicitud.Entrada)
+            return (UbicacionesTodas ?? []).ToList();
+
+        if (_stockPorProducto.TryGetValue(productoId, out var stock))
+            return stock.Select(u => new UbicacionDto(u.UbicacionId, default, "", "", null, u.UbicacionCodigo, true, u.AlmacenId, u.AlmacenNombre, "")).ToList();
+
+        return [];
+    }
+
+    private async Task SeleccionarAsync(int id)
+    {
+        _solicitudId = id;
+        _solicitud = null;
+        _error = null;
+        _ok = null;
+        _cantidad.Clear();
+        _ubicacion.Clear();
+        _stockPorProducto.Clear();
+        if (id <= 0) return;
+
+        _cargandoLineas = true;
+        try
+        {
+            _solicitud = await SolicitudApi.ObtenerPorIdAsync(id);
+            foreach (var d in LineasPendientes())
+            {
+                _cantidad[d.Id] = d.CantidadAprobada!.Value - d.CantidadEntregada;
+                _ubicacion[d.Id] = 0;
+                if (Tipo == TipoSolicitud.Salida)
+                    _stockPorProducto[d.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(d.ProductoId)).ToList();
+            }
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _cargandoLineas = false; }
+    }
+
+    private async Task RegistrarLineaAsync(SolicitudDetalleDto detalle)
+    {
+        if (_guardandoLinea || _solicitud is null) return;
+
+        var cantidad = _cantidad.GetValueOrDefault(detalle.Id);
+        var ubicacionId = _ubicacion.GetValueOrDefault(detalle.Id);
+        var pendiente = detalle.CantidadAprobada!.Value - detalle.CantidadEntregada;
+
+        if (cantidad <= 0) { _error = "Indicá la cantidad a registrar."; return; }
+        if (cantidad > pendiente) { _error = $"No podés registrar más de lo pendiente ({pendiente:N0})."; return; }
+        if (ubicacionId <= 0) { _error = "Seleccioná una ubicación."; return; }
+
+        _guardandoLinea = true; _error = null; _ok = null;
+        try
+        {
+            if (Tipo == TipoSolicitud.Entrada)
+            {
+                var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
+                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", detalle.Id));
+                _ok = $"Recepción {r.NumeroMovimiento} registrada.";
+            }
+            else
+            {
+                var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
+                    detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
+                    false, null, null, detalle.Id));
+                _ok = $"Entrega {r.NumeroMovimiento} registrada.";
+            }
+
+            _solicitud = await SolicitudApi.ObtenerPorIdAsync(_solicitud.Id);
+            _cantidad.Remove(detalle.Id);
+            _ubicacion.Remove(detalle.Id);
+            if (Tipo == TipoSolicitud.Salida)
+                _stockPorProducto[detalle.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(detalle.ProductoId)).ToList();
+
+            await OnRegistrado.InvokeAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardandoLinea = false; }
+    }
+}

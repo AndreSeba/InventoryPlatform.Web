@@ -139,89 +139,20 @@ else
 <!-- ===== Diálogo: Entrada ===== -->
 <Dialog Visible="@(_dialog == "entrada")" Title="Registrar entrada">
     <Body>
-        <div class="field">
-            <label>Producto</label>
-            <ComboBuscable TItem="ProductoDto" Items="_productos" @bind-SelectedId="_movProductoId" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
-        </div>
-        <div class="field">
-            <label>Ubicación destino</label>
-            <select class="input" @bind="_movUbicacionId">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var u in _ubicaciones ?? [])
-                {
-                    <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
-                }
-            </select>
-        </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
-        <div class="field"><label>Motivo</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
-        @if (_dialogError is not null)
-        {
-            <p class="dialog-error">@_dialogError</p>
-        }
+        <SolicitudEntregaPanel Tipo="TipoSolicitud.Entrada" UbicacionesTodas="_ubicaciones" OnRegistrado="CargarAsync" />
     </Body>
     <Actions>
-        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarEntrada">Confirmar entrada</button>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cerrar</button>
     </Actions>
 </Dialog>
 
 <!-- ===== Diálogo: Salida ===== -->
 <Dialog Visible="@(_dialog == "salida")" Title="Registrar salida">
     <Body>
-        <div class="field">
-            <label>Producto</label>
-            <ComboBuscable TItem="ProductoDto" Items="_productos" SelectedId="_movProductoId" SelectedIdChanged="OnProductoCambiadoAsync" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
-        </div>
-        <div class="field">
-            <label>Ubicación origen</label>
-            @if (_movProductoId <= 0)
-            {
-                <select class="input" disabled><option>Elegí primero un producto</option></select>
-            }
-            else if (_cargandoUbicaciones)
-            {
-                <select class="input" disabled><option>Cargando…</option></select>
-            }
-            else if ((_ubicacionesConStock?.Count ?? 0) == 0)
-            {
-                <select class="input" disabled><option>Este producto no tiene stock en ninguna ubicación</option></select>
-            }
-            else
-            {
-                <select class="input" @bind="_movUbicacionId">
-                    <option value="0">-- Seleccionar --</option>
-                    @foreach (var u in _ubicacionesConStock!)
-                    {
-                        <option value="@u.UbicacionId">@u.UbicacionCodigo — @u.AlmacenNombre (@u.Existencia.ToString("N0"))</option>
-                    }
-                </select>
-            }
-        </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
-        <div class="field">
-            <label>¿El material va a retornar?</label>
-            <div class="seg" role="radiogroup">
-                <label class="seg-opt @(_movRetorna ? "active" : "")" @onclick="() => _movRetorna = true">Sí</label>
-                <label class="seg-opt @(!_movRetorna ? "active" : "")" @onclick="() => _movRetorna = false">No</label>
-            </div>
-        </div>
-        @if (_movRetorna)
-        {
-            <div class="dialog-grid-2">
-                <div class="field"><label>Ubicación externa / destino</label><input class="input" @bind="_movUbicacionExterna" placeholder="Evento, sucursal, etc." /></div>
-                <div class="field"><label>Retorno esperado</label><input class="input" type="date" @bind="_movFechaRetorno" /></div>
-            </div>
-        }
-        <div class="field"><label>Motivo</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
-        @if (_dialogError is not null)
-        {
-            <p class="dialog-error">@_dialogError</p>
-        }
+        <SolicitudEntregaPanel Tipo="TipoSolicitud.Salida" OnRegistrado="CargarAsync" />
     </Body>
     <Actions>
-        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@(_guardando || SinStockParaFiltro)" @onclick="ConfirmarSalida">Confirmar salida</button>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cerrar</button>
     </Actions>
 </Dialog>
 
@@ -357,7 +288,7 @@ else
     private List<UbicacionConExistenciaDto>? _ubicacionesConStock;
     private bool _cargandoUbicaciones;
 
-    private bool RequiereFiltroUbicacion => _dialog == "salida" || (_dialog == "ajuste" && !_movAjustePositivo);
+    private bool RequiereFiltroUbicacion => _dialog == "ajuste" && !_movAjustePositivo;
     private bool SinStockParaFiltro => RequiereFiltroUbicacion && _movProductoId > 0 && !_cargandoUbicaciones && (_ubicacionesConStock?.Count ?? 0) == 0;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
@@ -451,47 +382,6 @@ else
     private void AbrirAjuste() { LimpiarCampos(); _dialog = "ajuste"; }
     private void AbrirDevolucion(MovimientoDto m) { LimpiarCampos(); _devolviendoMov = m; _dialog = "devolucion"; }
     private void CerrarDialogo() { _dialog = null; _devolviendoMov = null; }
-
-    private async Task ConfirmarEntrada()
-    {
-        if (_guardando) return;
-        if (_movProductoId <= 0) { _dialogError = "Seleccione un producto."; return; }
-        if (_movUbicacionId <= 0) { _dialogError = "Seleccione una ubicación destino."; return; }
-        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
-
-        _guardando = true; _dialogError = null;
-        try
-        {
-            var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(_movProductoId, _movUbicacionId, _movCantidad, _movMotivo));
-            _ok = $"Entrada {r.NumeroMovimiento} confirmada.";
-            _dialog = null;
-            await CargarAsync();
-        }
-        catch (ApiException ex) { _dialogError = ex.Message; }
-        finally { _guardando = false; }
-    }
-
-    private async Task ConfirmarSalida()
-    {
-        if (_guardando) return;
-        if (_movProductoId <= 0) { _dialogError = "Seleccione un producto."; return; }
-        if (_movUbicacionId <= 0) { _dialogError = "Seleccione una ubicación origen."; return; }
-        if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
-
-        _guardando = true; _dialogError = null;
-        try
-        {
-            var fechaRetorno = _movRetorna && _movFechaRetorno is not null ? DateOnly.FromDateTime(_movFechaRetorno.Value) : (DateOnly?)null;
-            var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
-                _movProductoId, _movUbicacionId, _movCantidad, _movMotivo, _movRetorna,
-                _movRetorna ? _movUbicacionExterna : null, fechaRetorno, null));
-            _ok = $"Salida {r.NumeroMovimiento} confirmada.";
-            _dialog = null;
-            await CargarAsync();
-        }
-        catch (ApiException ex) { _dialogError = ex.Message; }
-        finally { _guardando = false; }
-    }
 
     private async Task ConfirmarAjuste()
     {
