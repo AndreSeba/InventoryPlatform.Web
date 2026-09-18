@@ -74,15 +74,15 @@ else
                 {
                     <tr>
                         <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                        <td>@m.ProductoNombre</td>
+                        <td class="celda-truncada" title="@m.ProductoNombre">@m.ProductoNombre</td>
                         <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
                         <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
                         <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@UbicacionORetorna(m)</td>
                         <td class="text-muted">@m.AlmacenNombre</td>
-                        <td class="text-muted">@(m.FechaVencimiento?.ToString("d/M/yyyy") ?? "—")</td>
+                        <td class="text-muted">@m.FechaVencimiento?.ToString("d/M/yyyy")</td>
                         <td class="text-muted">@m.RegistradoPor</td>
-                        <td class="text-muted">@m.Motivo</td>
+                        <td class="text-muted celda-truncada" title="@m.Motivo">@m.Motivo</td>
                     </tr>
                 }
             </tbody>
@@ -437,8 +437,11 @@ else
         _ => t.ToString(),
     };
 
+    // "Retorna: No" en cada fila es ruido — la gran mayoría de las Salidas no son
+    // préstamo, así que solo se marca cuando SÍ retorna (ver captura del usuario,
+    // 2026-09-18: pidió aligerar la tabla).
     private static string UbicacionORetorna(MovimientoDto m) =>
-        m.TipoMovimiento == TipoMovimiento.Salida
-            ? $"{m.UbicacionCodigo} · Retorna: {(m.Retorna ? "Sí" : "No")}"
+        m.TipoMovimiento == TipoMovimiento.Salida && m.Retorna
+            ? $"{m.UbicacionCodigo} · Retorna"
             : m.UbicacionCodigo;
 }
