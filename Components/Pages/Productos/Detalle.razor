@@ -27,8 +27,9 @@ else
                     <span>Foto del producto</span>
                 }
             </div>
-            <div style="margin-top:10px;display:flex;justify-content:space-between">
+            <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">
                 <span class="text-muted" style="font-size:12px">@_producto.CodigoProducto</span>
+                <VencimientoTag Proximo="_producto.ProximoVencimiento" />
                 <span class="tag tag-neutral">@_producto.CategoriaNombre</span>
             </div>
         </div>
@@ -84,7 +85,7 @@ else
     {
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Vencimiento</th><th>Registrado por</th><th>Motivo</th></tr></thead>
                 <tbody>
                     @foreach (var m in _historial)
                     {
@@ -94,6 +95,7 @@ else
                             <td>@m.Cantidad.ToString("N0")</td>
                             <td class="text-muted">@UbicacionORetorna(m)</td>
                             <td class="text-muted">@m.AlmacenNombre</td>
+                            <td class="text-muted">@(m.FechaVencimiento?.ToString("d/M/yyyy") ?? "—")</td>
                             <td class="text-muted">@m.RegistradoPor</td>
                             <td class="text-muted">@m.Motivo</td>
                         </tr>

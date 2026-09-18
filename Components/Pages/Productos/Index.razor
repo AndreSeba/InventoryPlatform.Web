@@ -60,6 +60,7 @@ else
                         <div class="product-card-top">
                             <span class="card-kicker" style="color:var(--color-neutral-700)">@p.CodigoProducto</span>
                             <span class="tag tag-neutral">@p.CategoriaNombre</span>
+                            <VencimientoTag Proximo="p.ProximoVencimiento" />
                         </div>
                         <div class="card-title" style="font-size:15px">@p.Nombre</div>
                         <div class="stock-line @(p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") / mín. @p.StockMinimo.ToString("N0") @p.UnidadMedida</div>

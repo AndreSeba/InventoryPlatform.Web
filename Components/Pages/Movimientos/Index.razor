@@ -68,7 +68,7 @@ else
 
     <div class="table-wrap">
         <table class="table">
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Vencimiento</th><th>Registrado por</th><th>Motivo</th></tr></thead>
             <tbody>
                 @foreach (var m in Paginados())
                 {
@@ -80,6 +80,7 @@ else
                         <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@UbicacionORetorna(m)</td>
                         <td class="text-muted">@m.AlmacenNombre</td>
+                        <td class="text-muted">@(m.FechaVencimiento?.ToString("d/M/yyyy") ?? "—")</td>
                         <td class="text-muted">@m.RegistradoPor</td>
                         <td class="text-muted">@m.Motivo</td>
                     </tr>

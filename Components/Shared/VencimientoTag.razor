@@ -1,0 +1,21 @@
+@* Aviso "existe un lote vencido/por vencer" de un producto — Proximo es el MÍNIMO
+   FechaVencimiento entre sus Entradas (ver ProductoDto.ProximoVencimiento). No indica si
+   ESE lote puntual sigue en stock, es solo un aviso para que alguien revise a mano. *@
+@if (Proximo is not null)
+{
+    var dias = Proximo.Value.DayNumber - DateOnly.FromDateTime(DateTime.Today).DayNumber;
+    if (dias < 0)
+    {
+        <span class="tag tag-danger" title="Vencido el @Proximo.Value.ToString("d/M/yyyy")">Vencido</span>
+    }
+    else if (dias <= DiasAvisoPorVencer)
+    {
+        <span class="tag tag-warn" title="Vence el @Proximo.Value.ToString("d/M/yyyy")">Por vencer</span>
+    }
+}
+
+@code {
+    [Parameter] public DateOnly? Proximo { get; set; }
+
+    private const int DiasAvisoPorVencer = 30;
+}

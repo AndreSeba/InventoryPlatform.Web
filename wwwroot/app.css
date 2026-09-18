@@ -154,6 +154,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .tag-neutral { background: var(--color-neutral-200); color: var(--color-neutral-700); }
 .tag-outline { border: 1px solid var(--color-neutral-400); color: var(--color-neutral-700); background: var(--color-surface); }
 .tag-warn { background: #fef3c7; color: #92400e; }
+.tag-danger { background: #fee4e2; color: #b42318; }
 
 /* — tables — */
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }

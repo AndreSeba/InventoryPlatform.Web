@@ -40,7 +40,14 @@ else if (_solicitud is not null)
         <div class="table-wrap">
             <table class="table">
                 <thead>
-                    <tr><th>Producto</th><th>Pendiente</th><th>Cantidad</th><th>Ubicación</th><th></th></tr>
+                    <tr>
+                        <th>Producto</th><th>Pendiente</th><th>Cantidad</th><th>Ubicación</th>
+                        @if (Tipo == TipoSolicitud.Entrada)
+                        {
+                            <th>Vencimiento</th>
+                        }
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
                     @foreach (var d in pendientes)
@@ -65,6 +72,10 @@ else if (_solicitud is not null)
                                     }
                                 </select>
                             </td>
+                            @if (Tipo == TipoSolicitud.Entrada)
+                            {
+                                <td><input class="input" style="max-width:150px" type="date" @bind="_fechaVencimiento[d.Id]" /></td>
+                            }
                             <td><button type="button" class="btn btn-secondary btn-sm" disabled="@_guardandoLinea" @onclick="() => RegistrarLineaAsync(d)">Registrar</button></td>
                         </tr>
                     }
@@ -98,6 +109,7 @@ else if (_solicitud is not null)
 
     private readonly Dictionary<int, int> _cantidad = [];
     private readonly Dictionary<int, int> _ubicacion = [];
+    private readonly Dictionary<int, DateTime?> _fechaVencimiento = [];
     private readonly Dictionary<int, List<UbicacionConExistenciaDto>> _stockPorProducto = [];
 
     protected override async Task OnInitializedAsync()
@@ -142,6 +154,7 @@ else if (_solicitud is not null)
         _ok = null;
         _cantidad.Clear();
         _ubicacion.Clear();
+        _fechaVencimiento.Clear();
         _stockPorProducto.Clear();
         if (id <= 0) return;
 
@@ -153,6 +166,7 @@ else if (_solicitud is not null)
             {
                 _cantidad[d.Id] = d.CantidadAprobada!.Value - d.CantidadEntregada;
                 _ubicacion[d.Id] = 0;
+                _fechaVencimiento[d.Id] = null;
                 if (Tipo == TipoSolicitud.Salida)
                     _stockPorProducto[d.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(d.ProductoId)).ToList();
             }
@@ -178,8 +192,10 @@ else if (_solicitud is not null)
         {
             if (Tipo == TipoSolicitud.Entrada)
             {
+                var fechaVenc = _fechaVencimiento.GetValueOrDefault(detalle.Id);
                 var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", detalle.Id));
+                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", detalle.Id,
+                    fechaVenc is not null ? DateOnly.FromDateTime(fechaVenc.Value) : null));
                 _ok = $"Recepción {r.NumeroMovimiento} registrada.";
             }
             else
@@ -194,6 +210,7 @@ else if (_solicitud is not null)
             _solicitud = await SolicitudApi.ObtenerPorIdAsync(_solicitud.Id);
             _cantidad.Remove(detalle.Id);
             _ubicacion.Remove(detalle.Id);
+            _fechaVencimiento.Remove(detalle.Id);
             if (Tipo == TipoSolicitud.Salida)
                 _stockPorProducto[detalle.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(detalle.ProductoId)).ToList();
 

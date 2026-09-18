@@ -85,6 +85,10 @@ else
                                             <option value="@u.Id">@u.CodigoUbicacion</option>
                                         }
                                     </select>
+                                    @if (_solicitud.Tipo == TipoSolicitud.Entrada)
+                                    {
+                                        <input class="input" style="max-width:150px" type="date" title="Vencimiento (opcional)" @bind="_fechaVencimiento[d.Id]" />
+                                    }
                                     <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => EntregarAsync(d.Id)">@(_solicitud.Tipo == TipoSolicitud.Entrada ? "Registrar recepción" : "Entregar")</button>
                                 </div>
                             </td>
@@ -186,6 +190,7 @@ else
     private readonly Dictionary<int, int> _cantidadAprobada = new();
     private readonly Dictionary<int, int> _cantidadEntrega = new();
     private readonly Dictionary<int, int> _ubicacionEntrega = new();
+    private readonly Dictionary<int, DateTime?> _fechaVencimiento = new();
     private string? _motivoRechazo;
     private bool _guardando;
     private string? _error;
@@ -211,6 +216,7 @@ else
                     _cantidadAprobada.TryAdd(d.Id, d.CantidadSolicitada);
                     _cantidadEntrega.TryAdd(d.Id, 0);
                     _ubicacionEntrega.TryAdd(d.Id, 0);
+                    _fechaVencimiento.TryAdd(d.Id, null);
                 }
         }
         catch (ApiException ex)
@@ -274,8 +280,10 @@ else
         {
             if (_solicitud.Tipo == TipoSolicitud.Entrada)
             {
+                var fechaVenc = _fechaVencimiento.GetValueOrDefault(solicitudDetalleId);
                 await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", solicitudDetalleId));
+                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", solicitudDetalleId,
+                    fechaVenc is not null ? DateOnly.FromDateTime(fechaVenc.Value) : null));
                 _ok = "Recepción registrada.";
             }
             else
