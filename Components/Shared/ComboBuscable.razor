@@ -13,7 +13,7 @@
     @if (_abierto)
     {
         <div class="combo-menu">
-            <input class="input combo-search" placeholder="Buscar…" value="@_busqueda" @oninput="OnBuscar" @onclick:stopPropagation="true" autofocus />
+            <input class="input combo-search" placeholder="Buscar…" value="@_busqueda" @oninput="OnBuscar" @onclick:stopPropagation="true" />
             <div class="combo-list">
                 @if (ItemsFiltrados.Count == 0)
                 {
