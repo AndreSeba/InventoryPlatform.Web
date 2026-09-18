@@ -5,9 +5,10 @@
 
 <div class="app-shell">
     <div class="app-frame">
-        <nav class="app-rail">
+        <div class="rail-backdrop @(_railAbierto ? "open" : "")" @onclick="CerrarRail"></div>
+        <nav class="app-rail @(_railAbierto ? "open" : "")">
             <div class="app-rail-mark">
-                <div class="mark-box"></div>
+                <div class="mark-box"><img src="/img/nestle-logo.png" alt="Nestlé" /></div>
                 <span class="mark-text">Inventario</span>
             </div>
 
@@ -37,7 +38,7 @@
                 <RailLink Href="/conteos" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer) || AuthState.HasPermission(Permisos.UnidadesVer))
+            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer) || AuthState.HasPermission(Permisos.UnidadesVer) || AuthState.HasPermission(Permisos.AlmacenesVer))
             {
                 <div class="rail-section">Catálogos</div>
             }
@@ -49,6 +50,10 @@
             {
                 <RailLink Href="/areas" IconName="building" Label="Áreas" CurrentPath="@_path" />
             }
+            @if (AuthState.HasPermission(Permisos.AlmacenesVer))
+            {
+                <RailLink Href="/almacenes" IconName="warehouse" Label="Almacenes" CurrentPath="@_path" />
+            }
             @if (AuthState.HasPermission(Permisos.UbicacionesVer))
             {
                 <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicaciones" CurrentPath="@_path" />
@@ -58,7 +63,7 @@
                 <RailLink Href="/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar))
+            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar) || AuthState.HasPermission(Permisos.PaisesVer))
             {
                 <div class="rail-section">Administración</div>
             }
@@ -69,6 +74,10 @@
             @if (AuthState.HasPermission(Permisos.RolesGestionar))
             {
                 <RailLink Href="/roles" IconName="shield" Label="Roles" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.PaisesVer))
+            {
+                <RailLink Href="/paises" IconName="globe" Label="Países" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -85,8 +94,15 @@
 
         <div class="app-body">
             <div class="app-topbar no-print">
+                <button type="button" class="hamburger-btn" aria-label="Abrir menú" @onclick="() => _railAbierto = true">
+                    <Icon Name="menu" Size="18" />
+                </button>
                 <span class="card-title" style="white-space:nowrap">@ScreenTitle()</span>
-                <span class="tag tag-outline" style="margin-left:auto;flex-shrink:0">@AuthState.RolNombre</span>
+                <span class="tag tag-outline" style="margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:6px" title="País de la sesión">
+                    <Bandera CodigoIso="@AuthState.PaisCodigoIso" Width="16" />
+                    <span class="pais-nombre-texto">@AuthState.PaisNombre</span>
+                </span>
+                <span class="tag tag-outline rol-tag" style="flex-shrink:0">@AuthState.RolNombre</span>
             </div>
 
             <main class="app-main">
@@ -105,6 +121,10 @@
 @code {
     private string _path = "";
 
+    // Cajón del rail en mobile (ver media query en app.css, breakpoint 900px) — en
+    // desktop el CSS ignora esta clase, el rail siempre se ve como columna fija.
+    private bool _railAbierto;
+
     protected override void OnInitialized()
     {
         if (!AuthState.IsAuthenticated)
@@ -121,8 +141,11 @@
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _path = new Uri(e.Location).AbsolutePath;
+        _railAbierto = false; // navegar a una página nueva cierra el cajón en mobile
         InvokeAsync(StateHasChanged);
     }
+
+    private void CerrarRail() => _railAbierto = false;
 
     private void CerrarSesion()
     {
@@ -138,11 +161,13 @@
         var p when p.StartsWith("/solicitudes") => "Solicitudes",
         var p when p.StartsWith("/conteos") => "Conteo físico",
         var p when p.StartsWith("/categorias") => "Categorías",
+        var p when p.StartsWith("/almacenes") => "Almacenes",
         var p when p.StartsWith("/ubicaciones") => "Ubicaciones",
         var p when p.StartsWith("/unidades") => "Unidades",
         var p when p.StartsWith("/areas") => "Áreas",
         var p when p.StartsWith("/usuarios") => "Usuarios",
         var p when p.StartsWith("/roles") => "Roles",
+        var p when p.StartsWith("/paises") => "Países",
         _ => "Inicio",
     };
 

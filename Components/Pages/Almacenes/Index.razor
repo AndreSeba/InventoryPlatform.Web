@@ -1,0 +1,190 @@
+@page "/almacenes"
+@inject AlmacenApiClient AlmacenApi
+@inject AuthState AuthState
+
+<PageTitle>Almacenes</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Almacenes</h1>
+        <p class="text-muted" style="margin-top:-6px">El almacén propio y los de proveedores externos — cada Ubicación pertenece a uno.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.AlmacenesCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo almacén</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_almacenes is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Proveedor</th><th>Activo</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var a in _almacenes)
+                {
+                    <tr>
+                        <td>@a.CodigoAlmacen</td>
+                        <td>@a.Nombre</td>
+                        <td><span class="@(a.TipoAlmacen == TipoAlmacen.Externo ? "tag tag-outline" : "tag tag-neutral")">@(a.TipoAlmacen == TipoAlmacen.Externo ? "Externo" : "Propio")</span></td>
+                        <td class="text-muted">@(a.ProveedorNombre ?? "—")</td>
+                        <td><span class="@(a.Activo ? "tag tag-accent" : "tag tag-neutral")">@(a.Activo ? "Activo" : "Inactivo")</span></td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.AlmacenesEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(a)">Editar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo almacén" : "Editar almacén")">
+    <Body>
+        <div class="dialog-grid-2">
+            <div class="field"><label for="af-cod">Código</label><input class="input" id="af-cod" @bind="_codigo" placeholder="BO-EXT-CMP" /></div>
+            <div class="field"><label for="af-nom">Nombre</label><input class="input" id="af-nom" @bind="_nombre" placeholder="Almacén externo CMP" /></div>
+        </div>
+        <div class="field">
+            <label>Tipo</label>
+            <div class="seg" role="radiogroup">
+                <label class="seg-opt @(_tipo == TipoAlmacen.Propio ? "active" : "")" @onclick="() => _tipo = TipoAlmacen.Propio">PROPIO</label>
+                <label class="seg-opt @(_tipo == TipoAlmacen.Externo ? "active" : "")" @onclick="() => _tipo = TipoAlmacen.Externo">EXTERNO</label>
+            </div>
+        </div>
+        @if (_tipo == TipoAlmacen.Externo)
+        {
+            <div class="field"><label for="af-prov">Proveedor</label><input class="input" id="af-prov" @bind="_proveedorNombre" placeholder="Transportes XYZ" /></div>
+            <div class="dialog-grid-2">
+                <div class="field"><label for="af-cont">Contacto</label><input class="input" id="af-cont" @bind="_proveedorContacto" placeholder="Tel./email" /></div>
+                <div class="field"><label for="af-dir">Dirección</label><input class="input" id="af-dir" @bind="_proveedorDireccion" placeholder="Av. ..." /></div>
+            </div>
+        }
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activo (destildar para eliminarlo — sigue existiendo para no romper el historial de sus ubicaciones)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<AlmacenDto>? _almacenes;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _codigo = "";
+    private string _nombre = "";
+    private TipoAlmacen _tipo = TipoAlmacen.Propio;
+    private string? _proveedorNombre;
+    private string? _proveedorContacto;
+    private string? _proveedorDireccion;
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _almacenes = await AlmacenApi.ListarAsync(incluirInactivos: true);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _almacenes = [];
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _nombre = "";
+        _tipo = TipoAlmacen.Propio;
+        _proveedorNombre = null;
+        _proveedorContacto = null;
+        _proveedorDireccion = null;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(AlmacenDto a)
+    {
+        _editandoId = a.Id;
+        _codigo = a.CodigoAlmacen;
+        _nombre = a.Nombre;
+        _tipo = a.TipoAlmacen;
+        _proveedorNombre = a.ProveedorNombre;
+        _proveedorContacto = a.ProveedorContacto;
+        _proveedorDireccion = a.ProveedorDireccion;
+        _activo = a.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = "";
+        _nombre = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingresá un código."; return; }
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingresá un nombre."; return; }
+        if (_tipo == TipoAlmacen.Externo && string.IsNullOrWhiteSpace(_proveedorNombre)) { _dialogError = "Un almacén Externo requiere el nombre del proveedor."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await AlmacenApi.CrearAsync(new CrearAlmacenDto(_codigo, _nombre, _tipo, _proveedorNombre, _proveedorContacto, _proveedorDireccion));
+            else
+                await AlmacenApi.ActualizarAsync(_editandoId.Value, new ActualizarAlmacenDto(_codigo, _nombre, _tipo, _proveedorNombre, _proveedorContacto, _proveedorDireccion, _activo));
+
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

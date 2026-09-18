@@ -1,57 +1,116 @@
 @page "/"
 @layout Layout.WelcomeLayout
 @inject AuthApiClient AuthApi
+@inject PaisApiClient PaisApi
 @inject AuthState AuthState
 @inject NavigationManager Nav
 
 <PageTitle>Iniciar sesión — Inventario</PageTitle>
 
+@if (_paises is not null)
+{
+    <div style="position:fixed; top:20px; right:20px; z-index:10">
+        <div style="position:relative">
+            <button type="button" class="flag-dropdown-trigger" @onclick="() => _menuAbierto = !_menuAbierto">
+                <Bandera CodigoIso="@_paisSeleccionado?.CodigoIso" Width="22" />
+                <span style="font-size:10px;color:var(--color-neutral-500)">▾</span>
+            </button>
+            @if (_menuAbierto)
+            {
+                <div class="flag-dropdown-menu">
+                    @foreach (var p in _paises)
+                    {
+                        <button type="button" class="flag-dropdown-item" @onclick="() => Seleccionar(p)">
+                            <Bandera CodigoIso="@p.CodigoIso" Width="20" />
+                            <span>@p.Nombre</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="welcome-screen">
     <div class="welcome-card">
-        <div class="welcome-mark"></div>
+        <img src="/img/nestle-logo.png" alt="Nestlé" class="welcome-mark" />
         <h1 style="margin:0 0 4px">Inventario de Material Promocional</h1>
         <p class="text-muted" style="margin:0 0 28px">Iniciá sesión para continuar.</p>
 
-        <EditForm Model="_modelo" OnValidSubmit="Entrar">
-            <div class="field" style="margin-bottom:14px">
-                <label for="email">Email</label>
-                <InputText id="email" class="input" @bind-Value="_modelo.Email" autofocus />
-            </div>
-            <div class="field" style="margin-bottom:18px">
-                <label for="pass">Contraseña</label>
-                <InputText id="pass" class="input" type="password" @bind-Value="_modelo.Password" />
-            </div>
+        @if (_paises is null)
+        {
+            <p class="text-muted">Cargando…</p>
+        }
+        else
+        {
+            <EditForm Model="_modelo" OnValidSubmit="Entrar">
+                <div class="field" style="margin-bottom:14px">
+                    <label for="email">Email</label>
+                    <InputText id="email" class="input" @bind-Value="_modelo.Email" autofocus />
+                </div>
+                <div class="field" style="margin-bottom:18px">
+                    <label for="pass">Contraseña</label>
+                    <InputText id="pass" class="input" type="password" @bind-Value="_modelo.Password" />
+                </div>
 
-            @if (_error is not null)
-            {
-                <p class="dialog-error" style="margin-bottom:14px">@_error</p>
-            }
+                @if (_error is not null)
+                {
+                    <p class="dialog-error" style="margin-bottom:14px">@_error</p>
+                }
 
-            <button type="submit" class="btn btn-primary btn-block" disabled="@_ingresando">@(_ingresando ? "Ingresando…" : "Ingresar")</button>
-        </EditForm>
+                <button type="submit" class="btn btn-primary btn-block" disabled="@_ingresando">@(_ingresando ? "Ingresando…" : "Ingresar")</button>
+            </EditForm>
+        }
     </div>
 </div>
 
 @code {
+    private List<PaisDto>? _paises;
+    private PaisDto? _paisSeleccionado;
+    private bool _menuAbierto;
     private readonly Modelo _modelo = new();
     private bool _ingresando;
     private string? _error;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (AuthState.IsAuthenticated)
+        {
             Nav.NavigateTo(PaginaDeInicio());
+            return;
+        }
+
+        try
+        {
+            _paises = await PaisApi.ListarAsync();
+            if (_paises.Count > 0)
+                Seleccionar(_paises[0]);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _paises = [];
+        }
+    }
+
+    private void Seleccionar(PaisDto p)
+    {
+        _paisSeleccionado = p;
+        _modelo.PaisId = p.Id;
+        _menuAbierto = false;
     }
 
     private async Task Entrar()
     {
         if (_ingresando) return;
+        if (_modelo.PaisId <= 0) { _error = "Elegí un país."; return; }
+
         _ingresando = true;
         _error = null;
 
         try
         {
-            var resultado = await AuthApi.LoginAsync(new LoginDto(_modelo.Email, _modelo.Password));
+            var resultado = await AuthApi.LoginAsync(new LoginDto(_modelo.Email, _modelo.Password, _modelo.PaisId));
             AuthState.SignIn(resultado);
             Nav.NavigateTo(PaginaDeInicio());
         }
@@ -72,6 +131,7 @@
 
     private class Modelo
     {
+        public int PaisId { get; set; }
         public string Email { get; set; } = "";
         public string Password { get; set; } = "";
     }

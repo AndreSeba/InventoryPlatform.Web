@@ -25,6 +25,8 @@ builder.Services.AddHttpClient<AuthApiClient>(client => client.BaseAddress = new
 
 builder.Services.AddHttpClient<CategoriaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<UnidadApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<PaisApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<AlmacenApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<AreaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<UbicacionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<ProductoApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));

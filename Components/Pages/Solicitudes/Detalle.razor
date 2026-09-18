@@ -7,7 +7,7 @@
 
 <PageTitle>Solicitud</PageTitle>
 
-<a href="/solicitudes" class="no-print" style="font-size:13px">‹ Volver a solicitudes</a>
+<a href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" class="no-print" style="font-size:13px">‹ Volver a solicitudes</a>
 
 @if (_error is not null)
 {

@@ -68,7 +68,7 @@ else
 
     <div class="table-wrap">
         <table class="table">
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
             <tbody>
                 @foreach (var m in Paginados())
                 {
@@ -79,6 +79,7 @@ else
                         <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
                         <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@UbicacionORetorna(m)</td>
+                        <td class="text-muted">@m.AlmacenNombre</td>
                         <td class="text-muted">@m.RegistradoPor</td>
                         <td class="text-muted">@m.Motivo</td>
                     </tr>
@@ -154,7 +155,7 @@ else
                 <option value="0">-- Seleccionar --</option>
                 @foreach (var u in _ubicaciones ?? [])
                 {
-                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                    <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
                 }
             </select>
         </div>
@@ -204,7 +205,7 @@ else
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var u in _ubicacionesConStock!)
                     {
-                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N0"))</option>
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo — @u.AlmacenNombre (@u.Existencia.ToString("N0"))</option>
                     }
                 </select>
             }
@@ -264,7 +265,7 @@ else
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var u in _ubicaciones ?? [])
                     {
-                        <option value="@u.Id">@u.CodigoUbicacion</option>
+                        <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
                     }
                 </select>
             }
@@ -286,7 +287,7 @@ else
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var u in _ubicacionesConStock!)
                     {
-                        <option value="@u.UbicacionId">@u.UbicacionCodigo (@u.Existencia.ToString("N0"))</option>
+                        <option value="@u.UbicacionId">@u.UbicacionCodigo — @u.AlmacenNombre (@u.Existencia.ToString("N0"))</option>
                     }
                 </select>
             }
@@ -317,7 +318,7 @@ else
                 <option value="0">-- Seleccionar --</option>
                 @foreach (var u in _ubicaciones ?? [])
                 {
-                    <option value="@u.Id">@u.CodigoUbicacion</option>
+                    <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
                 }
             </select>
         </div>

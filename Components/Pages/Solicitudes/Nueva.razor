@@ -5,10 +5,11 @@
 @inject CategoriaApiClient CategoriaApi
 @inject UnidadApiClient UnidadApi
 @inject NavigationManager Nav
+@inject AuthState AuthState
 
 <PageTitle>Nueva solicitud</PageTitle>
 
-<a href="/solicitudes" style="font-size:13px">‹ Volver a solicitudes</a>
+<a href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" style="font-size:13px">‹ Volver a solicitudes</a>
 
 <div class="page-head" style="margin-top:12px">
     <div>
@@ -63,7 +64,7 @@ else
         }
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;margin-top:16px;align-items:start">
+    <div class="carrito-layout">
         <div>
             @if (Filtrados().Count == 0)
             {
@@ -105,7 +106,7 @@ else
             }
         </div>
 
-        <div class="card elev-sm" style="padding:16px;position:sticky;top:16px">
+        <div class="card elev-sm carrito-panel" style="padding:16px">
             <div class="card-title" style="font-size:15px;margin-bottom:8px">Carrito (@_carrito.Count)</div>
             @if (_carrito.Count == 0)
             {
@@ -181,6 +182,20 @@ else
                 <input class="input" type="number" min="1" step="1" @bind="_nuevoCantidad" />
             </div>
         </div>
+        <div class="field">
+            <label>Imagen (opcional)</label>
+            <div class="form-image-row">
+                <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_nuevoImagenPreviewUrl) ? "" : $"background-image:url('{_nuevoImagenPreviewUrl}')")"></div>
+                <div style="flex:1">
+                    <InputFile OnChange="OnNuevoImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_procesandoImagenNueva" />
+                    <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB. Así el encargado ya ve una foto real, no hace falta editar el producto después.</p>
+                    @if (_procesandoImagenNueva)
+                    {
+                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">Procesando imagen…</p>
+                    }
+                </div>
+            </div>
+        </div>
         @if (_productoNuevoError is not null)
         {
             <p class="dialog-error">@_productoNuevoError</p>
@@ -219,6 +234,10 @@ else
     private string _nuevoUnidad = "";
     private decimal? _nuevoCosto;
     private int _nuevoCantidad = 1;
+    private byte[]? _nuevoImagenData;
+    private string? _nuevoImagenContentType;
+    private string? _nuevoImagenPreviewUrl;
+    private bool _procesandoImagenNueva;
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
@@ -341,8 +360,46 @@ else
         _nuevoUnidad = "";
         _nuevoCosto = null;
         _nuevoCantidad = 1;
+        _nuevoImagenData = null;
+        _nuevoImagenContentType = null;
+        _nuevoImagenPreviewUrl = null;
         _productoNuevoError = null;
         _productoNuevoOpen = true;
+    }
+
+    private const long TamanoMaximoImagenBytes = 5 * 1024 * 1024;
+
+    private async Task OnNuevoImagenSeleccionada(InputFileChangeEventArgs e)
+    {
+        var archivo = e.File;
+        if (archivo.Size > TamanoMaximoImagenBytes)
+        {
+            _productoNuevoError = "La imagen no puede superar los 5 MB.";
+            return;
+        }
+
+        _procesandoImagenNueva = true;
+        _productoNuevoError = null;
+        StateHasChanged();
+
+        try
+        {
+            using var buffer = new MemoryStream();
+            await using (var contenido = archivo.OpenReadStream(TamanoMaximoImagenBytes))
+                await contenido.CopyToAsync(buffer);
+
+            _nuevoImagenData = buffer.ToArray();
+            _nuevoImagenContentType = archivo.ContentType;
+            _nuevoImagenPreviewUrl = $"data:{archivo.ContentType};base64,{Convert.ToBase64String(_nuevoImagenData)}";
+        }
+        catch (Exception ex)
+        {
+            _productoNuevoError = $"No se pudo procesar la imagen: {ex.Message}";
+        }
+        finally
+        {
+            _procesandoImagenNueva = false;
+        }
     }
 
     // Aviso NO bloqueante — normaliza (sin acentos, sin mayúsculas, espacios colapsados) y
@@ -379,7 +436,7 @@ else
         try
         {
             var nuevo = await ProductoApi.CrearRapidoAsync(new CrearProductoDto(
-                _nuevoNombre, _nuevoCategoriaId, _nuevoUnidad, _nuevoCosto, 0, null, null, null));
+                _nuevoNombre, _nuevoCategoriaId, _nuevoUnidad, _nuevoCosto, 0, null, _nuevoImagenData, _nuevoImagenContentType));
 
             (_productos ??= []).Add(nuevo);
             _cantidadUi.TryAdd(nuevo.Id, 1);

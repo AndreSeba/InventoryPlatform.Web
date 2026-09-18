@@ -50,6 +50,31 @@ else
     </div>
 
     <div class="hr" style="margin-top:36px"></div>
+    <h3>Stock por almacén</h3>
+    @if (_stockPorAlmacen is null || _stockPorAlmacen.Count == 0)
+    {
+        <p class="text-muted">Sin stock registrado en ningún almacén.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Almacén</th><th>Ubicación</th><th>Existencia</th></tr></thead>
+                <tbody>
+                    @foreach (var u in _stockPorAlmacen)
+                    {
+                        <tr>
+                            <td>@u.AlmacenNombre</td>
+                            <td class="text-muted">@u.UbicacionCodigo</td>
+                            <td>@u.Existencia.ToString("N0") @_producto.UnidadMedida</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <div class="hr" style="margin-top:36px"></div>
     <h3>Historial</h3>
     @if (_historial.Count == 0)
     {
@@ -59,7 +84,7 @@ else
     {
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
                 <tbody>
                     @foreach (var m in _historial)
                     {
@@ -68,6 +93,7 @@ else
                             <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
                             <td>@m.Cantidad.ToString("N0")</td>
                             <td class="text-muted">@UbicacionORetorna(m)</td>
+                            <td class="text-muted">@m.AlmacenNombre</td>
                             <td class="text-muted">@m.RegistradoPor</td>
                             <td class="text-muted">@m.Motivo</td>
                         </tr>
@@ -164,6 +190,7 @@ else
 
     private ProductoDto? _producto;
     private List<MovimientoDto>? _historial;
+    private List<UbicacionConExistenciaDto>? _stockPorAlmacen;
     private string? _error;
 
     private bool _mostrarEditar;
@@ -188,6 +215,7 @@ else
         {
             _producto = await ProductoApi.ObtenerPorIdAsync(Id);
             _historial = (await MovimientoApi.ListarPorProductoAsync(Id)).OrderByDescending(m => m.FechaMovimiento).ToList();
+            _stockPorAlmacen = await ProductoApi.ListarUbicacionesConStockAsync(Id);
 
             if (_producto is not null)
             {

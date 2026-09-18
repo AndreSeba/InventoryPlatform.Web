@@ -1,0 +1,175 @@
+@page "/paises"
+@inject PaisApiClient PaisApi
+@inject AuthState AuthState
+
+<PageTitle>Países</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Países</h1>
+        <p class="text-muted" style="margin-top:-6px">Los países donde opera esta herramienta — se elige uno al loguearse.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.PaisesCrear))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo país</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_paises is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th></th><th>Nombre</th><th>Código ISO</th><th>Activo</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _paises)
+                {
+                    <tr>
+                        <td><Bandera CodigoIso="@p.CodigoIso" /></td>
+                        <td>@p.Nombre</td>
+                        <td class="text-muted">@p.CodigoIso</td>
+                        <td><span class="@(p.Activo ? "tag tag-accent" : "tag tag-neutral")">@(p.Activo ? "Activo" : "Inactivo")</span></td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.PaisesEditar))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(p)">Editar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo país" : "Editar país")">
+    <Body>
+        <div class="field">
+            <label for="pf-nom">Nombre</label>
+            <input class="input" id="pf-nom" @bind="_nombre" placeholder="Ecuador" />
+        </div>
+        <div class="field">
+            <label for="pf-iso">Código ISO</label>
+            @if (_editandoId is null)
+            {
+                <input class="input" id="pf-iso" @bind="_codigoIso" placeholder="EC" maxlength="2" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Dos letras (ISO 3166-1). No se puede cambiar después: define la bandera y queda embebido en las sesiones ya iniciadas.
+                </p>
+            }
+            else
+            {
+                <input class="input" id="pf-iso" value="@_codigoIso" disabled />
+            }
+        </div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activo (destildar para que deje de aparecer en el selector del login)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<PaisDto>? _paises;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _nombre = "";
+    private string _codigoIso = "";
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _paises = await PaisApi.ListarAsync(incluirInactivos: true);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _paises = [];
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _nombre = "";
+        _codigoIso = "";
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(PaisDto p)
+    {
+        _editandoId = p.Id;
+        _nombre = p.Nombre;
+        _codigoIso = p.CodigoIso;
+        _activo = p.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _nombre = "";
+        _codigoIso = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_codigoIso)) { _dialogError = "Ingresá el código ISO."; return; }
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingresá un nombre."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await PaisApi.CrearAsync(new CrearPaisDto(_nombre, _codigoIso));
+            else
+                await PaisApi.ActualizarAsync(_editandoId.Value, new ActualizarPaisDto(_nombre, _activo));
+
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

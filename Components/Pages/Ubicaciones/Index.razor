@@ -1,6 +1,7 @@
 @page "/ubicaciones"
 @inject UbicacionApiClient UbicacionApi
 @inject MovimientoApiClient MovimientoApi
+@inject AlmacenApiClient AlmacenApi
 @inject AuthState AuthState
 
 <PageTitle>Ubicaciones</PageTitle>
@@ -29,12 +30,13 @@ else
 {
     <div class="table-wrap" style="margin-top:24px">
         <table class="table">
-            <thead><tr><th>Código</th><th>Tipo</th><th>Nro</th><th>Lado</th><th>Nivel</th><th># Movimientos</th></tr></thead>
+            <thead><tr><th>Código</th><th>Almacén</th><th>Tipo</th><th>Nro</th><th>Lado</th><th>Nivel</th><th># Movimientos</th></tr></thead>
             <tbody>
                 @foreach (var u in Paginados())
                 {
                     <tr>
                         <td>@u.CodigoUbicacion</td>
+                        <td class="text-muted">@u.AlmacenNombre</td>
                         <td class="text-muted">@u.TipoUbicacion</td>
                         <td class="text-muted">@u.Nro</td>
                         <td class="text-muted">@u.Lado</td>
@@ -50,6 +52,16 @@ else
 
 <Dialog Visible="_dialogOpen" Title="Nueva ubicación">
     <Body>
+        <div class="field">
+            <label for="uf-almacen">Almacén</label>
+            <select class="input" id="uf-almacen" @bind="_almacenId">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var a in _almacenes ?? [])
+                {
+                    <option value="@a.Id">@a.Nombre</option>
+                }
+            </select>
+        </div>
         <div class="field">
             <label>Tipo</label>
             <div class="seg" role="radiogroup">
@@ -79,6 +91,7 @@ else
 @code {
     private List<UbicacionDto>? _ubicaciones;
     private List<MovimientoDto>? _movimientos;
+    private List<AlmacenDto>? _almacenes;
     private string? _error;
 
     private const int TamanoPagina = 10;
@@ -92,6 +105,7 @@ else
     private bool _dialogOpen;
     private bool _guardando;
     private string? _dialogError;
+    private int _almacenId;
     private TipoUbicacion _tipo = TipoUbicacion.Rack;
     private string _nro = "";
     private string _lado = "";
@@ -112,10 +126,23 @@ else
             _ubicaciones = [];
             _movimientos = [];
         }
+
+        // almacenes.ver puede faltar en un rol custom que solo tiene ubicaciones.crear —
+        // sin la lista igual se puede ver la tabla, solo no se puede elegir almacén al
+        // dar de alta (mismo criterio que el selector de Encargado en Categorías).
+        try
+        {
+            _almacenes = await AlmacenApi.ListarAsync();
+        }
+        catch (ApiException)
+        {
+            _almacenes = null;
+        }
     }
 
     private void AbrirDialogo()
     {
+        _almacenId = _almacenes?.Count == 1 ? _almacenes[0].Id : 0;
         _tipo = TipoUbicacion.Rack;
         _nro = ""; _lado = ""; _nivel = null;
         _dialogError = null;
@@ -127,6 +154,7 @@ else
     private async Task Guardar()
     {
         if (_guardando) return;
+        if (_almacenId <= 0) { _dialogError = "Elegí un almacén."; return; }
         if (string.IsNullOrWhiteSpace(_nro) || string.IsNullOrWhiteSpace(_lado)) { _dialogError = "Nro y Lado son obligatorios."; return; }
         if (_tipo == TipoUbicacion.Rack && string.IsNullOrWhiteSpace(_nivel)) { _dialogError = "Un RACK requiere Nivel."; return; }
 
@@ -135,7 +163,7 @@ else
 
         try
         {
-            await UbicacionApi.CrearAsync(new CrearUbicacionDto(_tipo, _nro, _lado, _tipo == TipoUbicacion.Rack ? _nivel : null));
+            await UbicacionApi.CrearAsync(new CrearUbicacionDto(_almacenId, _tipo, _nro, _lado, _tipo == TipoUbicacion.Rack ? _nivel : null));
             Cerrar();
             await CargarAsync();
         }

@@ -16,6 +16,14 @@ public class AuthState
     public string Email { get; private set; } = "";
     public string NombreCompleto { get; private set; } = "";
     public string RolNombre { get; private set; } = "";
+
+    // País elegido en el login (ver Home.razor) — un login = un país, no cambia durante
+    // el circuito. Viaja también como claim "pais" en el JWT, así que el backend filtra
+    // solo, esto acá es para pintar la bandera/nombre en la UI sin otra llamada.
+    public int PaisId { get; private set; }
+    public string PaisNombre { get; private set; } = "";
+    public string PaisCodigoIso { get; private set; } = "";
+
     private HashSet<string> Permisos { get; set; } = [];
 
     public event Action? OnChange;
@@ -28,6 +36,9 @@ public class AuthState
         Email = resultado.Usuario.Email;
         NombreCompleto = resultado.Usuario.NombreCompleto;
         RolNombre = resultado.Usuario.RolNombre;
+        PaisId = resultado.PaisId;
+        PaisNombre = resultado.PaisNombre;
+        PaisCodigoIso = resultado.PaisCodigoIso;
         Permisos = resultado.Usuario.Permisos.ToHashSet();
         OnChange?.Invoke();
     }
@@ -40,6 +51,9 @@ public class AuthState
         Email = "";
         NombreCompleto = "";
         RolNombre = "";
+        PaisId = 0;
+        PaisNombre = "";
+        PaisCodigoIso = "";
         Permisos = [];
         OnChange?.Invoke();
     }

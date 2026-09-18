@@ -1,0 +1,37 @@
+@* Bandera de país como SVG propio — no depende de la fuente de emoji del sistema
+   operativo (en Windows los emoji de bandera se ven como texto "BO"/"PE" en vez de
+   la bandera real, por una decisión de Microsoft de no incluir esos glifos). Agregar
+   un país nuevo acá cuando haga falta, mismo criterio que Icon.razor. *@
+
+<svg width="@Width" height="@Altura" viewBox="0 0 24 17" style="border-radius:2px;border:1px solid var(--color-divider);flex-shrink:0" xmlns="http://www.w3.org/2000/svg">
+    @switch (CodigoIso?.ToUpperInvariant())
+    {
+        case "BO":
+            <rect width="24" height="17" fill="#D52B1E" />
+            <rect y="5.67" width="24" height="5.66" fill="#F9E300" />
+            <rect y="11.33" width="24" height="5.67" fill="#007934" />
+            break;
+        case "PE":
+            <rect width="24" height="17" fill="#fff" />
+            <rect width="8" height="17" fill="#D91023" />
+            <rect x="16" width="8" height="17" fill="#D91023" />
+            break;
+        default:
+            @* Sin código conocido todavía (país recién dado de alta sin bandera propia
+               agregada acá) — un bloque gris neutro en vez de romper el render.
+               Razor trata <text> como tag especial propio, no se puede usar dentro de
+               un switch acá — por eso el fallback es solo color, sin sigla. *@
+            <rect width="24" height="17" fill="var(--color-neutral-300)" />
+            break;
+    }
+</svg>
+
+@code {
+    [Parameter] public string? CodigoIso { get; set; }
+    [Parameter] public int Width { get; set; } = 24;
+
+    // Entero a propósito (no Width * 0.72 directo en el markup): un double en el
+    // atributo SVG se formatea con la cultura del servidor — en una cultura con coma
+    // decimal (es-BO) salía height="15,84", un SVG inválido que el navegador no dibuja.
+    private int Altura => (int)Math.Round(Width * 17.0 / 24.0);
+}
