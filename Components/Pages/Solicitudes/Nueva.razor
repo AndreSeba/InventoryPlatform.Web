@@ -125,6 +125,20 @@ else
                             <input class="input" style="max-width:70px" type="number" min="1" step="1" @bind="linea.Cantidad" @bind:event="oninput" />
                             <span class="text-muted" style="font-size:12px">@linea.UnidadMedida</span>
                         </div>
+                        @if (_tipo == TipoSolicitud.Salida)
+                        {
+                            <label style="display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer">
+                                <input type="checkbox" @bind="linea.Retorna" />
+                                ¿Retorna?
+                            </label>
+                            @if (linea.Retorna)
+                            {
+                                <div style="display:flex;flex-direction:column;gap:6px">
+                                    <input class="input" style="font-size:12px" placeholder="Ubicación externa / destino" @bind="linea.UbicacionExterna" />
+                                    <input class="input" style="font-size:12px" type="date" @bind="linea.FechaRetornoEsperada" />
+                                </div>
+                            }
+                        }
                     </div>
                 }
             }
@@ -334,7 +348,11 @@ else
 
         try
         {
-            var detalles = _carrito.Select(l => new CrearSolicitudDetalleDto(l.ProductoId, l.Cantidad)).ToList();
+            var detalles = _carrito.Select(l => new CrearSolicitudDetalleDto(
+                l.ProductoId, l.Cantidad, l.Retorna,
+                l.Retorna ? l.UbicacionExterna : null,
+                l.Retorna && l.FechaRetornoEsperada is not null ? DateOnly.FromDateTime(l.FechaRetornoEsperada.Value) : null
+            )).ToList();
             var creada = await SolicitudApi.CrearAsync(new CrearSolicitudDto(_areaId, _tipo, detalles));
             Nav.NavigateTo($"/solicitudes/{creada.Id}");
         }
@@ -460,5 +478,8 @@ else
         public string ProductoNombre { get; set; } = "";
         public string UnidadMedida { get; set; } = "";
         public int Cantidad { get; set; }
+        public bool Retorna { get; set; }
+        public string? UbicacionExterna { get; set; }
+        public DateTime? FechaRetornoEsperada { get; set; }
     }
 }

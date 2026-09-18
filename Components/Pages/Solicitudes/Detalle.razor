@@ -59,7 +59,13 @@ else
                 @foreach (var d in _solicitud.Detalles)
                 {
                     <tr>
-                        <td>@d.ProductoNombre</td>
+                        <td>
+                            @d.ProductoNombre
+                            @if (d.Retorna)
+                            {
+                                <span class="tag tag-outline" style="margin-left:6px;font-size:11px">Retorna</span>
+                            }
+                        </td>
                         <td>@d.CantidadSolicitada.ToString("N0")</td>
                         <td class="text-muted">@(d.CantidadAprobada?.ToString("N0") ?? "—")</td>
                         <td class="text-muted">@d.CantidadEntregada.ToString("N0")</td>
@@ -276,7 +282,8 @@ else
             {
                 await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
                     detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
-                    false, null, null, solicitudDetalleId));
+                    detalle.Retorna, detalle.Retorna ? detalle.UbicacionExterna : null,
+                    detalle.Retorna ? detalle.FechaRetornoEsperada : null, solicitudDetalleId));
                 _ok = "Entrega registrada.";
             }
 

@@ -47,7 +47,13 @@ else if (_solicitud is not null)
                     {
                         var pendiente = d.CantidadAprobada!.Value - d.CantidadEntregada;
                         <tr>
-                            <td>@d.ProductoNombre</td>
+                            <td>
+                                @d.ProductoNombre
+                                @if (d.Retorna)
+                                {
+                                    <span class="tag tag-outline" style="margin-left:6px;font-size:11px">Retorna</span>
+                                }
+                            </td>
                             <td class="text-muted">@pendiente.ToString("N0")</td>
                             <td><input class="input" style="max-width:90px" type="number" min="0" step="1" @bind="_cantidad[d.Id]" /></td>
                             <td>
@@ -180,7 +186,8 @@ else if (_solicitud is not null)
             {
                 var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
                     detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
-                    false, null, null, detalle.Id));
+                    detalle.Retorna, detalle.Retorna ? detalle.UbicacionExterna : null,
+                    detalle.Retorna ? detalle.FechaRetornoEsperada : null, detalle.Id));
                 _ok = $"Entrega {r.NumeroMovimiento} registrada.";
             }
 
