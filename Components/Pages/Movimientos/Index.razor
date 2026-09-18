@@ -141,13 +141,7 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <select class="input" @bind="_movProductoId">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var p in _productos ?? [])
-                {
-                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
-                }
-            </select>
+            <ComboBuscable TItem="ProductoDto" Items="_productos" @bind-SelectedId="_movProductoId" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
         </div>
         <div class="field">
             <label>Ubicación destino</label>
@@ -177,13 +171,7 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <select class="input" @bind="_movProductoId" @bind:after="ActualizarUbicacionesDisponiblesAsync">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var p in _productos ?? [])
-                {
-                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
-                }
-            </select>
+            <ComboBuscable TItem="ProductoDto" Items="_productos" SelectedId="_movProductoId" SelectedIdChanged="OnProductoCambiadoAsync" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
         </div>
         <div class="field">
             <label>Ubicación origen</label>
@@ -242,13 +230,7 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <select class="input" @bind="_movProductoId" @bind:after="ActualizarUbicacionesDisponiblesAsync">
-                <option value="0">-- Seleccionar --</option>
-                @foreach (var p in _productos ?? [])
-                {
-                    <option value="@p.Id">@p.CodigoProducto — @p.Nombre</option>
-                }
-            </select>
+            <ComboBuscable TItem="ProductoDto" Items="_productos" SelectedId="_movProductoId" SelectedIdChanged="OnProductoCambiadoAsync" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
         </div>
         <div class="field">
             <label>Sentido del ajuste</label>
@@ -398,6 +380,15 @@ else
     }
 
     private string CategoriaDe(int productoId) => _productos?.FirstOrDefault(p => p.Id == productoId)?.CategoriaNombre ?? "—";
+
+    private static int ObtenerIdProducto(ProductoDto p) => p.Id;
+    private static string EtiquetaProducto(ProductoDto p) => $"{p.CodigoProducto} — {p.Nombre}";
+
+    private async Task OnProductoCambiadoAsync(int id)
+    {
+        _movProductoId = id;
+        await ActualizarUbicacionesDisponiblesAsync();
+    }
 
     private List<MovimientoDto> Filtrados() => (_movimientos ?? [])
         .Where(m => string.IsNullOrEmpty(_filtroCategoria) || CategoriaDe(m.ProductoId) == _filtroCategoria)

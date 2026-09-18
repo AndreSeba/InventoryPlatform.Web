@@ -1,0 +1,69 @@
+@* Select con buscador para listas largas (ej. catálogo de productos) — un <select> nativo
+   se vuelve incómodo para elegir entre decenas de opciones. Mismo lenguaje visual que el
+   desplegable de país del login (Home.razor / .flag-dropdown-*), pero genérico y con un
+   input de texto arriba de la lista que filtra por Contains, igual que el buscador de
+   Productos/Index.razor. *@
+@typeparam TItem
+
+<div class="combo-buscable">
+    <button type="button" class="input combo-trigger" disabled="@Disabled" @onclick="Toggle">
+        <span class="combo-trigger-text @(EtiquetaSeleccionada is null ? "placeholder" : "")">@(EtiquetaSeleccionada ?? Placeholder)</span>
+        <span class="combo-caret">▾</span>
+    </button>
+    @if (_abierto)
+    {
+        <div class="combo-menu">
+            <input class="input combo-search" placeholder="Buscar…" value="@_busqueda" @oninput="OnBuscar" @onclick:stopPropagation="true" autofocus />
+            <div class="combo-list">
+                @if (ItemsFiltrados.Count == 0)
+                {
+                    <div class="combo-empty">Sin resultados</div>
+                }
+                else
+                {
+                    @foreach (var item in ItemsFiltrados)
+                    {
+                        <button type="button" class="combo-item @(GetId(item) == SelectedId ? "active" : "")" @onclick="() => Seleccionar(item)">
+                            @GetLabel(item)
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem>? Items { get; set; }
+    [Parameter] public int SelectedId { get; set; }
+    [Parameter] public EventCallback<int> SelectedIdChanged { get; set; }
+    [Parameter] public Func<TItem, int> GetId { get; set; } = null!;
+    [Parameter] public Func<TItem, string> GetLabel { get; set; } = null!;
+    [Parameter] public string Placeholder { get; set; } = "-- Seleccionar --";
+    [Parameter] public bool Disabled { get; set; }
+
+    private bool _abierto;
+    private string _busqueda = "";
+
+    private string? EtiquetaSeleccionada => Items?.Where(i => GetId(i) == SelectedId).Select(GetLabel).FirstOrDefault();
+
+    private List<TItem> ItemsFiltrados => (Items ?? [])
+        .Where(i => string.IsNullOrWhiteSpace(_busqueda) || GetLabel(i).Contains(_busqueda, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void Toggle()
+    {
+        if (Disabled) return;
+        _abierto = !_abierto;
+        _busqueda = "";
+    }
+
+    private void OnBuscar(ChangeEventArgs e) => _busqueda = e.Value?.ToString() ?? "";
+
+    private async Task Seleccionar(TItem item)
+    {
+        _abierto = false;
+        SelectedId = GetId(item);
+        await SelectedIdChanged.InvokeAsync(SelectedId);
+    }
+}

@@ -203,6 +203,31 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 .flag-dropdown-item:hover { background: var(--color-neutral-100); }
 
+/* Select con buscador para listas largas (ComboBuscable.razor) — mismo lenguaje visual
+   que el flag-dropdown de arriba, pero con un input de filtro sobre la lista. */
+.combo-buscable { position: relative; }
+.combo-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.combo-trigger:disabled { cursor: not-allowed; opacity: 0.6; }
+.combo-trigger-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-trigger-text.placeholder { color: var(--color-neutral-500); }
+.combo-caret { font-size: 10px; color: var(--color-neutral-500); flex-shrink: 0; }
+.combo-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 6px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.combo-search { min-height: 32px; }
+.combo-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.combo-item {
+  display: block; width: 100%; padding: 7px 8px; text-align: left;
+  background: none; border: none; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; color: var(--color-text);
+}
+.combo-item:hover { background: var(--color-neutral-100); }
+.combo-item.active { background: var(--color-accent-100); color: var(--color-accent-700); font-weight: 500; }
+.combo-empty { padding: 10px 8px; font-size: 13px; color: var(--color-neutral-500); }
+
 .app-shell { height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: flex-start; background: var(--color-bg); }
 .app-frame { width: 100%; height: 100%; display: flex; background: var(--color-bg); }
 
