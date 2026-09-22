@@ -208,9 +208,24 @@ else if (_solicitud is not null)
             }
 
             _solicitud = await SolicitudApi.ObtenerPorIdAsync(_solicitud.Id);
+
+            // Si la línea recién registrada fue una entrega PARCIAL, sigue pendiente después
+            // del reload (con menos "pendiente" que antes) — sigue apareciendo en la tabla.
+            // Sacar sus entradas de los diccionarios y no reponerlas revienta el @bind de esa
+            // fila con KeyNotFoundException (mismo bug de fondo que ya documenta
+            // Solicitudes/Detalle.razor: hay que pre-cargar antes de que la fila renderice,
+            // nunca confiar en que la clave ya esté puesta). Se sacan las 3 y se recargan
+            // desde cero para TODAS las líneas todavía pendientes, con el pendiente actualizado.
             _cantidad.Remove(detalle.Id);
             _ubicacion.Remove(detalle.Id);
             _fechaVencimiento.Remove(detalle.Id);
+            foreach (var d in LineasPendientes())
+            {
+                _cantidad.TryAdd(d.Id, d.CantidadAprobada!.Value - d.CantidadEntregada);
+                _ubicacion.TryAdd(d.Id, 0);
+                _fechaVencimiento.TryAdd(d.Id, null);
+            }
+
             if (Tipo == TipoSolicitud.Salida)
                 _stockPorProducto[detalle.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(detalle.ProductoId)).ToList();
 

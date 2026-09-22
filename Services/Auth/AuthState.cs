@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Components;
 
 namespace Inventory.Web.Services.Auth;
 
@@ -9,8 +10,41 @@ namespace Inventory.Web.Services.Auth;
 // Authorization: Bearer ahí mismo — no vía un DelegatingHandler de IHttpClientFactory,
 // que arma su pipeline en un scope interno propio y nunca ve el AuthState real del
 // circuito (bug real encontrado probando la app: todo el CRUD daba 401 en silencio).
-public class AuthState
+public class AuthState : IDisposable
 {
+    // Bug real encontrado con la app corriendo (2026-09-18): con <Routes @rendermode="InteractiveServer">
+    // (prerender activado, el default), App.razor SÍ restaura la sesión desde la cookie durante el
+    // prerender — pero ese prerender corre en el scope de DI del request HTTP original. Apenas el
+    // navegador termina de conectar el circuito real por SignalR, Blazor crea un scope de DI NUEVO para
+    // ese circuito, con su propio AuthState recién instanciado y vacío — App.razor no vuelve a correr
+    // (no es parte del subárbol interactivo), así que nada lo repuebla. Resultado: la página se ve bien
+    // un instante (el HTML ya prerenderizado) y al toma el control el circuito interactivo, la sesión
+    // aparece "vencida" (HasPermission da false para todo) y el usuario cae en un loop de redirects.
+    // Arreglo oficial de Blazor para pasar datos del prerender al circuito interactivo:
+    // PersistentComponentState — el framework serializa lo que se registre acá dentro del HTML inicial
+    // y se lo entrega de vuelta al PersistentComponentState del circuito nuevo.
+    private readonly PersistentComponentState _estadoPersistente;
+    private readonly PersistingComponentStateSubscription _suscripcion;
+    private const string ClaveToken = "auth-token";
+
+    public AuthState(PersistentComponentState estadoPersistente)
+    {
+        _estadoPersistente = estadoPersistente;
+        _suscripcion = _estadoPersistente.RegisterOnPersisting(PersistirAsync);
+
+        if (_estadoPersistente.TryTakeFromJson<string>(ClaveToken, out var token) && token is not null)
+            RestaurarDesdeToken(token);
+    }
+
+    private Task PersistirAsync()
+    {
+        if (IsAuthenticated)
+            _estadoPersistente.PersistAsJson(ClaveToken, Token);
+        return Task.CompletedTask;
+    }
+
+    public void Dispose() => _suscripcion.Dispose();
+
     public bool IsAuthenticated { get; private set; }
     public string Token { get; private set; } = "";
     public int UsuarioId { get; private set; }

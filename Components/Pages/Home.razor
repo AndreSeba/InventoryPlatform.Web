@@ -55,7 +55,14 @@
                 </div>
                 <div class="field" style="margin-bottom:18px">
                     <label for="pass">Contraseña</label>
-                    <input id="pass" name="Password" type="password" class="input" />
+                    <div style="position:relative">
+                        <input id="pass" name="Password" type="@(_mostrarPassword ? "text" : "password")" class="input" style="padding-right:36px" />
+                        <button type="button" @onclick="() => _mostrarPassword = !_mostrarPassword"
+                            aria-label="@(_mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña")"
+                            style="position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:transparent;border:none;color:var(--color-neutral-500);cursor:pointer">
+                            <Icon Name="@(_mostrarPassword ? "eye-off" : "eye")" Size="18" />
+                        </button>
+                    </div>
                 </div>
 
                 @if (_error is not null)
@@ -77,6 +84,7 @@
     private List<PaisDto>? _paises;
     private PaisDto? _paisSeleccionado;
     private bool _menuAbierto;
+    private bool _mostrarPassword;
     private readonly Modelo _modelo = new();
     private string? _error;
 

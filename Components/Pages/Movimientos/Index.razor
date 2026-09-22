@@ -5,6 +5,7 @@
 @inject MovimientoApiClient MovimientoApi
 @inject AuthState AuthState
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <PageTitle>Movimientos</PageTitle>
 
@@ -59,6 +60,8 @@ else
             <option value="AjustePositivo">Ajuste +</option>
             <option value="AjusteNegativo">Ajuste -</option>
         </select>
+        <input class="input" style="max-width:160px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="() => _pagina = 1" />
+        <input class="input" style="max-width:160px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="() => _pagina = 1" />
         <button type="button" class="btn btn-ghost" disabled="@_exportando" @onclick="ExportarExcelAsync">@(_exportando ? "Generando…" : "Exportar a Excel")</button>
     </div>
     @if (_errorExportar is not null)
@@ -68,33 +71,58 @@ else
 
     <div class="table-wrap">
         <table class="table">
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Vencimiento</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+            <thead><tr><th>N.º Solicitud</th><th>Tipo</th><th>Producto(s)</th><th>Movimientos</th><th>Última fecha</th><th>Registrado por</th><th></th></tr></thead>
             <tbody>
-                @foreach (var m in Paginados())
+                @foreach (var g in GruposPaginados())
                 {
                     <tr>
-                        <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                        <td class="celda-truncada" title="@m.ProductoNombre">@m.ProductoNombre</td>
-                        <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
-                        <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
-                        <td>@m.Cantidad.ToString("N0")</td>
-                        <td class="text-muted">@UbicacionORetorna(m)</td>
-                        <td class="text-muted">@m.AlmacenNombre</td>
-                        <td class="text-muted">@m.FechaVencimiento?.ToString("d/M/yyyy")</td>
-                        <td class="text-muted">@m.RegistradoPor</td>
-                        <td class="text-muted celda-truncada" title="@m.Motivo">@m.Motivo</td>
+                        <td>@g.NumeroSolicitud</td>
+                        <td><span class="@TagClase(g.Tipo)">@Etiqueta(g.Tipo)</span></td>
+                        <td class="celda-truncada" title="@g.ProductosResumen">@g.ProductosResumen</td>
+                        <td>@g.CantidadMovimientos</td>
+                        <td class="text-muted">@g.UltimaFecha.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td class="text-muted">@g.RegistradoPor</td>
+                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => VerSolicitud(g.SolicitudId)">Ver</button></td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
-    @if (Filtrados().Count == 0)
+    @if (GruposFiltrados().Count == 0)
     {
-        <p class="text-muted" style="margin-top:20px">Sin movimientos para este filtro.</p>
+        <p class="text-muted" style="margin-top:20px">Sin movimientos con solicitud para este filtro.</p>
     }
     else
     {
-        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+        <Pager TotalItems="GruposFiltrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+    }
+
+    @if (MovimientosSueltos().Count > 0)
+    {
+        <div class="hr" style="margin-top:32px"></div>
+        <h3>Ajustes y devoluciones</h3>
+        <p class="text-muted" style="margin-top:-6px">Movimientos que no vienen de una solicitud.</p>
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+                <tbody>
+                    @foreach (var m in MovimientosSueltos())
+                    {
+                        <tr>
+                            <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td class="celda-truncada" title="@m.ProductoNombre">@m.ProductoNombre</td>
+                            <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
+                            <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                            <td>@m.Cantidad.ToString("N0")</td>
+                            <td class="text-muted">@UbicacionORetorna(m)</td>
+                            <td class="text-muted">@m.AlmacenNombre</td>
+                            <td class="text-muted">@m.RegistradoPor</td>
+                            <td class="text-muted celda-truncada" title="@m.Motivo">@m.Motivo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 
     <div class="hr" style="margin-top:32px"></div>
@@ -138,7 +166,7 @@ else
 }
 
 <!-- ===== Diálogo: Entrada ===== -->
-<Dialog Visible="@(_dialog == "entrada")" Title="Registrar entrada">
+<Dialog Visible="@(_dialog == "entrada")" Title="Registrar entrada" Ancho="true">
     <Body>
         <SolicitudEntregaPanel Tipo="TipoSolicitud.Entrada" UbicacionesTodas="_ubicaciones" OnRegistrado="CargarAsync" />
     </Body>
@@ -148,7 +176,7 @@ else
 </Dialog>
 
 <!-- ===== Diálogo: Salida ===== -->
-<Dialog Visible="@(_dialog == "salida")" Title="Registrar salida">
+<Dialog Visible="@(_dialog == "salida")" Title="Registrar salida" Ancho="true">
     <Body>
         <SolicitudEntregaPanel Tipo="TipoSolicitud.Salida" OnRegistrado="CargarAsync" />
     </Body>
@@ -256,6 +284,8 @@ else
     private List<CategoriaDto>? _categorias;
     private string _filtroCategoria = "";
     private string _filtroTipo = "";
+    private DateTime? _filtroDesde;
+    private DateTime? _filtroHasta;
     private string? _error;
     private string? _ok;
     private bool _exportando;
@@ -264,10 +294,40 @@ else
     private const int TamanoPagina = 10;
     private int _pagina = 1;
 
-    private List<MovimientoDto> Paginados() => Filtrados()
+    // Un movimiento de Entrada/Salida siempre nace de una línea de Solicitud
+    // (ver SolicitudEntregaPanel.razor) — agruparlos por solicitud da una fila por
+    // pedido en vez de una por línea entregada, con un botón "Ver" que lleva al
+    // detalle completo. Ajustes y devoluciones nunca tienen solicitud: quedan aparte.
+    private sealed record GrupoSolicitud(
+        int SolicitudId, string NumeroSolicitud, TipoMovimiento Tipo,
+        int CantidadMovimientos, string ProductosResumen, DateTime UltimaFecha, string RegistradoPor);
+
+    private List<GrupoSolicitud> GruposFiltrados() => Filtrados()
+        .Where(m => m.SolicitudId is not null)
+        .GroupBy(m => (m.SolicitudId!.Value, m.NumeroSolicitud!))
+        .Select(g =>
+        {
+            var productos = g.Select(m => m.ProductoNombre).Distinct().ToList();
+            var registrantes = g.Select(m => m.RegistradoPor).Distinct().ToList();
+            return new GrupoSolicitud(
+                g.Key.Item1, g.Key.Item2, g.First().TipoMovimiento, g.Count(),
+                productos.Count == 1 ? productos[0] : $"{productos.Count} productos",
+                g.Max(m => m.FechaMovimiento),
+                registrantes.Count == 1 ? registrantes[0] : $"{registrantes.Count} personas");
+        })
+        .OrderByDescending(g => g.UltimaFecha)
+        .ToList();
+
+    private List<GrupoSolicitud> GruposPaginados() => GruposFiltrados()
         .Skip((_pagina - 1) * TamanoPagina)
         .Take(TamanoPagina)
         .ToList();
+
+    private List<MovimientoDto> MovimientosSueltos() => Filtrados()
+        .Where(m => m.SolicitudId is null)
+        .ToList();
+
+    private void VerSolicitud(int solicitudId) => Nav.NavigateTo($"/solicitudes/{solicitudId}");
 
     private string? _dialog; // "entrada" | "salida" | "ajuste" | "devolucion" | null
     private bool _guardando;
@@ -325,6 +385,8 @@ else
     private List<MovimientoDto> Filtrados() => (_movimientos ?? [])
         .Where(m => string.IsNullOrEmpty(_filtroCategoria) || CategoriaDe(m.ProductoId) == _filtroCategoria)
         .Where(m => string.IsNullOrEmpty(_filtroTipo) || m.TipoMovimiento.ToString() == _filtroTipo)
+        .Where(m => _filtroDesde is null || m.FechaMovimiento.ToLocalTime().Date >= _filtroDesde.Value.Date)
+        .Where(m => _filtroHasta is null || m.FechaMovimiento.ToLocalTime().Date <= _filtroHasta.Value.Date)
         .OrderByDescending(m => m.FechaMovimiento)
         .ToList();
 

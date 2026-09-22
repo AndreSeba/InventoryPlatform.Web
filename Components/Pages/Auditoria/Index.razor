@@ -1,0 +1,224 @@
+@page "/auditoria"
+@using System.Text.Json
+@inject AuditoriaApiClient AuditoriaApi
+
+<PageTitle>Auditoría</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Auditoría</h1>
+        <p class="text-muted" style="margin-top:-6px">Quién cambió qué, cuándo y con qué valores — en todos los módulos.</p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_catalogo is null || _registros is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="filter-row" style="flex-wrap:wrap">
+        <select class="input" style="max-width:200px" @bind="_filtroEntidad" @bind:after="AplicarFiltrosAsync">
+            <option value="">Todas las entidades</option>
+            @foreach (var e in _catalogo.Entidades)
+            {
+                <option value="@e">@e</option>
+            }
+        </select>
+        <select class="input" style="max-width:200px" @bind="_filtroAccion" @bind:after="AplicarFiltrosAsync">
+            <option value="">Todas las acciones</option>
+            @foreach (var a in _catalogo.Acciones)
+            {
+                <option value="@a">@a</option>
+            }
+        </select>
+        <input class="input" style="max-width:170px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="AplicarFiltrosAsync" />
+        <input class="input" style="max-width:170px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="AplicarFiltrosAsync" />
+        @if (_filtroEntidad != "" || _filtroAccion != "" || _filtroDesde is not null || _filtroHasta is not null)
+        {
+            <button type="button" class="btn btn-ghost" @onclick="LimpiarFiltrosAsync">Limpiar filtros</button>
+        }
+    </div>
+
+    @if (_registros.Count == 0)
+    {
+        <p class="text-muted" style="margin-top:20px">Sin movimientos de auditoría para este filtro.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr><th>Fecha</th><th>Entidad</th><th>Id</th><th>Acción</th><th>Usuario</th><th>Motivo</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Paginados())
+                    {
+                        <tr>
+                            <td class="text-muted">@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@r.Entidad</td>
+                            <td class="text-muted">@r.EntidadId</td>
+                            <td><span class="@AccionTagClase(r.Accion)">@r.Accion</span></td>
+                            <td class="text-muted">@r.UsuarioNombre</td>
+                            <td class="text-muted celda-truncada" title="@r.Motivo">@r.Motivo</td>
+                            <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => Alternar(r.Id)">@(_expandidos.Contains(r.Id) ? "Ocultar" : "Ver cambios")</button></td>
+                        </tr>
+                        @if (_expandidos.Contains(r.Id))
+                        {
+                            <tr>
+                                <td colspan="7" style="background:var(--color-neutral-100)">
+                                    @{ var diferencias = Diferencias(r.ValorAnterior, r.ValorNuevo); }
+                                    @if (diferencias.Count == 0)
+                                    {
+                                        <p class="text-muted" style="margin:8px 4px">Sin campos con cambios registrados.</p>
+                                    }
+                                    else
+                                    {
+                                        <table class="table" style="margin:8px 0">
+                                            <thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead>
+                                            <tbody>
+                                                @foreach (var d in diferencias)
+                                                {
+                                                    <tr>
+                                                        <td>@d.Campo</td>
+                                                        <td class="text-muted">@d.Antes</td>
+                                                        <td>@d.Despues</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        <Pager TotalItems="_registros.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+    }
+}
+
+@code {
+    private CatalogoAuditoriaDto? _catalogo;
+    private List<AuditoriaDto>? _registros;
+    private string? _error;
+
+    private string _filtroEntidad = "";
+    private string _filtroAccion = "";
+    private DateTime? _filtroDesde;
+    private DateTime? _filtroHasta;
+
+    private readonly HashSet<int> _expandidos = [];
+
+    private const int TamanoPagina = 15;
+    private int _pagina = 1;
+
+    private List<AuditoriaDto> Paginados() => (_registros ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _catalogo = await AuditoriaApi.ObtenerCatalogoAsync();
+            _registros = await AuditoriaApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _catalogo = new CatalogoAuditoriaDto([], []);
+            _registros = [];
+        }
+    }
+
+    private async Task AplicarFiltrosAsync()
+    {
+        _pagina = 1;
+        _error = null;
+        try
+        {
+            _registros = await AuditoriaApi.ListarAsync(
+                string.IsNullOrEmpty(_filtroEntidad) ? null : _filtroEntidad,
+                string.IsNullOrEmpty(_filtroAccion) ? null : _filtroAccion,
+                null, _filtroDesde, _filtroHasta?.AddDays(1).AddTicks(-1));
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task LimpiarFiltrosAsync()
+    {
+        _filtroEntidad = ""; _filtroAccion = ""; _filtroDesde = null; _filtroHasta = null;
+        await AplicarFiltrosAsync();
+    }
+
+    private void Alternar(int id)
+    {
+        if (!_expandidos.Add(id))
+            _expandidos.Remove(id);
+    }
+
+    private static string AccionTagClase(string accion) => accion switch
+    {
+        var a when a.StartsWith("Crear") || a.StartsWith("Registrar") => "tag tag-accent",
+        var a when a.StartsWith("Desactivar") || a.StartsWith("Rechazar") => "tag tag-warn",
+        _ => "tag tag-outline",
+    };
+
+    // Compara los dos JSON guardados campo por campo y devuelve solo los que cambiaron —
+    // en "Crear" (ValorAnterior null) todos los campos de ValorNuevo aparecen como cambio.
+    private sealed record Diferencia(string Campo, string Antes, string Despues);
+
+    private static List<Diferencia> Diferencias(string? anteriorJson, string? nuevoJson)
+    {
+        var anterior = ParsearObjeto(anteriorJson);
+        var nuevo = ParsearObjeto(nuevoJson);
+
+        var campos = new List<string>();
+        if (anterior is not null) campos.AddRange(anterior.Value.EnumerateObject().Select(p => p.Name));
+        if (nuevo is not null) campos.AddRange(nuevo.Value.EnumerateObject().Select(p => p.Name));
+
+        var resultado = new List<Diferencia>();
+        foreach (var campo in campos.Distinct())
+        {
+            var antes = ValorTexto(anterior, campo);
+            var despues = ValorTexto(nuevo, campo);
+            if (antes != despues)
+                resultado.Add(new Diferencia(campo, antes, despues));
+        }
+        return resultado;
+    }
+
+    private static JsonElement? ParsearObjeto(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var elemento = JsonDocument.Parse(json).RootElement;
+            return elemento.ValueKind == JsonValueKind.Object ? elemento : null;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    private static string ValorTexto(JsonElement? contenedor, string campo)
+    {
+        if (contenedor is null || !contenedor.Value.TryGetProperty(campo, out var valor))
+            return "—";
+
+        return valor.ValueKind switch
+        {
+            JsonValueKind.Null => "—",
+            JsonValueKind.String => valor.GetString() is { Length: > 0 } s ? s : "—",
+            JsonValueKind.True or JsonValueKind.False => valor.GetBoolean() ? "Sí" : "No",
+            JsonValueKind.Array or JsonValueKind.Object => valor.GetRawText(),
+            _ => valor.ToString(),
+        };
+    }
+}

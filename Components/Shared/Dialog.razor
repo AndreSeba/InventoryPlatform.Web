@@ -1,7 +1,7 @@
 @if (Visible)
 {
     <div class="dialog-backdrop">
-        <div class="dialog">
+        <div class="dialog @(Ancho ? "dialog-ancho" : "")">
             <div class="dialog-title">@Title</div>
             <div class="dialog-body">
                 @Body
@@ -16,6 +16,10 @@
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public string Title { get; set; } = "";
+    // Los diálogos con una tabla adentro (ej. SolicitudEntregaPanel, columnas Producto/
+    // Pendiente/Cantidad/Ubicación/Vencimiento) se ven apretados en los 480px por defecto
+    // — Ancho los deja crecer sin tocar el resto de los diálogos simples de la app.
+    [Parameter] public bool Ancho { get; set; }
     [Parameter] public RenderFragment? Body { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
 }

@@ -51,7 +51,7 @@ al backend). Este repo **nunca** toca la base de datos ni referencia
   `Services/` (`ProductoApiClient`, `MovimientoApiClient`,
   `CategoriaApiClient`, `AreaApiClient`, `UbicacionApiClient`,
   `SolicitudApiClient`, `ConteoApiClient`, `UsuarioApiClient`, `RolApiClient`,
-  `UnidadApiClient`),
+  `UnidadApiClient`, `AuditoriaApiClient`),
   cada uno con el mismo patrón: método por endpoint,
   `ApiClientHelper.LanzarSiHayErrorAsync` traduce un `ProblemDetails` no-2xx
   (o un 401/403 sin cuerpo del handler de JWT) en una `ApiException` que los
@@ -233,6 +233,7 @@ adaptarlo al backend real (`InventoryPlatform`, modelo v4):
 | `/conteos` | Conteo físico | Por sesión: registrar conteo + comparación contra existencia del sistema |
 | `/categorias`, `/areas`, `/ubicaciones` | Catálogos simples | Tabla + diálogo de alta. Sin editar/eliminar (ver arriba) |
 | `/unidades` | Unidades de medida | Tabla + diálogo de alta/edición. El código es de solo lectura al editar (ver abajo) |
+| `/auditoria` | Auditoría | Ver "Auditoría completa" abajo |
 
 ## Comandos
 
@@ -275,6 +276,29 @@ arma marcando productos uno por uno, y nunca con el catálogo entero.
   cuenta. Si igual se intenta, sale un mensaje explicando por qué no se genera con todo.
 - El backend lo rechaza también (`SeleccionDeProductosVaciaException`, 400) — la
   validación del front es para no gastar el viaje, no es la única defensa.
+
+## Auditoría completa, estilo SAP (agregado 2026-09-22)
+
+`/auditoria` (`Components/Pages/Auditoria/Index.razor`) lista TODO lo que cambió en
+TODOS los módulos (Producto, Movimiento, Solicitud, Conteo, Usuario, Rol, Categoría,
+Área, Ubicación, Unidad, Almacén, País) — ver la sección "Auditoría completa" en
+`InventoryPlatform/CLAUDE.md` para el detalle del lado del backend (qué escribe cada
+servicio, `IAuditoriaService`, el nuevo permiso `auditoria.ver`).
+
+- **Filtros por query string** (Entidad/Acción con `<select>` alimentados por
+  `GET /api/auditoria/catalogo` — solo lo que realmente existe en la tabla, no una
+  lista hardcodeada — más Desde/Hasta), sin paginado server-side: la API devuelve la
+  lista filtrada completa y acá se pagina con `<Pager/>`, mismo criterio que
+  Movimientos/Solicitudes.
+- **El diff campo por campo se arma en el cliente**, no en la API: cada fila tiene un
+  botón "Ver cambios" que expande una sub-tabla Campo/Antes/Después. Parsea
+  `ValorAnterior`/`ValorNuevo` (ambos JSON) con `System.Text.Json.JsonDocument`,
+  compara clave por clave, y **solo muestra los campos que cambiaron** — con ~10
+  campos por entidad, mostrar todos siempre sería ruido. En una fila de "Crear"
+  (`ValorAnterior` null) se ven todos los campos de `ValorNuevo` como alta.
+- Rail link en "Administración", gateado por `AuthState.HasPermission(Permisos.AuditoriaVer)`
+  — mismo criterio que Usuarios/Roles/Países, y el backend igual lo exige en el
+  endpoint.
 
 ## Lo que NO hacer
 

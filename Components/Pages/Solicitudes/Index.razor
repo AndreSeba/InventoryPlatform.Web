@@ -36,9 +36,11 @@ else
             <button type="button" class="btn @(_filtroEstado == "Entregada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Entregada")'>Entregada</button>
             <button type="button" class="btn @(_filtroEstado == "Rechazada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Rechazada")'>Rechazada</button>
         </div>
+        <input class="input" style="max-width:160px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="() => _pagina = 1" />
+        <input class="input" style="max-width:160px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="() => _pagina = 1" />
     </div>
 
-    @if (_solicitudes.Count == 0)
+    @if (Filtrados().Count == 0)
     {
         <p class="text-muted" style="margin-top:20px">No hay solicitudes con ese filtro.</p>
     }
@@ -63,19 +65,26 @@ else
                 </tbody>
             </table>
         </div>
-        <Pager TotalItems="_solicitudes.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 }
 
 @code {
     private List<SolicitudDto>? _solicitudes;
     private string _filtroEstado = "";
+    private DateTime? _filtroDesde;
+    private DateTime? _filtroHasta;
     private string? _error;
 
     private const int TamanoPagina = 10;
     private int _pagina = 1;
 
-    private List<SolicitudDto> Paginados() => (_solicitudes ?? [])
+    private List<SolicitudDto> Filtrados() => (_solicitudes ?? [])
+        .Where(s => _filtroDesde is null || s.FechaSolicitud.ToLocalTime().Date >= _filtroDesde.Value.Date)
+        .Where(s => _filtroHasta is null || s.FechaSolicitud.ToLocalTime().Date <= _filtroHasta.Value.Date)
+        .ToList();
+
+    private List<SolicitudDto> Paginados() => Filtrados()
         .Skip((_pagina - 1) * TamanoPagina)
         .Take(TamanoPagina)
         .ToList();

@@ -37,6 +37,7 @@ builder.Services.AddHttpClient<SolicitudApiClient>(client => client.BaseAddress 
 builder.Services.AddHttpClient<ConteoApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<UsuarioApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<RolApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<AuditoriaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
 var app = builder.Build();
 

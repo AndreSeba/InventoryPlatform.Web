@@ -63,7 +63,7 @@
                 <RailLink Href="/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar) || AuthState.HasPermission(Permisos.PaisesVer))
+            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar) || AuthState.HasPermission(Permisos.PaisesVer) || AuthState.HasPermission(Permisos.AuditoriaVer))
             {
                 <div class="rail-section">Administración</div>
             }
@@ -78,6 +78,10 @@
             @if (AuthState.HasPermission(Permisos.PaisesVer))
             {
                 <RailLink Href="/paises" IconName="globe" Label="Países" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.AuditoriaVer))
+            {
+                <RailLink Href="/auditoria" IconName="history" Label="Auditoría" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -167,6 +171,7 @@
         var p when p.StartsWith("/usuarios") => "Usuarios",
         var p when p.StartsWith("/roles") => "Roles",
         var p when p.StartsWith("/paises") => "Países",
+        var p when p.StartsWith("/auditoria") => "Auditoría",
         _ => "Inicio",
     };
 

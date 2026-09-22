@@ -169,6 +169,10 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 /* — dialog — */
 .dialog-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: rgba(17, 24, 39, 0.55); z-index: 100; }
 .dialog { width: min(480px, 100%); max-height: 90vh; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-bg); box-shadow: var(--shadow-lg); }
+/* Variante para diálogos con una tabla adentro (Dialog.razor, parámetro Ancho) — crece con
+   la pantalla en vez de forzar el contenido a 480px; .table-wrap adentro ya scrollea en
+   horizontal si ni así entra (ej. una pantalla de celular). */
+.dialog.dialog-ancho { width: min(880px, 94vw); }
 .dialog-title { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 17px; }
 .dialog-body { font-size: 13px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overflow-x: hidden; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }

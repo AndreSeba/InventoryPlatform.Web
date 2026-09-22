@@ -1,9 +1,8 @@
 @page "/solicitudes/{Id:int}"
 @inject SolicitudApiClient SolicitudApi
-@inject MovimientoApiClient MovimientoApi
-@inject UbicacionApiClient UbicacionApi
 @inject AuthState AuthState
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <PageTitle>Solicitud</PageTitle>
 
@@ -18,7 +17,7 @@
     <p class="no-print" style="color:var(--color-accent-700);font-size:13px">@_ok</p>
 }
 
-@if (_solicitud is null || _ubicaciones is null)
+@if (_solicitud is null)
 {
     <p>Cargando…</p>
 }
@@ -49,10 +48,6 @@ else
                     {
                         <th>Aprobar cantidad</th>
                     }
-                    else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && AuthState.HasPermission(Permisos.SolicitudesEntregar))
-                    {
-                        <th>@(_solicitud.Tipo == TipoSolicitud.Entrada ? "Registrar recepción" : "Entregar")</th>
-                    }
                 </tr>
             </thead>
             <tbody>
@@ -73,31 +68,22 @@ else
                         {
                             <td><input class="input" style="max-width:110px" type="number" min="0" step="1" @bind="_cantidadAprobada[d.Id]" /></td>
                         }
-                        else if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial && d.CantidadAprobada > d.CantidadEntregada && AuthState.HasPermission(Permisos.SolicitudesEntregar))
-                        {
-                            <td>
-                                <div style="display:flex;gap:8px;align-items:center">
-                                    <input class="input" style="max-width:90px" type="number" min="0" step="1" @bind="_cantidadEntrega[d.Id]" />
-                                    <select class="input" style="max-width:130px" @bind="_ubicacionEntrega[d.Id]">
-                                        <option value="0">@(_solicitud.Tipo == TipoSolicitud.Entrada ? "Ubicación destino…" : "Ubicación…")</option>
-                                        @foreach (var u in _ubicaciones)
-                                        {
-                                            <option value="@u.Id">@u.CodigoUbicacion</option>
-                                        }
-                                    </select>
-                                    @if (_solicitud.Tipo == TipoSolicitud.Entrada)
-                                    {
-                                        <input class="input" style="max-width:150px" type="date" title="Vencimiento (opcional)" @bind="_fechaVencimiento[d.Id]" />
-                                    }
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => EntregarAsync(d.Id)">@(_solicitud.Tipo == TipoSolicitud.Entrada ? "Registrar recepción" : "Entregar")</button>
-                                </div>
-                            </td>
-                        }
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+
+    @if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial
+        && _solicitud.Detalles.Any(d => d.CantidadAprobada > d.CantidadEntregada))
+    {
+        <div class="no-print" style="display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 16px;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+            <p class="text-muted" style="margin:0;flex:1">
+                Quedan líneas por @(_solicitud.Tipo == TipoSolicitud.Entrada ? "recibir" : "entregar") — se registra desde Movimientos, eligiendo esta solicitud.
+            </p>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="IrAMovimientos">Ir a Movimientos</button>
+        </div>
+    }
 
     @if (_solicitud.Estado == EstadoSolicitud.Pendiente && (AuthState.HasPermission(Permisos.SolicitudesAprobar) || AuthState.HasPermission(Permisos.SolicitudesRechazar)))
     {
@@ -186,11 +172,7 @@ else
     [Parameter] public int Id { get; set; }
 
     private SolicitudDto? _solicitud;
-    private List<UbicacionDto>? _ubicaciones;
     private readonly Dictionary<int, int> _cantidadAprobada = new();
-    private readonly Dictionary<int, int> _cantidadEntrega = new();
-    private readonly Dictionary<int, int> _ubicacionEntrega = new();
-    private readonly Dictionary<int, DateTime?> _fechaVencimiento = new();
     private string? _motivoRechazo;
     private bool _guardando;
     private string? _error;
@@ -203,20 +185,13 @@ else
         try
         {
             _solicitud = await SolicitudApi.ObtenerPorIdAsync(Id);
-            _ubicaciones = await UbicacionApi.ListarAsync();
             if (_solicitud is not null)
                 foreach (var d in _solicitud.Detalles)
                 {
-                    // Las 3 se pre-cargan acá, no donde se usan — @bind lee la clave del
-                    // diccionario directo (no GetValueOrDefault), y la tabla puede pasar de
-                    // mostrar "Aprobar cantidad" a "Entregar" dentro del MISMO circuito
-                    // (justo después de aprobar, sin recargar la página). Si _cantidadEntrega/
-                    // _ubicacionEntrega no tienen la clave todavía en ese momento, el @bind
-                    // revienta con KeyNotFoundException y tira abajo el circuito entero.
+                    // Se pre-carga acá, no donde se usa — @bind lee la clave del diccionario
+                    // directo (no GetValueOrDefault), y si no está todavía en ese momento el
+                    // @bind revienta con KeyNotFoundException y tira abajo el circuito entero.
                     _cantidadAprobada.TryAdd(d.Id, d.CantidadSolicitada);
-                    _cantidadEntrega.TryAdd(d.Id, 0);
-                    _ubicacionEntrega.TryAdd(d.Id, 0);
-                    _fechaVencimiento.TryAdd(d.Id, null);
                 }
         }
         catch (ApiException ex)
@@ -262,44 +237,10 @@ else
         finally { _guardando = false; }
     }
 
-    private async Task EntregarAsync(int solicitudDetalleId)
-    {
-        if (_guardando || _solicitud is null) return;
-
-        var detalle = _solicitud.Detalles.First(d => d.Id == solicitudDetalleId);
-        var cantidad = _cantidadEntrega.GetValueOrDefault(solicitudDetalleId);
-        var ubicacionId = _ubicacionEntrega.GetValueOrDefault(solicitudDetalleId);
-
-        if (cantidad <= 0) { _error = "Indicá la cantidad a entregar."; return; }
-        if (ubicacionId <= 0) { _error = "Seleccioná desde qué ubicación sale."; return; }
-
-        _guardando = true;
-        _error = null;
-
-        try
-        {
-            if (_solicitud.Tipo == TipoSolicitud.Entrada)
-            {
-                var fechaVenc = _fechaVencimiento.GetValueOrDefault(solicitudDetalleId);
-                await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", solicitudDetalleId,
-                    fechaVenc is not null ? DateOnly.FromDateTime(fechaVenc.Value) : null));
-                _ok = "Recepción registrada.";
-            }
-            else
-            {
-                await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
-                    detalle.Retorna, detalle.Retorna ? detalle.UbicacionExterna : null,
-                    detalle.Retorna ? detalle.FechaRetornoEsperada : null, solicitudDetalleId));
-                _ok = "Entrega registrada.";
-            }
-
-            await CargarAsync();
-        }
-        catch (ApiException ex) { _error = ex.Message; }
-        finally { _guardando = false; }
-    }
+    // El registro real de la entrega/recepción se mueve a Movimientos (Registrar
+    // entrada/salida → SolicitudEntregaPanel), que ya elige la solicitud y arma el mismo
+    // Movimiento — tenerlo acá también era el mismo flujo duplicado en dos pantallas.
+    private void IrAMovimientos() => Nav.NavigateTo("/movimientos");
 
     private const int FilasMinimasTabla = 32;
 
