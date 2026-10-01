@@ -128,17 +128,17 @@ else
         </div>
         <div class="printable-form-row">
             <div class="pf-label">FECHA DE INGRESO</div>
-            <div class="pf-value"></div>
+            <div class="pf-value">@FechaIngreso()</div>
         </div>
         <div class="printable-form-row">
             <div class="pf-label">FECHA DE VENCIMIENTO</div>
-            <div class="pf-value"></div>
+            <div class="pf-value">@(_producto.ProximoVencimiento?.ToString("d/M/yyyy") ?? "")</div>
         </div>
         <div class="printable-form-row">
             <div class="pf-label">CANTIDAD (Unidades)</div>
             <div class="pf-value" style="text-align:left">@_producto.Existencia.ToString("N0")</div>
             <div class="pf-label" style="border-left:1px solid #000">UBICACIÓN</div>
-            <div class="pf-value"></div>
+            <div class="pf-value">@UbicacionTexto()</div>
         </div>
     </div>
     <button type="button" class="btn btn-primary no-print" style="margin-top:16px" @onclick="Imprimir">
@@ -300,6 +300,25 @@ else
     }
 
     private async Task Imprimir() => await JS.InvokeVoidAsync("print");
+
+    // Ubicación(es) donde el producto tiene stock HOY — puede ser una sola o varias
+    // (el mismo producto guardado en más de un rack); se listan todas, separadas por coma.
+    private string UbicacionTexto() =>
+        _stockPorAlmacen is { Count: > 0 }
+            ? string.Join(", ", _stockPorAlmacen.Select(u => u.UbicacionCodigo))
+            : "—";
+
+    // Fecha del último Movimiento de tipo Entrada — "cuándo entró lo que hay ahora",
+    // no la fecha del primer ingreso histórico del producto (ese puede ser de hace años
+    // y ya no reflejar el lote que está físicamente en el estante hoy).
+    private string FechaIngreso()
+    {
+        var ultimaEntrada = _historial?
+            .Where(m => m.TipoMovimiento == TipoMovimiento.Entrada)
+            .OrderByDescending(m => m.FechaMovimiento)
+            .FirstOrDefault();
+        return ultimaEntrada?.FechaMovimiento.ToLocalTime().ToString("d/M/yyyy") ?? "—";
+    }
 
     private static string CostoFmt(decimal? c) => c is null ? "—" : $"Bs {c:N2}";
 
