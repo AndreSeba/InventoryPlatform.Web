@@ -1,0 +1,30 @@
+@* Switch claro/oscuro de la topbar. El tema se guarda en localStorage del
+   navegador (ver wwwroot/js/tema.js) — nunca en AuthState, es una
+   preferencia de pestaña/navegador, no de sesión. *@
+@inject IJSRuntime JS
+
+<button type="button" class="theme-toggle @(_oscuro ? "is-dark" : "")" @onclick="Alternar"
+        aria-label="Cambiar tema" title="Cambiar tema">
+    <span class="theme-toggle-thumb">
+        <Icon Name="@(_oscuro ? "moon" : "sun")" Size="11" />
+    </span>
+</button>
+
+@code {
+    private bool _oscuro;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var tema = await JS.InvokeAsync<string>("tema.get");
+        _oscuro = tema == "dark";
+        StateHasChanged();
+    }
+
+    private async Task Alternar()
+    {
+        _oscuro = !_oscuro;
+        await JS.InvokeVoidAsync("tema.set", _oscuro ? "dark" : "light");
+    }
+}

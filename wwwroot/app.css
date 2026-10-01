@@ -61,6 +61,46 @@
   --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12);
 }
 
+/* Tema oscuro — activado con [data-theme="dark"] en <html> (ver Components/App.razor
+   y wwwroot/js/tema.js). Solo repinta el contenido: el rail lateral ya es oscuro
+   siempre con sus propios tokens --sidebar-*, no cambia con el tema (ver CLAUDE.md). */
+:root[data-theme="dark"] {
+  --color-bg: #15181f;
+  --color-surface: #1d212b;
+  --color-text: #e4e7ec;
+  --color-accent: #5f8be3;
+  --color-divider: #2d3340;
+
+  --color-neutral-100: #232834;
+  --color-neutral-200: #2a303d;
+  --color-neutral-300: #343b4a;
+  --color-neutral-400: #454d5f;
+  --color-neutral-500: #6b7280;
+  --color-neutral-600: #9aa1ae;
+  --color-neutral-700: #c4c9d2;
+  --color-neutral-800: #dfe2e8;
+  --color-neutral-900: #f8f9fb;
+
+  --color-accent-100: #1c2740;
+  --color-accent-200: #22335a;
+  --color-accent-300: #2d4474;
+  --color-accent-400: #3d5d9e;
+  --color-accent-500: #5f8be3;
+  --color-accent-600: #7ea2e9;
+  --color-accent-700: #9fb9ef;
+  --color-accent-800: #c3d5f7;
+  --color-accent-900: #e6edfc;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme="dark"] .tag-warn { background: #4a3a14; color: #fcd34d; }
+:root[data-theme="dark"] .tag-danger { background: #4a1f1c; color: #fca5a5; }
+/* La ficha imprimible simula papel — se queda clara en ambos temas a propósito. */
+:root[data-theme="dark"] .printable,
+:root[data-theme="dark"] .printable-form { background: #fff; color: #000; }
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -257,7 +297,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .rail-user-role { font-size: 11px; color: var(--sidebar-text-muted); }
 
 .app-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.app-topbar { padding: 12px 28px; border-bottom: 1px solid var(--color-divider); display: flex; align-items: center; background: var(--color-surface); }
+.app-topbar { padding: 12px 28px; border-bottom: 1px solid var(--color-divider); display: flex; align-items: center; gap: 10px; background: var(--color-surface); }
 .app-main { flex: 1; overflow: auto; padding: 28px 32px 64px; }
 
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -296,6 +336,22 @@ input[type="file"] { max-width: 100%; }
 /* Botón hamburguesa del rail — oculto en desktop, aparece por media query abajo. */
 .hamburger-btn { display: none; }
 .rail-backdrop { display: none; }
+
+/* Switch de tema claro/oscuro (topbar). Track gris con un thumb oscuro que se
+   desliza a la derecha cuando el oscuro está activo. */
+.theme-toggle {
+  position: relative; flex-shrink: 0; width: 44px; height: 24px; padding: 2px;
+  border: 1px solid var(--color-divider); border-radius: 999px; cursor: pointer;
+  background: var(--color-neutral-200); transition: background-color .15s ease;
+}
+.theme-toggle-thumb {
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--sidebar-bg); color: #fff;
+  transform: translateX(0); transition: transform .15s ease;
+}
+.theme-toggle.is-dark { background: var(--color-accent-100); }
+.theme-toggle.is-dark .theme-toggle-thumb { transform: translateX(20px); background: var(--color-accent); }
 
 .printable { max-width: 640px; padding: 28px; background: #fff; border-radius: var(--radius-lg); }
 

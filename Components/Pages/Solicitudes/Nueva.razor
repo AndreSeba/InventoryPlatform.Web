@@ -91,7 +91,8 @@ else
                                 <div class="card-title" style="font-size:15px">@p.Nombre</div>
                                 <div class="stock-line @(_tipo == TipoSolicitud.Salida && p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") @p.UnidadMedida</div>
                                 <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
-                                    <input class="input" style="max-width:70px" type="number" min="1" step="1" @bind="_cantidadUi[p.Id]" />
+                                    <input class="input" style="max-width:70px" type="number" min="1" step="1"
+                                           max="@(_tipo == TipoSolicitud.Salida ? p.Existencia : (int?)null)" @bind="_cantidadUi[p.Id]" />
                                     <button type="button" class="btn btn-secondary btn-sm" style="flex:1" @onclick="() => AgregarAlCarrito(p)">Agregar</button>
                                 </div>
                                 @{ var mensaje = StockInsuficienteMensaje(p, CantidadElegida(p.Id)); }
@@ -123,9 +124,16 @@ else
                             <button type="button" class="btn btn-ghost btn-icon" title="Quitar" @onclick="() => QuitarDelCarrito(linea)"><Icon Name="x" Size="14" /></button>
                         </div>
                         <div style="display:flex;gap:8px;align-items:center">
-                            <input class="input" style="max-width:70px" type="number" min="1" step="1" @bind="linea.Cantidad" @bind:event="oninput" />
+                            <input class="input" style="max-width:70px" type="number" min="1" step="1"
+                                   max="@(_tipo == TipoSolicitud.Salida ? StockDe(linea.ProductoId) : (int?)null)"
+                                   value="@linea.Cantidad" @oninput="e => CambiarCantidadLinea(linea, e.Value)" />
                             <span class="text-muted" style="font-size:12px">@linea.UnidadMedida</span>
                         </div>
+                        @{ var lineaMensaje = StockInsuficienteMensaje(ProductoDe(linea.ProductoId), linea.Cantidad); }
+                        @if (lineaMensaje is not null)
+                        {
+                            <p class="dialog-error" style="margin:0;font-size:12px">@lineaMensaje</p>
+                        }
                         @if (_tipo == TipoSolicitud.Salida)
                         {
                             <label style="display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer">
@@ -281,7 +289,15 @@ else
             _cantidadUi.TryAdd(p.Id, 1);
     }
 
-    private void CambiarTipo(TipoSolicitud tipo) => _tipo = tipo;
+    private void CambiarTipo(TipoSolicitud tipo)
+    {
+        _tipo = tipo;
+        // Las líneas pudieron agregarse en Entrada (sin tope de stock) — al pasar a
+        // Salida hay que clampearlas, si no quedan por encima del disponible sin avisar.
+        if (tipo == TipoSolicitud.Salida)
+            foreach (var l in _carrito)
+                l.Cantidad = Math.Min(l.Cantidad, StockDe(l.ProductoId));
+    }
 
     private void OnQuery(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; _pagina = 1; }
     private void SetFiltro(int? categoriaId) { _filtroCategoriaId = categoriaId; _pagina = 1; }
@@ -304,14 +320,26 @@ else
 
     private int CantidadElegida(int productoId) => _cantidadUi.GetValueOrDefault(productoId, 1);
 
+    private ProductoDto? ProductoDe(int productoId) => (_productos ?? []).FirstOrDefault(p => p.Id == productoId);
+    private int StockDe(int productoId) => ProductoDe(productoId)?.Existencia ?? int.MaxValue;
+
     // Solo aplica a Salida — para Entrada se está sumando stock, no tiene sentido topear
     // por la existencia actual (ver plan: "Decisiones de diseño").
-    private string? StockInsuficienteMensaje(ProductoDto p, int cantidad)
+    private string? StockInsuficienteMensaje(ProductoDto? p, int cantidad)
     {
-        if (_tipo != TipoSolicitud.Salida || cantidad <= 0) return null;
+        if (p is null || _tipo != TipoSolicitud.Salida || cantidad <= 0) return null;
         if (cantidad > p.Existencia)
             return $"Sin stock suficiente. Stock actual: {p.Existencia:N0} {p.UnidadMedida}.";
         return null;
+    }
+
+    // Clampea mientras se tipea — así nunca queda una línea del carrito por encima del
+    // stock disponible (antes solo se avisaba con texto rojo, pero se podía enviar igual).
+    private void CambiarCantidadLinea(LineaCarrito linea, object? valor)
+    {
+        if (!int.TryParse(valor?.ToString(), out var cantidad) || cantidad < 1) cantidad = 1;
+        if (_tipo == TipoSolicitud.Salida) cantidad = Math.Min(cantidad, StockDe(linea.ProductoId));
+        linea.Cantidad = cantidad;
     }
 
     private void AgregarAlCarrito(ProductoDto p)

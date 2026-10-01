@@ -8,6 +8,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    @* Aplica el tema guardado ANTES del primer paint, para que no se vea un flash
+       claro al recargar con el oscuro activo. *@
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("tema");
+                if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+            } catch (e) { }
+        })();
+    </script>
     <ResourcePreloader />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,6 +33,7 @@
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="js/descargas.js"></script>
+    <script src="js/tema.js"></script>
 </body>
 
 </html>
