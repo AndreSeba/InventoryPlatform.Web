@@ -40,14 +40,14 @@ else
         </div>
     </div>
 
-    @if (Filtrados().Count == 0)
+    @if (_productos!.Count == 0)
     {
         <p class="text-muted" style="margin-top:24px">No se encontraron productos.</p>
     }
     else
     {
         <div class="product-grid">
-            @foreach (var p in Paginados())
+            @foreach (var p in _productos)
             {
                 <div class="card elev-sm product-card">
                     <div class="product-card-img" style="@(string.IsNullOrWhiteSpace(p.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{p.ImagenUrl}')")">
@@ -75,7 +75,7 @@ else
                 </div>
             }
         </div>
-        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+        <Pager TotalItems="_total" PaginaActual="_pagina" PaginaActualChanged="CambiarPaginaAsync" TamanoPagina="TamanoPagina" />
     }
 }
 
@@ -179,6 +179,7 @@ else
 
     private const int TamanoPagina = 8;
     private int _pagina = 1;
+    private int _total;
 
     private bool _dialogOpen;
     private bool _guardando;
@@ -188,46 +189,86 @@ else
     private string? _codigoPreview;
     private FormModelo _form = new();
 
-    protected override async Task OnInitializedAsync() => await CargarAsync();
-
-    private async Task CargarAsync()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
-            _productos = await ProductoApi.ListarAsync();
             _categorias = await CategoriaApi.ListarAsync();
             _unidades = await UnidadApi.ListarAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
-            _productos = [];
             _categorias = [];
             _unidades = [];
         }
+
+        await CargarPaginaAsync();
     }
+
+    // Catálogo grande tras las cargas masivas (~600+ productos) — a diferencia del resto
+    // de la app (Movimientos/Solicitudes/Auditoria, que traen la lista completa y paginan
+    // en memoria), acá el filtro/búsqueda/paginado se resuelven en el backend
+    // (ProductoApiClient.ListarPaginadoAsync) y solo se traen las ~8 filas de la página
+    // actual — evita calcular existencia/próximo vencimiento de 600 filas para mostrar 8.
+    private async Task CargarPaginaAsync()
+    {
+        try
+        {
+            var resultado = await ProductoApi.ListarPaginadoAsync(_filtroCategoriaId, incluirInactivos: false, _query, _pagina, TamanoPagina);
+            _productos = resultado.Items.ToList();
+            _total = resultado.Total;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _productos = [];
+            _total = 0;
+        }
+    }
+
+    private async Task CargarAsync() => await CargarPaginaAsync();
 
     private void VerProducto(int id) => Nav.NavigateTo($"/productos/{id}");
-    private void OnQuery(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; _pagina = 1; }
-    private void SetFiltro(int? categoriaId) { _filtroCategoriaId = categoriaId; _pagina = 1; }
 
-    private List<ProductoDto> Filtrados()
+    private CancellationTokenSource? _buscarCts;
+
+    // Debounce: cada tecla ahora dispara un viaje al servidor (antes solo filtraba en
+    // memoria), así que se espera una pausa de tipeo antes de pedir la página — si no,
+    // escribir rápido manda un request por letra.
+    private void OnQuery(ChangeEventArgs e)
     {
-        var q = _query.Trim();
-        return (_productos ?? [])
-            .Where(p => _filtroCategoriaId is null || p.CategoriaId == _filtroCategoriaId)
-            .Where(p => q.Length == 0
-                || p.CodigoProducto.Contains(q, StringComparison.OrdinalIgnoreCase)
-                || p.Nombre.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        _query = e.Value?.ToString() ?? "";
+
+        _buscarCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _buscarCts = cts;
+        _ = BuscarConPausaAsync(cts.Token);
     }
 
-    // Filtrados() ya trae la lista completa que matchea el filtro/búsqueda;
-    // Paginados() recorta solo la página actual para el @foreach de la grilla.
-    private List<ProductoDto> Paginados() => Filtrados()
-        .Skip((_pagina - 1) * TamanoPagina)
-        .Take(TamanoPagina)
-        .ToList();
+    private async Task BuscarConPausaAsync(CancellationToken ct)
+    {
+        try { await Task.Delay(300, ct); }
+        catch (TaskCanceledException) { return; }
+        if (ct.IsCancellationRequested) return;
+
+        _pagina = 1;
+        await CargarPaginaAsync();
+        StateHasChanged();
+    }
+
+    private async Task SetFiltro(int? categoriaId)
+    {
+        _filtroCategoriaId = categoriaId;
+        _pagina = 1;
+        await CargarPaginaAsync();
+    }
+
+    private async Task CambiarPaginaAsync(int pagina)
+    {
+        _pagina = pagina;
+        await CargarPaginaAsync();
+    }
 
     private async Task AbrirNuevo()
     {

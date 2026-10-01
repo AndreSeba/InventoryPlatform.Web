@@ -30,6 +30,22 @@ public class ProductoApiClient
         return await respuesta.Content.ReadFromJsonAsync<List<ProductoDto>>(cancellationToken: ct) ?? [];
     }
 
+    // Paralelo a ListarAsync, no lo reemplaza — ver IProductoService.ListarPaginadoAsync
+    // en el backend. Solo lo usa Productos/Index (catálogo grande tras las cargas
+    // masivas); el resto de la app sigue pidiendo la lista completa con ListarAsync.
+    public async Task<PaginaDto<ProductoDto>> ListarPaginadoAsync(int? categoriaId, bool incluirInactivos, string? busqueda, int pagina, int tamanoPagina, CancellationToken ct = default)
+    {
+        var query = new List<string> { $"pagina={pagina}", $"tamanoPagina={tamanoPagina}" };
+        if (categoriaId is not null) query.Add($"categoriaId={categoriaId}");
+        if (incluirInactivos) query.Add("incluirInactivos=true");
+        if (!string.IsNullOrWhiteSpace(busqueda)) query.Add($"busqueda={Uri.EscapeDataString(busqueda)}");
+
+        var url = "api/productos/paginado?" + string.Join("&", query);
+        var respuesta = await _http.GetAsync(url, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<PaginaDto<ProductoDto>>(cancellationToken: ct))!;
+    }
+
     public async Task<ProductoDto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
     {
         var respuesta = await _http.GetAsync($"api/productos/{id}", ct);
