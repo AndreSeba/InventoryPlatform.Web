@@ -46,22 +46,22 @@
 else
 {
     <div class="filter-row">
-        <select class="input" style="max-width:220px" @bind="_filtroCategoria" @bind:after="() => _pagina = 1">
+        <select class="input" style="max-width:220px" @bind="_filtroCategoria" @bind:after="ReiniciarPaginas">
             <option value="">Todas las categorías</option>
             @foreach (var c in _categorias)
             {
                 <option value="@c.CodigoCategoria">@c.CodigoCategoria</option>
             }
         </select>
-        <select class="input" style="max-width:180px" @bind="_filtroTipo" @bind:after="() => _pagina = 1">
+        <select class="input" style="max-width:180px" @bind="_filtroTipo" @bind:after="ReiniciarPaginas">
             <option value="">Todos los tipos</option>
             <option value="Entrada">Entrada</option>
             <option value="Salida">Salida</option>
             <option value="AjustePositivo">Ajuste +</option>
             <option value="AjusteNegativo">Ajuste -</option>
         </select>
-        <input class="input" style="max-width:160px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="() => _pagina = 1" />
-        <input class="input" style="max-width:160px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="() => _pagina = 1" />
+        <input class="input" style="max-width:160px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="ReiniciarPaginas" />
+        <input class="input" style="max-width:160px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="ReiniciarPaginas" />
         <button type="button" class="btn btn-ghost" disabled="@_exportando" @onclick="ExportarExcelAsync">@(_exportando ? "Generando…" : "Exportar a Excel")</button>
     </div>
     @if (_errorExportar is not null)
@@ -106,7 +106,7 @@ else
             <table class="table">
                 <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
                 <tbody>
-                    @foreach (var m in MovimientosSueltos())
+                    @foreach (var m in MovimientosSueltosPaginados())
                     {
                         <tr>
                             <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
@@ -123,6 +123,7 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager TotalItems="MovimientosSueltos().Count" PaginaActual="_paginaSueltos" PaginaActualChanged="p => _paginaSueltos = p" TamanoPagina="TamanoPagina" />
     }
 
     <div class="hr" style="margin-top:32px"></div>
@@ -143,7 +144,7 @@ else
             <table class="table">
                 <thead><tr><th>N.º movimiento</th><th>Producto</th><th>Cantidad</th><th>Destino</th><th>Retorno esperado</th><th></th></tr></thead>
                 <tbody>
-                    @foreach (var m in _prestamos)
+                    @foreach (var m in PrestamosPaginados())
                     {
                         <tr>
                             <td>@m.NumeroMovimiento</td>
@@ -162,6 +163,7 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager TotalItems="_prestamos.Count" PaginaActual="_paginaPrestamos" PaginaActualChanged="p => _paginaPrestamos = p" TamanoPagina="TamanoPagina" />
     }
 }
 
@@ -293,6 +295,10 @@ else
 
     private const int TamanoPagina = 10;
     private int _pagina = 1;
+    private int _paginaSueltos = 1;
+    private int _paginaPrestamos = 1;
+
+    private void ReiniciarPaginas() { _pagina = 1; _paginaSueltos = 1; }
 
     // Un movimiento de Entrada/Salida siempre nace de una línea de Solicitud
     // (ver SolicitudEntregaPanel.razor) — agruparlos por solicitud da una fila por
@@ -325,6 +331,16 @@ else
 
     private List<MovimientoDto> MovimientosSueltos() => Filtrados()
         .Where(m => m.SolicitudId is null)
+        .ToList();
+
+    private List<MovimientoDto> MovimientosSueltosPaginados() => MovimientosSueltos()
+        .Skip((_paginaSueltos - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
+
+    private List<MovimientoDto> PrestamosPaginados() => (_prestamos ?? [])
+        .Skip((_paginaPrestamos - 1) * TamanoPagina)
+        .Take(TamanoPagina)
         .ToList();
 
     private void VerSolicitud(int solicitudId) => Nav.NavigateTo($"/solicitudes/{solicitudId}");

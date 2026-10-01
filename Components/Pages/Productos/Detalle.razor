@@ -87,7 +87,7 @@ else
             <table class="table">
                 <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Vencimiento</th><th>Registrado por</th><th>Motivo</th></tr></thead>
                 <tbody>
-                    @foreach (var m in _historial)
+                    @foreach (var m in HistorialPaginado())
                     {
                         <tr>
                             <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
@@ -103,6 +103,7 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager TotalItems="_historial.Count" PaginaActual="_paginaHistorial" PaginaActualChanged="p => _paginaHistorial = p" TamanoPagina="TamanoPaginaHistorial" />
     }
 
     <div class="hr no-print" style="margin-top:36px"></div>
@@ -194,6 +195,14 @@ else
     private List<MovimientoDto>? _historial;
     private List<UbicacionConExistenciaDto>? _stockPorAlmacen;
     private string? _error;
+
+    private const int TamanoPaginaHistorial = 10;
+    private int _paginaHistorial = 1;
+
+    private List<MovimientoDto> HistorialPaginado() => (_historial ?? [])
+        .Skip((_paginaHistorial - 1) * TamanoPaginaHistorial)
+        .Take(TamanoPaginaHistorial)
+        .ToList();
 
     private bool _mostrarEditar;
     private bool _guardando;
