@@ -374,11 +374,20 @@ else
     {
         try
         {
-            _movimientos = await MovimientoApi.ListarAsync();
-            _prestamos = await MovimientoApi.ListarPrestamosPendientesAsync();
-            _productos = await ProductoApi.ListarAsync();
-            _ubicaciones = await UbicacionApi.ListarAsync();
-            _categorias = await CategoriaApi.ListarAsync();
+            // En paralelo: son cinco pedidos independientes, y uno tras otro la pantalla
+            // tardaba la SUMA de las cinco latencias en vez de la del más lento.
+            var movimientos = MovimientoApi.ListarAsync();
+            var prestamos = MovimientoApi.ListarPrestamosPendientesAsync();
+            var productos = ProductoApi.ListarAsync();
+            var ubicaciones = UbicacionApi.ListarAsync();
+            var categorias = CategoriaApi.ListarAsync();
+            await Task.WhenAll(movimientos, prestamos, productos, ubicaciones, categorias);
+
+            _movimientos = movimientos.Result;
+            _prestamos = prestamos.Result;
+            _productos = productos.Result;
+            _ubicaciones = ubicaciones.Result;
+            _categorias = categorias.Result;
         }
         catch (ApiException ex)
         {

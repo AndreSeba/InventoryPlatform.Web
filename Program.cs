@@ -23,6 +23,23 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"]
 // real del usuario — swallowed 401 en todo el CRUD real hasta que se detectó con la
 // app corriendo). Login usa AuthApiClient sin token, a propósito: todavía no hay uno.
 builder.Services.AddScoped<AuthState>();
+
+// Defaults para TODOS los clientes hacia la API: se registra el tiempo de cada llamada
+// (ApiTimingHandler, sin estado scoped) y se saltea el proxy del sistema — la API es un
+// servicio propio, y en laptops corporativas la detección automática de proxy (WPAD) puede
+// sumar segundos a cada conexión nueva, incluso hacia localhost. La conexión se reutiliza
+// 10 minutos en vez de renegociarse seguido.
+builder.Services.AddTransient<ApiTimingHandler>();
+builder.Services.ConfigureHttpClientDefaults(http =>
+{
+    http.AddHttpMessageHandler<ApiTimingHandler>();
+    http.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        UseProxy = false,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+    });
+});
+
 builder.Services.AddHttpClient<AuthApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
 builder.Services.AddHttpClient<CategoriaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));

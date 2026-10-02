@@ -57,6 +57,12 @@ al backend). Este repo **nunca** toca la base de datos ni referencia
   (o un 401/403 sin cuerpo del handler de JWT) en una `ApiException` que los
   componentes atrapan para mostrar el mensaje real sin crashear.
 - Auth: JWT contra la API — ver "Autenticación y permisos" más abajo.
+- **Defaults de todos los `HttpClient`** (`Program.cs`, `ConfigureHttpClientDefaults`):
+  `ApiTimingHandler` registra en la consola `API GET /api/x -> 200 en N ms` (warning si
+  pasa de 1 s) y las llamadas van **sin proxy del sistema** (`UseProxy = false`), con la
+  conexión reutilizada 10 min. Si algo "tarda en cargar", mirá primero esas líneas: dicen si
+  tarda la API o la página. El handler es válido porque solo usa `ILogger` (singleton) —
+  no puede pedir `AuthState`, ver la trampa del `DelegatingHandler` más abajo.
 
 ## Sistema de diseño — "Corporate" (sobrio, neutro)
 
