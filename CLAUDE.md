@@ -270,18 +270,25 @@ Categorías y Áreas: tabla + diálogo, "eliminar" es destildar «Activa».
   seedeado (lo necesitan para el formulario de producto).
 - `Icon.razor` tiene el ícono `ruler` agregado para este módulo.
 
-## Conteo físico: la selección es siempre explícita (2026-09-16)
+## Conteo físico: sesión con trazabilidad y evidencia (2026-10-02)
 
-`Conteos/Index.razor` tenía un desplegable con tres modos (Todos los productos / Por
-categoría / Selección libre). **Se eliminó por pedido explícito del usuario**: la hoja se
-arma marcando productos uno por uno, y nunca con el catálogo entero.
+Tres pantallas: `/conteos` (listado con filtro por estado), `/conteos/nuevo` (elegir productos) y
+`/conteos/{id}` (detalle). Ver "Conteo físico" en `InventoryPlatform/CLAUDE.md` para las reglas.
 
-- La categoría y el buscador **solo filtran la lista** que se ve; no seleccionan nada.
-  Lo que entra en la hoja es siempre lo tildado en `_productosSeleccionados`.
-- El botón "Generar Excel (n)" está deshabilitado con 0 seleccionados y muestra la
-  cuenta. Si igual se intenta, sale un mensaje explicando por qué no se genera con todo.
-- El backend lo rechaza también (`SeleccionDeProductosVaciaException`, 400) — la
-  validación del front es para no gastar el viaje, no es la única defensa.
+- **La selección sigue siendo explícita**: en `/conteos/nuevo` la categoría y el buscador solo
+  FILTRAN la lista; entra lo tildado, uno por uno. No hay "seleccionar todos" a propósito. Los
+  productos sin stock salen deshabilitados.
+- **El Excel solo se descarga desde un conteo ya creado** (`Detalle.razor`) — el botón vive junto a
+  las cantidades. Se puede subir de vuelta (con la opción de dejarlo como evidencia) o tipear
+  las cantidades en la grilla.
+- **Para cerrar hace falta** todo contado + nada sin guardar + evidencia; el botón queda
+  deshabilitado y una lista dice qué falta. Cerrar pide confirmación (es irreversible).
+- **Visor de evidencia**: se baja desde el servidor con el Bearer del usuario y se muestra con una
+  URL de blob (`crearUrlBlob`/`liberarUrlBlob` en `wwwroot/js/descargas.js`), no con `<img src="/api…">`
+  — la evidencia exige autorización y el navegador no manda el token.
+- Shared: `ZonaArchivo` (arrastrar/soltar, uno o varios archivos), `EstadoConteoBadge`.
+- Ya no hay "Registrar ajuste" por línea ni "Consultar/registrar suelto": el conteo es solo informe
+  (los ajustes van por Movimientos).
 
 ## Auditoría completa, estilo SAP (agregado 2026-09-22)
 

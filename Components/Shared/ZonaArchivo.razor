@@ -1,0 +1,28 @@
+@* Zona para subir uno o varios archivos: se arrastran encima o se hace clic. Mismo truco que
+   ZonaImagen: el <input type="file"> cubre toda la zona con opacidad 0, así el navegador ya
+   acepta el arrastre solo — no hace falta JavaScript. Sirve para fotos, PDF y Excel según
+   el Accept que se le pase. *@
+<div class="dropzone dropzone-compacta @(Procesando ? "is-busy" : "")">
+    <InputFile class="dropzone-input" OnChange="OnChange" accept="@Accept" multiple="@Multiple" disabled="@Procesando" title="" />
+
+    <Icon Name="upload-cloud" Size="30" />
+    <div class="dropzone-title">@Titulo</div>
+    <div class="dropzone-sub">@(Multiple ? "Arrastrá los archivos aquí o hacé clic para explorar" : "Arrastrá el archivo aquí o hacé clic para explorar")</div>
+    @if (!string.IsNullOrWhiteSpace(Ayuda))
+    {
+        <div class="dropzone-hint">@Ayuda</div>
+    }
+    @if (Procesando)
+    {
+        <div class="dropzone-hint">Subiendo…</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = "";
+    [Parameter] public string? Ayuda { get; set; }
+    [Parameter] public string Accept { get; set; } = "";
+    [Parameter] public bool Multiple { get; set; }
+    [Parameter] public bool Procesando { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
+}

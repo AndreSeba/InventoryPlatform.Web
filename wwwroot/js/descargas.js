@@ -1,9 +1,12 @@
-window.descargarArchivo = (nombreArchivo, contentType, base64) => {
+function base64ABytes(base64) {
     const bytes = atob(base64);
     const buffer = new Uint8Array(bytes.length);
     for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
+    return buffer;
+}
 
-    const blob = new Blob([buffer], { type: contentType });
+window.descargarArchivo = (nombreArchivo, contentType, base64) => {
+    const blob = new Blob([base64ABytes(base64)], { type: contentType });
     const url = URL.createObjectURL(blob);
     const enlace = document.createElement('a');
     enlace.href = url;
@@ -13,3 +16,10 @@ window.descargarArchivo = (nombreArchivo, contentType, base64) => {
     document.body.removeChild(enlace);
     URL.revokeObjectURL(url);
 };
+
+// URL temporal para mostrar un archivo (imagen/PDF) dentro de la página. Quien la pide la
+// libera con liberarUrlBlob al cerrar el visor.
+window.crearUrlBlob = (contentType, base64) =>
+    URL.createObjectURL(new Blob([base64ABytes(base64)], { type: contentType }));
+
+window.liberarUrlBlob = (url) => URL.revokeObjectURL(url);

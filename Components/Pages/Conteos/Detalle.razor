@@ -1,0 +1,591 @@
+@page "/conteos/{Id:int}"
+@inject ConteoApiClient ConteoApi
+@inject ProductoApiClient ProductoApi
+@inject AuthState AuthState
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Conteo físico</PageTitle>
+
+<div style="margin-bottom:14px">
+    <BotonVolver Href="/conteos" Texto="Volver a conteos" />
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+}
+
+@if (_conteo is null)
+{
+    @if (_error is null)
+    {
+        <p>Cargando…</p>
+    }
+}
+else
+{
+    <div class="card elev-sm sol-card">
+        <div class="sol-head">
+            <div>
+                <h1 class="sol-number">@_conteo.Resumen.Codigo</h1>
+                @if (!string.IsNullOrWhiteSpace(_conteo.Resumen.Nombre))
+                {
+                    <div class="text-muted" style="font-size:14px;margin-top:2px">@_conteo.Resumen.Nombre</div>
+                }
+                @if (_conteo.Resumen.ConteoOrigenId is not null)
+                {
+                    <div style="font-size:13px;margin-top:4px">
+                        <span class="tag tag-outline">Reconteo de <a href="/conteos/@_conteo.Resumen.ConteoOrigenId">@_conteo.Resumen.ConteoOrigenCodigo</a></span>
+                    </div>
+                }
+            </div>
+            <EstadoConteoBadge Estado="_conteo.Resumen.Estado" Grande="true" />
+        </div>
+
+        <div class="sol-meta">
+            <div>
+                <div class="sol-meta-label"><Icon Name="user" Size="14" />Creado por</div>
+                <div class="sol-meta-value"><AvatarNombre Nombre="@_conteo.Resumen.CreadoPor" /></div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="calendar" Size="14" />Fecha</div>
+                <div class="sol-meta-value"><Icon Name="calendar" Size="16" />@_conteo.Resumen.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="check-list" Size="14" />Avance</div>
+                <div class="sol-meta-value">@_conteo.Resumen.LineasContadas de @_conteo.Resumen.TotalLineas contadas</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="alert" Size="14" />Diferencias</div>
+                <div class="sol-meta-value">
+                    @if (_conteo.Resumen.LineasContadas == 0)
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                    else
+                    {
+                        @_conteo.Resumen.LineasConDiferencia
+                    }
+                </div>
+            </div>
+            @if (_conteo.Resumen.FechaCierre is not null)
+            {
+                <div>
+                    <div class="sol-meta-label"><Icon Name="@(_conteo.Resumen.Estado == EstadoConteo.Cerrado ? "check-circle" : "x-circle")" Size="14" />@(_conteo.Resumen.Estado == EstadoConteo.Cerrado ? "Cerrado por" : "Cancelado por")</div>
+                    <div class="sol-meta-value"><AvatarNombre Nombre="@(_conteo.Resumen.CerradoPor ?? "—")" /></div>
+                    <div class="text-muted" style="font-size:12px;margin-top:2px">@_conteo.Resumen.FechaCierre.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_conteo.Notas))
+        {
+            <p class="text-muted" style="padding:0 20px 14px;margin:0;font-size:13px">@_conteo.Notas</p>
+        }
+    </div>
+
+    @if (_conteo.Resumen.Estado == EstadoConteo.Cancelado)
+    {
+        <p class="dialog-error" style="margin-top:12px">Motivo de cancelación: @_conteo.MotivoCancelacion</p>
+    }
+
+    @* ---------------------------------------------------------------- 1. cantidades *@
+    <div class="card elev-sm sol-card" style="margin-top:20px">
+        <div class="sol-head">
+            <h2 style="margin:0;font-size:18px">@(EditaCantidades ? "1. Cantidades contadas" : "Cantidades contadas")</h2>
+            @if (EditaCantidades)
+            {
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-secondary" disabled="@_descargando" @onclick="DescargarHojaAsync"><Icon Name="download" Size="16" />@(_descargando ? "Generando…" : "Descargar Excel")</button>
+                    <button type="button" class="btn btn-primary" disabled="@(_guardando || PendientesDeGuardar == 0)" @onclick="GuardarCantidadesAsync">
+                        @(_guardando ? "Guardando…" : PendientesDeGuardar == 0 ? "Guardar cantidades" : $"Guardar cantidades ({PendientesDeGuardar})")
+                    </button>
+                </div>
+            }
+        </div>
+
+        @if (EditaCantidades)
+        {
+            <div style="padding:0 20px 14px">
+                <p class="text-muted" style="font-size:13px;margin:0 0 10px">Escribí las cantidades acá abajo o descargá el Excel, completá «Cantidad Contada» (en papel o en pantalla) y subilo de nuevo. Un <strong>0</strong> también es una cantidad: una línea vacía cuenta como «sin contar».</p>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_adjuntarExcel" />
+                    Adjuntar el Excel que subo como evidencia
+                </label>
+                <ZonaArchivo Titulo="Importar Excel con las cantidades" Accept=".xlsx" Ayuda="Solo el .xlsx generado desde este conteo, máx. 10 MB." Procesando="_importando" OnChange="ImportarExcelAsync" />
+            </div>
+        }
+
+        <div class="sol-lines">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th></th><th>Código</th><th>Producto</th><th>Ubicación</th>
+                        <th class="num">Sistema</th><th class="num">Contado</th><th class="num">Diferencia</th><th>Contó</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in _conteo.Lineas)
+                    {
+                        <tr>
+                            <td>
+                                <div class="sol-thumb" style="@(string.IsNullOrWhiteSpace(l.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{l.ImagenUrl}')")">
+                                    @if (string.IsNullOrWhiteSpace(l.ImagenUrl))
+                                    {
+                                        <Icon Name="package" Size="18" />
+                                    }
+                                </div>
+                            </td>
+                            <td class="sol-code">@l.ProductoCodigo</td>
+                            <td>@l.ProductoNombre <span class="text-muted" style="font-size:12px">· @l.Unidad</span></td>
+                            <td class="text-muted">@l.UbicacionCodigo</td>
+                            <td class="num text-muted">@l.ExistenciaSistema.ToString("N0")</td>
+                            <td class="num">
+                                @if (EditaCantidades)
+                                {
+                                    <input class="input num-input" type="number" min="0" step="1" aria-label="Cantidad contada de @l.ProductoCodigo en @l.UbicacionCodigo"
+                                           value="@_cantidades.GetValueOrDefault(l.Id)" @onchange="e => CambiarCantidad(l.Id, e.Value)" />
+                                }
+                                else
+                                {
+                                    @(l.CantidadContada?.ToString("N0") ?? "—")
+                                }
+                            </td>
+                            <td class="num">
+                                @if (l.Diferencia is null)
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                                else if (l.Diferencia == 0)
+                                {
+                                    <span class="tag tag-success">0</span>
+                                }
+                                else
+                                {
+                                    <span class="tag tag-warn">@(l.Diferencia > 0 ? "+" : "")@l.Diferencia.Value.ToString("N0")</span>
+                                }
+                            </td>
+                            <td class="text-muted" style="font-size:12px">@(l.ContadoPor ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- 2. evidencia *@
+    <div class="card elev-sm sol-card" style="margin-top:20px">
+        <div class="sol-head">
+            <h2 style="margin:0;font-size:18px">@(EditaCantidades ? "2. Evidencia del documento físico" : "Evidencia del documento físico")</h2>
+            <span class="text-muted" style="font-size:13px">@_conteo.Evidencias.Count archivo(s)</span>
+        </div>
+
+        <div style="padding:0 20px 18px">
+            @if (_conteo.Evidencias.Count == 0)
+            {
+                <p class="text-muted" style="font-size:13px;margin:0 0 10px">
+                    @(EditaCantidades ? "Todavía no hay evidencia. Subí la foto del documento firmado, un PDF o el Excel: sin eso no se puede cerrar el conteo." : "Este conteo no tiene evidencia adjunta.")
+                </p>
+            }
+            else
+            {
+                <div class="evidencia-lista">
+                    @foreach (var ev in _conteo.Evidencias)
+                    {
+                        <div class="evidencia-item">
+                            <div class="evidencia-icono"><Icon Name="@IconoDe(ev)" Size="20" /></div>
+                            <div class="evidencia-datos">
+                                <div class="evidencia-nombre" title="@ev.NombreArchivo">@ev.NombreArchivo</div>
+                                <div class="text-muted" style="font-size:12px">@Tamano(ev.TamanoBytes) · @ev.SubidoPor · @ev.FechaSubida.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <div style="display:flex;gap:6px">
+                                @if (EsVisible(ev))
+                                {
+                                    <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => VerEvidenciaAsync(ev)"><Icon Name="eye" Size="16" /></button>
+                                }
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Descargar" @onclick="() => DescargarEvidenciaAsync(ev)"><Icon Name="download" Size="16" /></button>
+                                @if (EditaCantidades)
+                                {
+                                    <button type="button" class="btn btn-icon-outline btn-icon-outline-danger" title="Quitar" disabled="@_subiendo" @onclick="() => EliminarEvidenciaAsync(ev)"><Icon Name="x" Size="16" /></button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (EditaCantidades)
+            {
+                <ZonaArchivo Titulo="Subir evidencia" Accept=".jpg,.jpeg,.png,.webp,.pdf,.xlsx" Multiple="true"
+                             Ayuda="Foto (JPG, PNG, WEBP), PDF o Excel. Hasta 10 archivos de 10 MB." Procesando="_subiendo" OnChange="SubirEvidenciaAsync" />
+            }
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- acciones *@
+    @if (EditaCantidades)
+    {
+        <div class="card elev-sm" style="margin-top:20px">
+            <h2 style="margin:0 0 8px;font-size:18px">3. Cerrar el conteo</h2>
+            <ul class="checklist">
+                <li class="@(SinContar == 0 ? "ok" : "falta")"><Icon Name="@(SinContar == 0 ? "check-circle" : "alert")" Size="16" />@(SinContar == 0 ? "Todas las líneas tienen cantidad." : $"Faltan {SinContar} línea(s) por contar.")</li>
+                <li class="@(PendientesDeGuardar == 0 ? "ok" : "falta")"><Icon Name="@(PendientesDeGuardar == 0 ? "check-circle" : "alert")" Size="16" />@(PendientesDeGuardar == 0 ? "No hay cantidades sin guardar." : $"Hay {PendientesDeGuardar} cantidad(es) sin guardar.")</li>
+                <li class="@(_conteo.Evidencias.Count > 0 ? "ok" : "falta")"><Icon Name="@(_conteo.Evidencias.Count > 0 ? "check-circle" : "alert")" Size="16" />@(_conteo.Evidencias.Count > 0 ? "Hay evidencia adjunta." : "Falta adjuntar la evidencia del documento físico.")</li>
+            </ul>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+                <button type="button" class="btn btn-primary" disabled="@(!PuedeCerrar)" @onclick="() => _confirmarCierre = true"><Icon Name="check-circle" Size="16" />Cerrar conteo</button>
+                <button type="button" class="btn btn-ghost" style="color:#b42318" @onclick="() => AbrirCancelar()">Cancelar conteo</button>
+            </div>
+        </div>
+    }
+    else if (_conteo.Resumen.Estado == EstadoConteo.Cerrado && _conteo.Resumen.LineasConDiferencia > 0 && AuthState.HasPermission(Permisos.ConteosRegistrar))
+    {
+        <div class="info-banner">
+            <Icon Name="info" Size="18" />
+            <p>Este conteo cerró con @_conteo.Resumen.LineasConDiferencia línea(s) con diferencia. Podés abrir un reconteo solo de esas líneas, contra la existencia de hoy. Los ajustes de stock se registran aparte, desde Movimientos.</p>
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="CrearReconteoAsync">Abrir reconteo</button>
+        </div>
+    }
+}
+
+@* ---------------------------------------------------------------- diálogos *@
+<Dialog Visible="_confirmarCierre" Title="Cerrar conteo" OnClose="() => _confirmarCierre = false">
+    <Body>
+        <p style="margin:0 0 8px">Al cerrar, el conteo <strong>@_conteo?.Resumen.Codigo</strong> queda registrado y <strong>ya no se puede modificar</strong>: ni las cantidades ni la evidencia.</p>
+        @if (_conteo is not null)
+        {
+            <p class="text-muted" style="margin:0;font-size:13px">
+                @_conteo.Resumen.TotalLineas línea(s), @_conteo.Resumen.LineasConDiferencia con diferencia, @_conteo.Evidencias.Count archivo(s) de evidencia.
+            </p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _confirmarCierre = false">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="CerrarAsync">@(_guardando ? "Cerrando…" : "Cerrar conteo")</button>
+    </Actions>
+</Dialog>
+
+<Dialog Visible="_cancelando" Title="Cancelar conteo" OnClose="() => _cancelando = false">
+    <Body>
+        <p style="margin:0 0 8px">El conteo queda en el historial como cancelado y no se puede reabrir. Indicá el motivo.</p>
+        <div class="field">
+            <label for="cc-motivo">Motivo <span class="req">*</span></label>
+            <input class="input" id="cc-motivo" maxlength="500" placeholder="Ej. Se contó el rack equivocado" @bind="_motivoCancelacion" @bind:event="oninput" />
+        </div>
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _cancelando = false">Volver</button>
+        <button type="button" class="btn btn-primary" style="background:#b42318;border-color:#b42318" disabled="@_guardando" @onclick="CancelarAsync">@(_guardando ? "Cancelando…" : "Cancelar conteo")</button>
+    </Actions>
+</Dialog>
+
+<Dialog Visible="_viendo is not null" Title="@(_viendo?.NombreArchivo ?? "Evidencia")" Ancho="true" OnClose="CerrarVisorAsync">
+    <Body>
+        @if (_visorCargando)
+        {
+            <p>Cargando…</p>
+        }
+        else if (_visorUrl is not null && _viendo is not null)
+        {
+            @if (_viendo.ContentType == "application/pdf")
+            {
+                <iframe class="visor-evidencia" src="@_visorUrl" title="@_viendo.NombreArchivo"></iframe>
+            }
+            else
+            {
+                <div class="visor-imagen"><img src="@_visorUrl" alt="@_viendo.NombreArchivo" /></div>
+            }
+        }
+    </Body>
+    <Actions>
+        @if (_viendo is not null)
+        {
+            <button type="button" class="btn btn-secondary" @onclick="() => DescargarEvidenciaAsync(_viendo)"><Icon Name="download" Size="16" />Descargar</button>
+        }
+        <button type="button" class="btn btn-primary" @onclick="CerrarVisorAsync">Cerrar</button>
+    </Actions>
+</Dialog>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private const long TamanoMaximoBytes = 10 * 1024 * 1024;
+    private const string ContentTypeXlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    private ConteoDetalleDto? _conteo;
+    private string? _error;
+    private string? _ok;
+
+    // Lo tipeado en la grilla, por id de línea. Se compara contra lo guardado para saber
+    // qué falta guardar.
+    private readonly Dictionary<int, int?> _cantidades = [];
+
+    private bool _guardando;
+    private bool _descargando;
+    private bool _importando;
+    private bool _subiendo;
+    private bool _adjuntarExcel = true;
+
+    private bool _confirmarCierre;
+    private bool _cancelando;
+    private string _motivoCancelacion = "";
+    private string? _errorDialogo;
+
+    private ConteoEvidenciaDto? _viendo;
+    private string? _visorUrl;
+    private bool _visorCargando;
+
+    // Solo un conteo EN CURSO se edita, y solo quien tiene permiso de registrar.
+    private bool EditaCantidades => _conteo is { Resumen.Estado: EstadoConteo.EnCurso } && AuthState.HasPermission(Permisos.ConteosRegistrar);
+
+    private int PendientesDeGuardar => _conteo is null ? 0 : _conteo.Lineas.Count(l => _cantidades.GetValueOrDefault(l.Id) != l.CantidadContada);
+
+    private int SinContar => _conteo?.Lineas.Count(l => l.CantidadContada is null) ?? 0;
+
+    private bool PuedeCerrar => EditaCantidades && _conteo is not null && SinContar == 0 && PendientesDeGuardar == 0 && _conteo.Evidencias.Count > 0 && !_guardando;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _conteo = null;
+        _error = null;
+        await CargarAsync(reiniciarCantidades: true);
+    }
+
+    private async Task CargarAsync(bool reiniciarCantidades)
+    {
+        try
+        {
+            _conteo = await ConteoApi.ObtenerAsync(Id);
+            if (reiniciarCantidades) ReiniciarCantidades();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private void ReiniciarCantidades()
+    {
+        _cantidades.Clear();
+        foreach (var l in _conteo!.Lineas) _cantidades[l.Id] = l.CantidadContada;
+    }
+
+    // Cuando una operación del servidor devuelve el detalle ya actualizado.
+    private void Aplicar(ConteoDetalleDto detalle, bool reiniciarCantidades)
+    {
+        _conteo = detalle;
+        if (reiniciarCantidades) ReiniciarCantidades();
+    }
+
+    private void CambiarCantidad(int lineaId, object? valor)
+    {
+        _ok = null;
+        var texto = valor?.ToString()?.Trim();
+        if (string.IsNullOrEmpty(texto)) { _cantidades[lineaId] = null; return; }
+        if (int.TryParse(texto, out var n)) _cantidades[lineaId] = Math.Max(0, n);
+    }
+
+    private async Task GuardarCantidadesAsync()
+    {
+        if (_guardando || _conteo is null) return;
+        _guardando = true;
+        _error = _ok = null;
+        try
+        {
+            var cambios = _conteo.Lineas
+                .Where(l => _cantidades.GetValueOrDefault(l.Id) != l.CantidadContada)
+                .Select(l => new CantidadLineaDto(l.Id, _cantidades.GetValueOrDefault(l.Id)))
+                .ToList();
+            Aplicar(await ConteoApi.GuardarCantidadesAsync(Id, new GuardarCantidadesDto(cambios)), reiniciarCantidades: true);
+            _ok = "Cantidades guardadas.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task DescargarHojaAsync()
+    {
+        if (_descargando) return;
+        _descargando = true;
+        _error = _ok = null;
+        try
+        {
+            var (contenido, nombre) = await ConteoApi.DescargarHojaAsync(Id);
+            await JS.InvokeVoidAsync("descargarArchivo", nombre, ContentTypeXlsx, Convert.ToBase64String(contenido));
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _descargando = false; }
+    }
+
+    private async Task ImportarExcelAsync(InputFileChangeEventArgs e)
+    {
+        if (_importando) return;
+        _importando = true;
+        _error = _ok = null;
+        try
+        {
+            var archivo = e.File;
+            if (archivo.Size > TamanoMaximoBytes) { _error = "El archivo no puede superar los 10 MB."; return; }
+
+            await using var stream = archivo.OpenReadStream(TamanoMaximoBytes);
+            var resultado = await ConteoApi.ImportarHojaAsync(Id, stream, archivo.Name, _adjuntarExcel);
+            await CargarAsync(reiniciarCantidades: true);
+            _ok = $"Se cargaron {resultado.LineasActualizadas} cantidad(es) desde el Excel" + (resultado.EvidenciaAdjuntada ? " y el archivo quedó como evidencia." : ".");
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _importando = false; }
+    }
+
+    private async Task SubirEvidenciaAsync(InputFileChangeEventArgs e)
+    {
+        if (_subiendo) return;
+        _subiendo = true;
+        _error = _ok = null;
+        try
+        {
+            var subidos = 0;
+            foreach (var archivo in e.GetMultipleFiles(10))
+            {
+                if (archivo.Size > TamanoMaximoBytes) { _error = $"«{archivo.Name}» supera los 10 MB."; continue; }
+                try
+                {
+                    await using var stream = archivo.OpenReadStream(TamanoMaximoBytes);
+                    await ConteoApi.AdjuntarEvidenciaAsync(Id, stream, archivo.Name, archivo.ContentType);
+                    subidos++;
+                }
+                catch (ApiException ex) { _error = $"«{archivo.Name}»: {ex.Message}"; }
+            }
+
+            // Refresca solo la evidencia: lo tipeado en la grilla y sin guardar no se pierde.
+            await CargarAsync(reiniciarCantidades: false);
+            if (subidos > 0 && _error is null) _ok = subidos == 1 ? "Evidencia adjuntada." : $"{subidos} archivos adjuntados.";
+        }
+        finally { _subiendo = false; }
+    }
+
+    private async Task EliminarEvidenciaAsync(ConteoEvidenciaDto ev)
+    {
+        if (_subiendo) return;
+        _subiendo = true;
+        _error = _ok = null;
+        try
+        {
+            await ConteoApi.EliminarEvidenciaAsync(Id, ev.Id);
+            await CargarAsync(reiniciarCantidades: false);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _subiendo = false; }
+    }
+
+    private async Task DescargarEvidenciaAsync(ConteoEvidenciaDto ev)
+    {
+        _error = null;
+        try
+        {
+            var (datos, contentType) = await ConteoApi.ObtenerEvidenciaAsync(Id, ev.Id);
+            await JS.InvokeVoidAsync("descargarArchivo", ev.NombreArchivo, contentType, Convert.ToBase64String(datos));
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task VerEvidenciaAsync(ConteoEvidenciaDto ev)
+    {
+        _error = null;
+        await LiberarVisorAsync();
+        _viendo = ev;
+        _visorCargando = true;
+        try
+        {
+            var (datos, contentType) = await ConteoApi.ObtenerEvidenciaAsync(Id, ev.Id);
+            // URL de blob (no data:) para que el PDF y la imagen también abran en pestaña nueva.
+            _visorUrl = await JS.InvokeAsync<string>("crearUrlBlob", contentType, Convert.ToBase64String(datos));
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _viendo = null;
+        }
+        finally { _visorCargando = false; }
+    }
+
+    private async Task CerrarVisorAsync()
+    {
+        await LiberarVisorAsync();
+        _viendo = null;
+    }
+
+    private async Task LiberarVisorAsync()
+    {
+        if (_visorUrl is null) return;
+        try { await JS.InvokeVoidAsync("liberarUrlBlob", _visorUrl); } catch (JSException) { }
+        _visorUrl = null;
+    }
+
+    private async Task CerrarAsync()
+    {
+        if (_guardando) return;
+        _guardando = true;
+        _error = _ok = null;
+        try
+        {
+            Aplicar(await ConteoApi.CerrarAsync(Id), reiniciarCantidades: true);
+            _ok = "Conteo cerrado.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally
+        {
+            _guardando = false;
+            _confirmarCierre = false;
+        }
+    }
+
+    private void AbrirCancelar()
+    {
+        _motivoCancelacion = "";
+        _errorDialogo = null;
+        _cancelando = true;
+    }
+
+    private async Task CancelarAsync()
+    {
+        if (_guardando) return;
+        if (_motivoCancelacion.Trim().Length < 3) { _errorDialogo = "Indicá el motivo de la cancelación."; return; }
+
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            Aplicar(await ConteoApi.CancelarAsync(Id, _motivoCancelacion), reiniciarCantidades: true);
+            _cancelando = false;
+            _ok = "Conteo cancelado.";
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task CrearReconteoAsync()
+    {
+        if (_guardando) return;
+        _guardando = true;
+        _error = _ok = null;
+        try
+        {
+            var reconteo = await ConteoApi.CrearReconteoAsync(Id);
+            Nav.NavigateTo($"/conteos/{reconteo.Resumen.Id}");
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private static bool EsVisible(ConteoEvidenciaDto ev) => ev.ContentType.StartsWith("image/") || ev.ContentType == "application/pdf";
+
+    private static string IconoDe(ConteoEvidenciaDto ev) => ev.ContentType.StartsWith("image/") ? "eye" : "file-text";
+
+    private static string Tamano(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+}

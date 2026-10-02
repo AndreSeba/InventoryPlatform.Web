@@ -1,0 +1,30 @@
+@* Badge de estado de un conteo físico, con ícono y color. Único lugar donde se decide cómo
+   se ve cada estado: el listado y el detalle usan este mismo. *@
+<span class="tag @Clase @(Grande ? "sol-estado" : "tag-con-icono")"><Icon Name="@Icono" Size="@(Grande ? 14 : 13)" />@Texto</span>
+
+@code {
+    [Parameter, EditorRequired] public EstadoConteo Estado { get; set; }
+    // Versión más grande para el encabezado del detalle.
+    [Parameter] public bool Grande { get; set; }
+
+    private string Clase => Estado switch
+    {
+        EstadoConteo.EnCurso => "tag-warn",
+        EstadoConteo.Cerrado => "tag-success",
+        _ => "tag-neutral",
+    };
+
+    private string Icono => Estado switch
+    {
+        EstadoConteo.EnCurso => "clock",
+        EstadoConteo.Cerrado => "check-circle",
+        _ => "x-circle",
+    };
+
+    private string Texto => Estado switch
+    {
+        EstadoConteo.EnCurso => "En curso",
+        EstadoConteo.Cerrado => "Cerrado",
+        _ => "Cancelado",
+    };
+}
