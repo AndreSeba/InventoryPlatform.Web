@@ -88,9 +88,9 @@ else
                                     <span class="tag tag-neutral">@p.CategoriaNombre</span>
                                     <VencimientoTag Proximo="p.ProximoVencimiento" />
                                 </div>
-                                <div class="card-title" style="font-size:15px">@p.Nombre</div>
+                                <div class="card-title product-card-name" style="font-size:15px" title="@p.Nombre">@p.Nombre</div>
                                 <div class="stock-line @(_tipo == TipoSolicitud.Salida && p.Existencia <= p.StockMinimo ? "warn" : "")">Stock: @p.Existencia.ToString("N0") @p.UnidadMedida</div>
-                                <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+                                <div class="product-card-actions">
                                     <input class="input" style="max-width:70px" type="number" min="1" step="1"
                                            max="@(_tipo == TipoSolicitud.Salida ? p.Existencia : (int?)null)" @bind="_cantidadUi[p.Id]" />
                                     <button type="button" class="btn btn-secondary btn-sm" style="flex:1" @onclick="() => AgregarAlCarrito(p)">Agregar</button>
