@@ -1,12 +1,15 @@
 @page "/solicitudes/{Id:int}"
 @inject SolicitudApiClient SolicitudApi
+@inject ProductoApiClient ProductoApi
 @inject AuthState AuthState
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
 <PageTitle>Solicitud</PageTitle>
 
-<BotonVolver Href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" Texto="Volver a solicitudes" />
+<div style="margin-bottom:14px">
+    <BotonVolver Href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" Texto="Volver a solicitudes" />
+</div>
 
 @if (_error is not null)
 {
@@ -23,64 +26,92 @@
 }
 else
 {
-    <div class="page-head no-print" style="margin-top:12px">
-        <div>
-            <h1 style="margin-bottom:4px">Solicitud @_solicitud.NumeroSolicitud</h1>
-            <p class="text-muted" style="margin:0">@_solicitud.AreaNombre · Solicitado por @_solicitud.SolicitadoPor</p>
+    var estado = EstadoBadge(_solicitud.Estado);
+
+    <div class="card elev-sm sol-card no-print">
+        <div class="sol-head">
+            <h1 class="sol-number">@_solicitud.NumeroSolicitud</h1>
+            <span class="tag @estado.Clase sol-estado"><Icon Name="@estado.Icono" Size="14" />@estado.Texto</span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-            <span class="@(_solicitud.Tipo == TipoSolicitud.Entrada ? "tag tag-accent" : "tag tag-outline")" style="font-size:13px;padding:6px 14px">@_solicitud.Tipo</span>
-            <span class="@EstadoTagClase(_solicitud.Estado)" style="font-size:13px;padding:6px 14px">@_solicitud.Estado</span>
+
+        <div class="sol-meta">
+            <div>
+                <div class="sol-meta-label"><Icon Name="user" Size="14" />Solicitado por</div>
+                <div class="sol-meta-value"><span class="avatar">@Iniciales(_solicitud.SolicitadoPor)</span>@_solicitud.SolicitadoPor</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="building" Size="14" />Área</div>
+                <div class="sol-meta-value"><Icon Name="building" Size="16" />@_solicitud.AreaNombre</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="calendar" Size="14" />Fecha</div>
+                <div class="sol-meta-value"><Icon Name="calendar" Size="16" />@_solicitud.FechaSolicitud.ToLocalTime().ToString("d/M/yyyy")</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="box" Size="14" />Tipo</div>
+                <div class="sol-meta-value sol-tipo-@(_solicitud.Tipo == TipoSolicitud.Entrada ? "entrada" : "salida")">
+                    <Icon Name="@(_solicitud.Tipo == TipoSolicitud.Entrada ? "log-in" : "log-out")" Size="16" />@_solicitud.Tipo
+                </div>
+            </div>
+        </div>
+
+        <div class="sol-lines">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th><th>Código</th><th>Descripción</th>
+                        <th class="num">Solicitada</th><th class="num">Aprobada</th><th class="num">Entregada</th>
+                        @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
+                        {
+                            <th>Aprobar cantidad</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _solicitud.Detalles)
+                    {
+                        <tr>
+                            <td>
+                                <div class="sol-thumb" style="@(string.IsNullOrWhiteSpace(d.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{d.ImagenUrl}')")">
+                                    @if (string.IsNullOrWhiteSpace(d.ImagenUrl))
+                                    {
+                                        <Icon Name="package" Size="18" />
+                                    }
+                                </div>
+                            </td>
+                            <td class="sol-code">@d.ProductoCodigo</td>
+                            <td>
+                                @d.ProductoNombre
+                                @if (d.Retorna)
+                                {
+                                    <span class="tag tag-outline" style="margin-left:6px;font-size:11px">Retorna</span>
+                                }
+                            </td>
+                            <td class="num">@d.CantidadSolicitada.ToString("N0")</td>
+                            <td class="num text-muted">@(d.CantidadAprobada?.ToString("N0") ?? "—")</td>
+                            <td class="num text-muted">@d.CantidadEntregada.ToString("N0")</td>
+                            @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
+                            {
+                                <td><input class="input" style="max-width:110px" type="number" min="0" step="1" @bind="_cantidadAprobada[d.Id]" /></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 
     @if (_solicitud.Estado == EstadoSolicitud.Rechazada)
     {
-        <p class="dialog-error no-print">Motivo de rechazo: @_solicitud.MotivoRechazo</p>
+        <p class="dialog-error no-print" style="margin-top:12px">Motivo de rechazo: @_solicitud.MotivoRechazo</p>
     }
-
-    <div class="table-wrap no-print" style="margin-top:20px">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Producto</th><th>Solicitada</th><th>Aprobada</th><th>Entregada</th>
-                    @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
-                    {
-                        <th>Aprobar cantidad</th>
-                    }
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var d in _solicitud.Detalles)
-                {
-                    <tr>
-                        <td>
-                            @d.ProductoNombre
-                            @if (d.Retorna)
-                            {
-                                <span class="tag tag-outline" style="margin-left:6px;font-size:11px">Retorna</span>
-                            }
-                        </td>
-                        <td>@d.CantidadSolicitada.ToString("N0")</td>
-                        <td class="text-muted">@(d.CantidadAprobada?.ToString("N0") ?? "—")</td>
-                        <td class="text-muted">@d.CantidadEntregada.ToString("N0")</td>
-                        @if (_solicitud.Estado == EstadoSolicitud.Pendiente && AuthState.HasPermission(Permisos.SolicitudesAprobar))
-                        {
-                            <td><input class="input" style="max-width:110px" type="number" min="0" step="1" @bind="_cantidadAprobada[d.Id]" /></td>
-                        }
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
 
     @if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial
         && _solicitud.Detalles.Any(d => d.CantidadAprobada > d.CantidadEntregada))
     {
-        <div class="no-print" style="display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 16px;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-md)">
-            <p class="text-muted" style="margin:0;flex:1">
-                Quedan líneas por @(_solicitud.Tipo == TipoSolicitud.Entrada ? "recibir" : "entregar") — se registra desde Movimientos, eligiendo esta solicitud.
-            </p>
+        <div class="info-banner no-print">
+            <Icon Name="info" Size="18" />
+            <p>Quedan líneas por @(_solicitud.Tipo == TipoSolicitud.Entrada ? "recibir" : "entregar") — se registra desde Movimientos, eligiendo esta solicitud.</p>
             <button type="button" class="btn btn-secondary btn-sm" @onclick="IrAMovimientos">Ir a Movimientos</button>
         </div>
     }
@@ -246,12 +277,19 @@ else
 
     private async Task Imprimir() => await JS.InvokeVoidAsync("print");
 
-    private static string EstadoTagClase(EstadoSolicitud e) => e switch
+    private static (string Clase, string Icono, string Texto) EstadoBadge(EstadoSolicitud e) => e switch
     {
-        EstadoSolicitud.Pendiente => "tag tag-warn",
-        EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial => "tag tag-outline",
-        EstadoSolicitud.Entregada => "tag tag-accent",
-        EstadoSolicitud.Rechazada => "tag tag-neutral",
-        _ => "tag tag-neutral",
+        EstadoSolicitud.Pendiente => ("tag-warn", "clock", "Pendiente"),
+        EstadoSolicitud.Aprobada => ("tag-success", "check-circle", "Aprobada"),
+        EstadoSolicitud.EntregadaParcial => ("tag-orange", "package", "Entrega parcial"),
+        EstadoSolicitud.Entregada => ("tag-accent", "check-circle", "Entregada"),
+        EstadoSolicitud.Rechazada => ("tag-danger", "x-circle", "Rechazada"),
+        _ => ("tag-neutral", "info", e.ToString()),
     };
+
+    private static string Iniciales(string nombre)
+    {
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length == 0 ? "?" : string.Concat(partes.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
 }
