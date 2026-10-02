@@ -30,11 +30,11 @@ else
     <div class="filter-row">
         <div class="chip-row">
             <button type="button" class="btn @(_filtroEstado == "" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("")'>Todas</button>
-            <button type="button" class="btn @(_filtroEstado == "Pendiente" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Pendiente")'>Pendiente</button>
-            <button type="button" class="btn @(_filtroEstado == "Aprobada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Aprobada")'>Aprobada</button>
-            <button type="button" class="btn @(_filtroEstado == "EntregadaParcial" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("EntregadaParcial")'>Entregada parcial</button>
-            <button type="button" class="btn @(_filtroEstado == "Entregada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Entregada")'>Entregada</button>
-            <button type="button" class="btn @(_filtroEstado == "Rechazada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Rechazada")'>Rechazada</button>
+            <button type="button" class="btn @(_filtroEstado == "Pendiente" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Pendiente")'><Icon Name="clock" Size="14" />Pendiente</button>
+            <button type="button" class="btn @(_filtroEstado == "Aprobada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Aprobada")'><Icon Name="check-circle" Size="14" />Aprobada</button>
+            <button type="button" class="btn @(_filtroEstado == "EntregadaParcial" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("EntregadaParcial")'><Icon Name="package" Size="14" />Entregada parcial</button>
+            <button type="button" class="btn @(_filtroEstado == "Entregada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Entregada")'><Icon Name="check-circle" Size="14" />Entregada</button>
+            <button type="button" class="btn @(_filtroEstado == "Rechazada" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFiltro("Rechazada")'><Icon Name="x-circle" Size="14" />Rechazada</button>
         </div>
         <input class="input" style="max-width:160px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="() => _pagina = 1" />
         <input class="input" style="max-width:160px" type="date" title="Hasta" @bind="_filtroHasta" @bind:after="() => _pagina = 1" />

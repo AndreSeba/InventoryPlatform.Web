@@ -76,12 +76,12 @@ else
                 @foreach (var g in GruposPaginados())
                 {
                     <tr>
-                        <td>@g.NumeroSolicitud</td>
-                        <td><span class="@TagClase(g.Tipo)">@Etiqueta(g.Tipo)</span></td>
+                        <td class="sol-num">@g.NumeroSolicitud</td>
+                        <td><TipoMovimientoTag Tipo="g.Tipo" /></td>
                         <td class="celda-truncada" title="@g.ProductosResumen">@g.ProductosResumen</td>
                         <td>@g.CantidadMovimientos</td>
                         <td class="text-muted">@g.UltimaFecha.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                        <td class="text-muted">@g.RegistradoPor</td>
+                        <td><AvatarNombre Nombre="@g.RegistradoPor" /></td>
                         <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => VerSolicitud(g.SolicitudId)"><Icon Name="eye" Size="16" /></button></td>
                     </tr>
                 }
@@ -112,11 +112,11 @@ else
                             <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
                             <td class="celda-truncada" title="@m.ProductoNombre">@m.ProductoNombre</td>
                             <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
-                            <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                            <td><TipoMovimientoTag Tipo="m.TipoMovimiento" /></td>
                             <td>@m.Cantidad.ToString("N0")</td>
                             <td class="text-muted">@UbicacionORetorna(m)</td>
                             <td class="text-muted">@m.AlmacenNombre</td>
-                            <td class="text-muted">@m.RegistradoPor</td>
+                            <td><AvatarNombre Nombre="@m.RegistradoPor" /></td>
                             <td class="text-muted celda-truncada" title="@m.Motivo">@m.Motivo</td>
                         </tr>
                     }
@@ -524,20 +524,7 @@ else
         finally { _guardando = false; }
     }
 
-    private static string TagClase(TipoMovimiento t) => t switch
-    {
-        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-success",
-        _ => "tag tag-orange",
-    };
 
-    private static string Etiqueta(TipoMovimiento t) => t switch
-    {
-        TipoMovimiento.Entrada => "Entrada",
-        TipoMovimiento.Salida => "Salida",
-        TipoMovimiento.AjustePositivo => "Ajuste +",
-        TipoMovimiento.AjusteNegativo => "Ajuste -",
-        _ => t.ToString(),
-    };
 
     // "Retorna: No" en cada fila es ruido — la gran mayoría de las Salidas no son
     // préstamo, así que solo se marca cuando SÍ retorna (ver captura del usuario,

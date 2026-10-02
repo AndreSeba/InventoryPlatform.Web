@@ -1,0 +1,27 @@
+@* Tipo de un movimiento: entrada y ajuste + en verde, salida y ajuste − en naranja, cada uno
+   con su ícono. Misma paleta que TipoSolicitudTag (.tag-entrada/.tag-salida en app.css) para que
+   Solicitudes y Movimientos se lean igual. *@
+<span class="tag @(EsEntrada ? "tag-entrada" : "tag-salida") tag-con-icono"><Icon Name="@Icono" Size="13" />@Texto</span>
+
+@code {
+    [Parameter, EditorRequired] public TipoMovimiento Tipo { get; set; }
+
+    private bool EsEntrada => Tipo is TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo;
+
+    private string Icono => Tipo switch
+    {
+        TipoMovimiento.Entrada => "log-in",
+        TipoMovimiento.Salida => "log-out",
+        TipoMovimiento.AjustePositivo => "plus",
+        _ => "minus",
+    };
+
+    private string Texto => Tipo switch
+    {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida => "Salida",
+        TipoMovimiento.AjustePositivo => "Ajuste +",
+        TipoMovimiento.AjusteNegativo => "Ajuste -",
+        _ => Tipo.ToString(),
+    };
+}

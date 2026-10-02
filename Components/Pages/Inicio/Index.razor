@@ -78,7 +78,7 @@ else
                     <tr>
                         <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
                         <td>@m.ProductoNombre</td>
-                        <td><span class="@TagClase(m.TipoMovimiento)">@Etiqueta(m.TipoMovimiento)</span></td>
+                        <td><TipoMovimientoTag Tipo="m.TipoMovimiento" /></td>
                         <td>@m.Cantidad.ToString("N0")</td>
                         <td class="text-muted">@m.RegistradoPor</td>
                     </tr>
@@ -114,18 +114,5 @@ else
         }
     }
 
-    private static string TagClase(TipoMovimiento t) => t switch
-    {
-        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-success",
-        _ => "tag tag-orange",
-    };
 
-    private static string Etiqueta(TipoMovimiento t) => t switch
-    {
-        TipoMovimiento.Entrada => "Entrada",
-        TipoMovimiento.Salida => "Salida",
-        TipoMovimiento.AjustePositivo => "Ajuste +",
-        TipoMovimiento.AjusteNegativo => "Ajuste -",
-        _ => t.ToString(),
-    };
 }
