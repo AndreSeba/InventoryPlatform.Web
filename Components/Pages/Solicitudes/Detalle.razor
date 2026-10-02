@@ -1,4 +1,4 @@
-@page "/solicitudes/{Id:int}"
+﻿@page "/solicitudes/{Id:int}"
 @inject SolicitudApiClient SolicitudApi
 @inject ProductoApiClient ProductoApi
 @inject AuthState AuthState
@@ -240,8 +240,10 @@ else
         {
             var lineas = _solicitud.Detalles
                 .Select(d => new AprobarSolicitudDetalleDto(d.Id, _cantidadAprobada.GetValueOrDefault(d.Id)))
-                .Where(l => l.CantidadAprobada > 0)
                 .ToList();
+            // Van TODAS las líneas, también las de 0: la API exige una decisión por cada una
+            // (antes las omitidas quedaban sin cantidad y la solicitud nunca se daba por entregada).
+            if (lineas.All(l => l.CantidadAprobada == 0)) { _error = "No aprobaste ninguna cantidad. Si no corresponde nada, usá «Rechazar»."; return; }
 
             _solicitud = await SolicitudApi.AprobarAsync(Id, new AprobarSolicitudDto(lineas));
             _ok = "Solicitud aprobada.";

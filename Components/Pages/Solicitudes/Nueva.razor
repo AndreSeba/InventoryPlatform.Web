@@ -1,4 +1,4 @@
-@page "/solicitudes/nueva"
+﻿@page "/solicitudes/nueva"
 @inject SolicitudApiClient SolicitudApi
 @inject AreaApiClient AreaApi
 @inject ProductoApiClient ProductoApi
@@ -366,6 +366,8 @@ else
         if (_areaId <= 0) { _dialogError = "Seleccioná el área solicitante."; return; }
         if (_carrito.Count == 0) { _dialogError = "Agregá al menos un producto al carrito."; return; }
         if (HayLineaSinStock()) { _dialogError = "Alguna línea del carrito supera el stock disponible."; return; }
+        if (_carrito.Any(l => l.Retorna && (string.IsNullOrWhiteSpace(l.UbicacionExterna) || l.FechaRetornoEsperada is null)))
+        { _dialogError = "En las líneas que retornan, indicá a dónde va el material y la fecha de retorno."; return; }
 
         _guardando = true;
         _dialogError = null;
