@@ -275,6 +275,9 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 6px;
   display: flex; flex-direction: column; gap: 6px;
 }
+/* Dentro de un diálogo, el menú no puede ser absolute: .dialog-body tiene overflow:auto y lo
+   recortaba (solo se veía un pedazo con barra de scroll). En flujo normal el diálogo crece. */
+.dialog-body .combo-menu { position: static; margin-top: 4px; box-shadow: none; }
 .combo-search { min-height: 32px; }
 .combo-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .combo-item {
