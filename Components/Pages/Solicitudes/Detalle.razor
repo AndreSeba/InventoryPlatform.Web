@@ -26,18 +26,16 @@
 }
 else
 {
-    var estado = EstadoBadge(_solicitud.Estado);
-
     <div class="card elev-sm sol-card no-print">
         <div class="sol-head">
             <h1 class="sol-number">@_solicitud.NumeroSolicitud</h1>
-            <span class="tag @estado.Clase sol-estado"><Icon Name="@estado.Icono" Size="14" />@estado.Texto</span>
+            <EstadoSolicitudBadge Estado="_solicitud.Estado" Grande="true" />
         </div>
 
         <div class="sol-meta">
             <div>
                 <div class="sol-meta-label"><Icon Name="user" Size="14" />Solicitado por</div>
-                <div class="sol-meta-value"><span class="avatar">@Iniciales(_solicitud.SolicitadoPor)</span>@_solicitud.SolicitadoPor</div>
+                <div class="sol-meta-value"><AvatarNombre Nombre="@_solicitud.SolicitadoPor" /></div>
             </div>
             <div>
                 <div class="sol-meta-label"><Icon Name="building" Size="14" />Área</div>
@@ -107,7 +105,8 @@ else
     }
 
     @if (_solicitud.Estado is EstadoSolicitud.Aprobada or EstadoSolicitud.EntregadaParcial
-        && _solicitud.Detalles.Any(d => d.CantidadAprobada > d.CantidadEntregada))
+        && _solicitud.Detalles.Any(d => d.CantidadAprobada > d.CantidadEntregada)
+        && PuedeRegistrarMovimiento)
     {
         <div class="info-banner no-print">
             <Icon Name="info" Size="18" />
@@ -273,23 +272,17 @@ else
     // Movimiento — tenerlo acá también era el mismo flujo duplicado en dos pantallas.
     private void IrAMovimientos() => Nav.NavigateTo("/movimientos");
 
+    // El aviso "Quedan líneas por entregar/recibir — Ir a Movimientos" solo tiene sentido
+    // para quien puede hacer ese registro: ver Movimientos y el permiso del tipo de esta
+    // solicitud (entrada para Entrada, salida para Salida), los mismos que gatean los
+    // botones de /movimientos. A los demás les sería un aviso que no pueden accionar.
+    private bool PuedeRegistrarMovimiento =>
+        _solicitud is not null
+        && AuthState.HasPermission(Permisos.MovimientosVer)
+        && AuthState.HasPermission(_solicitud.Tipo == TipoSolicitud.Entrada ? Permisos.MovimientosEntrada : Permisos.MovimientosSalida);
+
     private const int FilasMinimasTabla = 32;
 
     private async Task Imprimir() => await JS.InvokeVoidAsync("print");
 
-    private static (string Clase, string Icono, string Texto) EstadoBadge(EstadoSolicitud e) => e switch
-    {
-        EstadoSolicitud.Pendiente => ("tag-warn", "clock", "Pendiente"),
-        EstadoSolicitud.Aprobada => ("tag-success", "check-circle", "Aprobada"),
-        EstadoSolicitud.EntregadaParcial => ("tag-orange", "package", "Entrega parcial"),
-        EstadoSolicitud.Entregada => ("tag-accent", "check-circle", "Entregada"),
-        EstadoSolicitud.Rechazada => ("tag-danger", "x-circle", "Rechazada"),
-        _ => ("tag-neutral", "info", e.ToString()),
-    };
-
-    private static string Iniciales(string nombre)
-    {
-        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return partes.Length == 0 ? "?" : string.Concat(partes.Take(2).Select(p => char.ToUpperInvariant(p[0])));
-    }
 }

@@ -1,0 +1,30 @@
+@* Badge de estado de una solicitud, con ícono y color por estado. Único lugar donde se
+   decide cómo se ve cada estado: tablas de Solicitudes y detalle usan este mismo. *@
+<span class="tag @Clase @(Grande ? "sol-estado" : "tag-con-icono")"><Icon Name="@Icono" Size="@(Grande ? 14 : 13)" />@Texto</span>
+
+@code {
+    [Parameter, EditorRequired] public EstadoSolicitud Estado { get; set; }
+    // Versión más grande para el encabezado del detalle.
+    [Parameter] public bool Grande { get; set; }
+
+    private string Clase => Estado switch
+    {
+        EstadoSolicitud.Pendiente => "tag-warn",
+        EstadoSolicitud.Aprobada => "tag-success",
+        EstadoSolicitud.EntregadaParcial => "tag-orange",
+        EstadoSolicitud.Entregada => "tag-accent",
+        EstadoSolicitud.Rechazada => "tag-danger",
+        _ => "tag-neutral",
+    };
+
+    private string Icono => Estado switch
+    {
+        EstadoSolicitud.Pendiente => "clock",
+        EstadoSolicitud.Aprobada or EstadoSolicitud.Entregada => "check-circle",
+        EstadoSolicitud.EntregadaParcial => "package",
+        EstadoSolicitud.Rechazada => "x-circle",
+        _ => "info",
+    };
+
+    private string Texto => Estado == EstadoSolicitud.EntregadaParcial ? "Entrega parcial" : Estado.ToString();
+}

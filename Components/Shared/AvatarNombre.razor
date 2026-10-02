@@ -1,0 +1,15 @@
+@* Círculo con las iniciales + el nombre. No hay fotos de usuario, así que son iniciales. *@
+<span class="avatar-nombre"><span class="avatar">@Iniciales</span><span>@Nombre</span></span>
+
+@code {
+    [Parameter, EditorRequired] public string Nombre { get; set; } = "";
+
+    private string Iniciales
+    {
+        get
+        {
+            var partes = Nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return partes.Length == 0 ? "?" : string.Concat(partes.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+        }
+    }
+}

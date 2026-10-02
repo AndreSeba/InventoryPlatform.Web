@@ -1,0 +1,6 @@
+@* Entrada en azul con flecha hacia adentro, Salida en naranja con flecha hacia afuera. *@
+<span class="tag @(Tipo == TipoSolicitud.Entrada ? "tag-accent" : "tag-orange") tag-con-icono"><Icon Name="@(Tipo == TipoSolicitud.Entrada ? "log-in" : "log-out")" Size="13" />@Tipo</span>
+
+@code {
+    [Parameter, EditorRequired] public TipoSolicitud Tipo { get; set; }
+}
