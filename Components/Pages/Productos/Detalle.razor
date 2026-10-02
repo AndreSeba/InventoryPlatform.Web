@@ -333,8 +333,8 @@ else
 
     private static string TagClase(TipoMovimiento t) => t switch
     {
-        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-accent",
-        _ => "tag tag-outline",
+        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-success",
+        _ => "tag tag-orange",
     };
 
     private static string Etiqueta(TipoMovimiento t) => t switch

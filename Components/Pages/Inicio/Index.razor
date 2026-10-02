@@ -1,50 +1,79 @@
 @page "/inicio"
-@inject ProductoApiClient ProductoApi
-@inject MovimientoApiClient MovimientoApi
+@inject InicioApiClient InicioApi
 @inject NavigationManager Nav
 @inject AuthState AuthState
 
 <PageTitle>Inicio</PageTitle>
 
-<h1>Inicio</h1>
-<p class="text-muted" style="margin-top:-6px">Resumen del inventario de material promocional.</p>
+<div class="page-head">
+    <div>
+        <h1>Inicio</h1>
+        <p class="text-muted" style="margin-top:-6px">Resumen del inventario de material promocional.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+        @if (AuthState.HasPermission(Permisos.ProductosVer))
+        {
+            <button type="button" class="btn btn-primary" @onclick='() => Nav.NavigateTo("/productos")'>Ver productos</button>
+        }
+        @if (AuthState.HasPermission(Permisos.MovimientosVer))
+        {
+            <button type="button" class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/movimientos")'>Ver movimientos</button>
+        }
+    </div>
+</div>
 
 @if (_error is not null)
 {
     <p class="dialog-error">@_error</p>
 }
 
-@if (_productos is null || _movimientos is null)
+@if (_resumen is null)
 {
     <p>Cargando…</p>
 }
 else
 {
     <div class="kpi-grid">
-        <div class="card elev-sm">
-            <div class="card-kicker">Bajo mínimo</div>
-            <div class="card-title kpi-value warn">@_bajoMinimo</div>
-            <p class="card-body">Productos con existencia igual o menor a su stock mínimo.</p>
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon kpi-icon-danger"><Icon Name="alert" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Bajo mínimo</div>
+                <div class="kpi-value @(_resumen.BajoMinimo > 0 ? "warn" : "")">@_resumen.BajoMinimo.ToString("N0")</div>
+            </div>
+            <p class="kpi-desc">Productos con existencia igual o menor a su stock mínimo.</p>
         </div>
-        <div class="card elev-sm">
-            <div class="card-kicker">Préstamos pendientes</div>
-            <div class="card-title kpi-value">@_prestamosPendientes</div>
-            <p class="card-body">Salidas marcadas "Retorna" que todavía no se devolvieron por completo.</p>
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon kpi-icon-warn"><Icon Name="calendar" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Préstamos pendientes</div>
+                <div class="kpi-value">@_resumen.PrestamosPendientes.ToString("N0")</div>
+            </div>
+            <p class="kpi-desc">Salidas marcadas "Retorna" que todavía no se devolvieron por completo.</p>
+        </div>
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon kpi-icon-accent"><Icon Name="package" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Ítems totales</div>
+                <div class="kpi-value">@_resumen.ItemsTotales.ToString("N0")</div>
+            </div>
+            <p class="kpi-desc">Productos únicos activos en el inventario.</p>
+        </div>
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon kpi-icon-ok"><Icon Name="file-text" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Solicitudes del mes</div>
+                <div class="kpi-value">@_resumen.SolicitudesDelMes.ToString("N0")</div>
+            </div>
+            <p class="kpi-desc">Solicitudes creadas en lo que va del mes.</p>
         </div>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:36px">
-        <button type="button" class="btn btn-primary" @onclick='() => Nav.NavigateTo("/productos")'>Ver productos</button>
-        <button type="button" class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/movimientos")'>Ver movimientos</button>
-    </div>
-
-    <div class="hr"></div>
     <h3>Movimientos recientes</h3>
     <div class="table-wrap">
         <table class="table">
             <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Registrado por</th></tr></thead>
             <tbody>
-                @foreach (var m in _recientes)
+                @foreach (var m in _resumen.Recientes)
                 {
                     <tr>
                         <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
@@ -60,11 +89,7 @@ else
 }
 
 @code {
-    private List<ProductoDto>? _productos;
-    private List<MovimientoDto>? _movimientos;
-    private List<MovimientoDto> _recientes = [];
-    private int _bajoMinimo;
-    private int _prestamosPendientes;
+    private ResumenInicioDto? _resumen;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -80,26 +105,19 @@ else
 
         try
         {
-            _productos = await ProductoApi.ListarAsync();
-            _movimientos = await MovimientoApi.ListarAsync();
-            var prestamos = await MovimientoApi.ListarPrestamosPendientesAsync();
-
-            _bajoMinimo = _productos.Count(p => p.Existencia <= p.StockMinimo);
-            _prestamosPendientes = prestamos.Count;
-            _recientes = _movimientos.OrderByDescending(m => m.FechaMovimiento).Take(5).ToList();
+            _resumen = await InicioApi.ObtenerResumenAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
-            _productos = [];
-            _movimientos = [];
+            _resumen = new ResumenInicioDto(0, 0, 0, 0, []);
         }
     }
 
     private static string TagClase(TipoMovimiento t) => t switch
     {
-        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-accent",
-        _ => "tag tag-outline",
+        TipoMovimiento.Entrada or TipoMovimiento.AjustePositivo => "tag tag-success",
+        _ => "tag tag-orange",
     };
 
     private static string Etiqueta(TipoMovimiento t) => t switch
