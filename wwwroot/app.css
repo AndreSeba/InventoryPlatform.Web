@@ -345,6 +345,29 @@ input[type="file"] { max-width: 100%; }
 .carrito-layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; margin-top: 16px; align-items: start; }
 .carrito-panel { position: sticky; top: 16px; }
 
+/* Línea del carrito — foto + nombre + stepper de cantidad, estilo app de delivery
+   (sin precio/subtotal: acá no se compra nada, es una solicitud de material). */
+.cart-item { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--color-divider); }
+.cart-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.cart-item-top { display: flex; gap: 10px; align-items: flex-start; }
+.cart-item-img { width: 52px; height: 52px; flex-shrink: 0; border-radius: var(--radius-md); background: var(--color-neutral-200); background-size: contain; background-repeat: no-repeat; background-position: center; }
+.cart-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cart-item-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+
+.qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--color-divider); border-radius: 999px; overflow: hidden; width: fit-content; }
+.qty-stepper button {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  background: var(--color-neutral-100); border: none; cursor: pointer; color: var(--color-text); flex-shrink: 0;
+}
+.qty-stepper button:hover:not(:disabled) { background: var(--color-neutral-200); }
+.qty-stepper button:disabled { opacity: .4; cursor: not-allowed; }
+.qty-stepper .qty-value {
+  width: 32px; text-align: center; font-weight: 600; font-size: 13px;
+  border: none; background: transparent; color: var(--color-text); padding: 0;
+  -moz-appearance: textfield;
+}
+.qty-stepper .qty-value::-webkit-outer-spin-button, .qty-stepper .qty-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* Botón hamburguesa del rail — visible siempre (desktop colapsa el rail, mobile abre
    el cajón; ver ".app-rail.collapsed" y el media query de abajo). */
 .hamburger-btn {

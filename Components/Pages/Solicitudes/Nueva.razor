@@ -118,16 +118,20 @@ else
             {
                 @foreach (var linea in _carrito)
                 {
-                    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--color-divider)">
-                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-                            <span style="font-size:13px">@linea.ProductoNombre</span>
+                    var stockLinea = StockDe(linea.ProductoId);
+                    <div class="cart-item">
+                        <div class="cart-item-top">
+                            <div class="cart-item-img" style="@(string.IsNullOrWhiteSpace(linea.ImagenUrl) ? "" : $"background-image:url('{ProductoApi.ApiBaseUrl}{linea.ImagenUrl}')")"></div>
+                            <div class="cart-item-info">
+                                <span class="cart-item-name">@linea.ProductoNombre</span>
+                                <div class="qty-stepper">
+                                    <button type="button" disabled="@(linea.Cantidad <= 1)" @onclick="() => CambiarCantidadLinea(linea, linea.Cantidad - 1)"><Icon Name="minus" Size="12" /></button>
+                                    <input class="qty-value" type="number" value="@linea.Cantidad" @oninput="e => CambiarCantidadLinea(linea, e.Value)" />
+                                    <button type="button" disabled="@(_tipo == TipoSolicitud.Salida && linea.Cantidad >= stockLinea)" @onclick="() => CambiarCantidadLinea(linea, linea.Cantidad + 1)"><Icon Name="plus" Size="12" /></button>
+                                </div>
+                                <span class="text-muted" style="font-size:11px">@linea.UnidadMedida</span>
+                            </div>
                             <button type="button" class="btn btn-ghost btn-icon" title="Quitar" @onclick="() => QuitarDelCarrito(linea)"><Icon Name="x" Size="14" /></button>
-                        </div>
-                        <div style="display:flex;gap:8px;align-items:center">
-                            <input class="input" style="max-width:70px" type="number" min="1" step="1"
-                                   max="@(_tipo == TipoSolicitud.Salida ? StockDe(linea.ProductoId) : (int?)null)"
-                                   value="@linea.Cantidad" @oninput="e => CambiarCantidadLinea(linea, e.Value)" />
-                            <span class="text-muted" style="font-size:12px">@linea.UnidadMedida</span>
                         </div>
                         @{ var lineaMensaje = StockInsuficienteMensaje(ProductoDe(linea.ProductoId), linea.Cantidad); }
                         @if (lineaMensaje is not null)
@@ -352,7 +356,7 @@ else
         if (existente is not null)
             existente.Cantidad += cantidad;
         else
-            _carrito.Add(new LineaCarrito { ProductoId = p.Id, ProductoNombre = p.Nombre, UnidadMedida = p.UnidadMedida, Cantidad = cantidad });
+            _carrito.Add(new LineaCarrito { ProductoId = p.Id, ProductoNombre = p.Nombre, UnidadMedida = p.UnidadMedida, ImagenUrl = p.ImagenUrl, Cantidad = cantidad });
 
         _dialogError = null;
     }
@@ -487,7 +491,7 @@ else
 
             (_productos ??= []).Add(nuevo);
             _cantidadUi.TryAdd(nuevo.Id, 1);
-            _carrito.Add(new LineaCarrito { ProductoId = nuevo.Id, ProductoNombre = nuevo.Nombre, UnidadMedida = nuevo.UnidadMedida, Cantidad = _nuevoCantidad });
+            _carrito.Add(new LineaCarrito { ProductoId = nuevo.Id, ProductoNombre = nuevo.Nombre, UnidadMedida = nuevo.UnidadMedida, ImagenUrl = nuevo.ImagenUrl, Cantidad = _nuevoCantidad });
 
             _productoNuevoOpen = false;
         }
@@ -506,6 +510,7 @@ else
         public int ProductoId { get; set; }
         public string ProductoNombre { get; set; } = "";
         public string UnidadMedida { get; set; } = "";
+        public string? ImagenUrl { get; set; }
         public int Cantidad { get; set; }
         public bool Retorna { get; set; }
         public string? UbicacionExterna { get; set; }
