@@ -41,7 +41,7 @@ else
                         <td>
                             @if (AuthState.HasPermission(Permisos.AlmacenesEditar))
                             {
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(a)">Editar</button>
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(a)"><Icon Name="edit" Size="16" /></button>
                             }
                         </td>
                     </tr>

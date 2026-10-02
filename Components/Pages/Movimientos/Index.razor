@@ -82,7 +82,7 @@ else
                         <td>@g.CantidadMovimientos</td>
                         <td class="text-muted">@g.UltimaFecha.ToLocalTime().ToString("dd/MM/yyyy")</td>
                         <td class="text-muted">@g.RegistradoPor</td>
-                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => VerSolicitud(g.SolicitudId)">Ver</button></td>
+                        <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => VerSolicitud(g.SolicitudId)"><Icon Name="eye" Size="16" /></button></td>
                     </tr>
                 }
             </tbody>

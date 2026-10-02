@@ -35,7 +35,7 @@ else
                         <td><span class="tag tag-neutral">@u.RolNombre</span></td>
                         <td><span class="@(u.Activo ? "tag tag-accent" : "tag tag-outline")">@(u.Activo ? "Activo" : "Inactivo")</span></td>
                         <td class="text-muted">@(u.UltimoLoginEn?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
-                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(u)">Editar</button></td>
+                        <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(u)"><Icon Name="edit" Size="16" /></button></td>
                     </tr>
                 }
             </tbody>

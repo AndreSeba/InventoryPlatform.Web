@@ -56,7 +56,7 @@ else
                             <td><span class="@(s.Tipo == TipoSolicitud.Entrada ? "tag tag-accent" : "tag tag-outline")">@s.Tipo</span></td>
                             <td><span class="@EstadoTagClase(s.Estado)">@s.Estado</span></td>
                             <td class="text-muted">@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                            <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => VerSolicitud(s.Id)">Ver</button></td>
+                            <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => VerSolicitud(s.Id)"><Icon Name="eye" Size="16" /></button></td>
                         </tr>
                     }
                 </tbody>

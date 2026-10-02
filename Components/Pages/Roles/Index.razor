@@ -32,7 +32,7 @@ else
                         <td>@r.Nombre</td>
                         <td class="text-muted">@r.Descripcion</td>
                         <td class="text-muted">@r.PermisoCodigos.Count / @_permisosDisponibles.Count</td>
-                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirEditar(r)">Editar</button></td>
+                        <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(r)"><Icon Name="edit" Size="16" /></button></td>
                     </tr>
                 }
             </tbody>

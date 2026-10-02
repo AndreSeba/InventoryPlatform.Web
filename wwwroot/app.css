@@ -97,6 +97,8 @@
 }
 :root[data-theme="dark"] .tag-warn { background: #4a3a14; color: #fcd34d; }
 :root[data-theme="dark"] .tag-danger { background: #4a1f1c; color: #fca5a5; }
+:root[data-theme="dark"] .btn-icon-outline-danger { border-color: #7a2e27; color: #fca5a5; }
+:root[data-theme="dark"] .btn-icon-outline-danger:hover:not(:disabled) { background: #4a1f1c; }
 /* La ficha imprimible simula papel — se queda clara en ambos temas a propósito. */
 :root[data-theme="dark"] .printable,
 :root[data-theme="dark"] .printable-form { background: #fff; color: #000; }
@@ -154,6 +156,16 @@ img { display: block; max-width: 100%; }
 .btn-ghost:active:not(:disabled) { background: var(--color-accent-200); }
 .btn-danger { color: #b42318; }
 .btn-icon { width: 32px; height: 32px; padding: 0; }
+
+/* Botón cuadrado de acción por fila/card — ícono solo, borde de color por tipo de
+   acción (acento = ver/editar, danger = eliminar/quitar). Reemplaza los botones de
+   texto "Ver"/"Editar" en listados: más compacto y más fácil de escanear en una tabla
+   con muchas filas. */
+.btn-icon-outline { width: 32px; height: 32px; padding: 0; background: var(--color-surface); border-width: 1.5px; border-style: solid; }
+.btn-icon-outline-accent { border-color: var(--color-accent-300); color: var(--color-accent); }
+.btn-icon-outline-accent:hover:not(:disabled) { background: var(--color-accent-100); }
+.btn-icon-outline-danger { border-color: #f1a9a0; color: #b42318; }
+.btn-icon-outline-danger:hover:not(:disabled) { background: #fee4e2; }
 .btn-block { width: 100%; margin-top: var(--space-2); justify-content: center; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
@@ -333,9 +345,23 @@ input[type="file"] { max-width: 100%; }
 .carrito-layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; margin-top: 16px; align-items: start; }
 .carrito-panel { position: sticky; top: 16px; }
 
-/* Botón hamburguesa del rail — oculto en desktop, aparece por media query abajo. */
-.hamburger-btn { display: none; }
+/* Botón hamburguesa del rail — visible siempre (desktop colapsa el rail, mobile abre
+   el cajón; ver ".app-rail.collapsed" y el media query de abajo). */
+.hamburger-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex-shrink: 0; padding: 0;
+  color: var(--color-text); background: transparent; border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md); cursor: pointer;
+}
 .rail-backdrop { display: none; }
+
+/* Colapsar el rail en desktop — ancho a 0 en vez de ocultar con display:none, para que
+   la transición de ancho se vea. Solo aplica arriba del breakpoint mobile (901px+);
+   abajo de eso manda el cajón superpuesto del media query siguiente. */
+@media (min-width: 901px) {
+  .app-rail { transition: width .18s ease-out, padding .18s ease-out; overflow-x: hidden; }
+  .app-rail.collapsed { width: 0; padding-left: 0; padding-right: 0; }
+}
 
 /* Switch de tema claro/oscuro (topbar). Track gris con un thumb oscuro que se
    desliza a la derecha cuando el oscuro está activo. */
@@ -388,13 +414,6 @@ input[type="file"] { max-width: 100%; }
 @media (max-width: 900px) {
   .app-main { padding: 16px 16px 48px; }
   .app-topbar { padding: 10px 16px; gap: 10px; }
-
-  .hamburger-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; flex-shrink: 0; padding: 0;
-    color: var(--color-text); background: transparent; border: 1px solid var(--color-divider);
-    border-radius: var(--radius-md); cursor: pointer;
-  }
 
   /* El rail pasa de columna fija a cajón superpuesto — mismo ancho de siempre,
      pero fuera de flujo y corrido a la izquierda hasta que se abre. */

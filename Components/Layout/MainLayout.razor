@@ -6,7 +6,7 @@
 <div class="app-shell">
     <div class="app-frame">
         <div class="rail-backdrop @(_railAbierto ? "open" : "")" @onclick="CerrarRail"></div>
-        <nav class="app-rail @(_railAbierto ? "open" : "")">
+        <nav class="app-rail @(_railAbierto ? "open" : "") @(_railColapsado ? "collapsed" : "")">
             <div class="app-rail-mark">
                 <div class="mark-box"><img src="/img/nestle-logo.png" alt="Nestlé" /></div>
                 <span class="mark-text">Inventario</span>
@@ -103,7 +103,7 @@
 
         <div class="app-body">
             <div class="app-topbar no-print">
-                <button type="button" class="hamburger-btn" aria-label="Abrir menú" @onclick="() => _railAbierto = true">
+                <button type="button" class="hamburger-btn" aria-label="Abrir o cerrar el menú" @onclick="AlternarRail">
                     <Icon Name="menu" Size="18" />
                 </button>
                 <span class="card-title" style="white-space:nowrap">@ScreenTitle()</span>
@@ -132,8 +132,20 @@
     private string _path = "";
 
     // Cajón del rail en mobile (ver media query en app.css, breakpoint 900px) — en
-    // desktop el CSS ignora esta clase, el rail siempre se ve como columna fija.
+    // desktop el CSS ignora esta clase.
     private bool _railAbierto;
+
+    // Colapsar el rail en desktop (ancho a 0, ver regla ".app-rail.collapsed" fuera del
+    // media query de mobile) — en mobile el CSS ignora esta clase, ahí manda _railAbierto.
+    // El mismo botón hamburguesa alterna las dos a la vez (AlternarRail): como cada clase
+    // solo tiene efecto en un rango de ancho distinto, no chocan entre sí.
+    private bool _railColapsado;
+
+    private void AlternarRail()
+    {
+        _railAbierto = !_railAbierto;
+        _railColapsado = !_railColapsado;
+    }
 
     protected override void OnInitialized()
     {

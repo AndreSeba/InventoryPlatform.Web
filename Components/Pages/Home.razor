@@ -6,9 +6,12 @@
 
 <PageTitle>Iniciar sesión — Inventario</PageTitle>
 
-@if (_paises is not null)
-{
-    <div style="position:fixed; top:20px; right:20px; z-index:10">
+@* Fijo arriba a la derecha, siempre visible — el toggle de tema no espera a que
+   carguen los países, así se puede pasar a oscuro antes de que el form esté listo. *@
+<div style="position:fixed; top:20px; right:20px; z-index:10; display:flex; align-items:center; gap:10px">
+    <ThemeToggle />
+    @if (_paises is not null)
+    {
         <div style="position:relative">
             <button type="button" class="flag-dropdown-trigger" @onclick="() => _menuAbierto = !_menuAbierto">
                 <Bandera CodigoIso="@_paisSeleccionado?.CodigoIso" Width="22" />
@@ -27,8 +30,8 @@
                 </div>
             }
         </div>
-    </div>
-}
+    }
+</div>
 
 <div class="welcome-screen">
     <div class="welcome-card">
