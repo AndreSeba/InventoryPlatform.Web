@@ -6,7 +6,7 @@
 
 <PageTitle>Solicitud</PageTitle>
 
-<a href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" class="no-print" style="font-size:13px">‹ Volver a solicitudes</a>
+<BotonVolver Href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" Texto="Volver a solicitudes" />
 
 @if (_error is not null)
 {

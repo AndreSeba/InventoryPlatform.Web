@@ -1,0 +1,11 @@
+@* Botón "Volver" único de la app — borde azul oscuro, flecha + texto. Usarlo en vez de
+   un <a> suelto para que todos los "volver" se vean igual. *@
+<a href="@Href" class="btn-volver no-print">
+    <Icon Name="arrow-left" Size="16" />
+    <span>@Texto</span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "/";
+    [Parameter, EditorRequired] public string Texto { get; set; } = "Volver";
+}

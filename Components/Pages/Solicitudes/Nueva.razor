@@ -9,7 +9,7 @@
 
 <PageTitle>Nueva solicitud</PageTitle>
 
-<a href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" style="font-size:13px">‹ Volver a solicitudes</a>
+<BotonVolver Href="@(AuthState.HasPermission(Permisos.SolicitudesVer) ? "/solicitudes" : "/solicitudes/mias")" Texto="Volver a solicitudes" />
 
 <div class="page-head" style="margin-top:12px">
     <div>
