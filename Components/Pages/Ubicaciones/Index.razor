@@ -50,7 +50,7 @@ else
     <Pager TotalItems="_ubicaciones.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="Nueva ubicación">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="Nueva ubicación">
     <Body>
         <div class="field">
             <label for="uf-almacen">Almacén</label>

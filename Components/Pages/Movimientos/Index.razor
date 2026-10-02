@@ -168,7 +168,7 @@ else
 }
 
 <!-- ===== Diálogo: Entrada ===== -->
-<Dialog Visible="@(_dialog == "entrada")" Title="Registrar entrada" Ancho="true">
+<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "entrada")" Title="Registrar entrada" Ancho="true">
     <Body>
         <SolicitudEntregaPanel Tipo="TipoSolicitud.Entrada" UbicacionesTodas="_ubicaciones" OnRegistrado="CargarAsync" />
     </Body>
@@ -178,7 +178,7 @@ else
 </Dialog>
 
 <!-- ===== Diálogo: Salida ===== -->
-<Dialog Visible="@(_dialog == "salida")" Title="Registrar salida" Ancho="true">
+<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "salida")" Title="Registrar salida" Ancho="true">
     <Body>
         <SolicitudEntregaPanel Tipo="TipoSolicitud.Salida" OnRegistrado="CargarAsync" />
     </Body>
@@ -188,7 +188,7 @@ else
 </Dialog>
 
 <!-- ===== Diálogo: Ajuste ===== -->
-<Dialog Visible="@(_dialog == "ajuste")" Title="Registrar ajuste">
+<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "ajuste")" Title="Registrar ajuste">
     <Body>
         <div class="field">
             <label>Producto</label>
@@ -250,7 +250,7 @@ else
 </Dialog>
 
 <!-- ===== Diálogo: Devolución ===== -->
-<Dialog Visible="@(_dialog == "devolucion")" Title="Registrar devolución">
+<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "devolucion")" Title="Registrar devolución">
     <Body>
         @if (_devolviendoMov is not null)
         {

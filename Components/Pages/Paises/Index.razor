@@ -50,7 +50,7 @@ else
     </div>
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo país" : "Editar país")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo país" : "Editar país")">
     <Body>
         <div class="field">
             <label for="pf-nom">Nombre</label>

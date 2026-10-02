@@ -1,8 +1,15 @@
 @if (Visible)
 {
     <div class="dialog-backdrop">
-        <div class="dialog @(Ancho ? "dialog-ancho" : "")">
-            <div class="dialog-title">@Title</div>
+        <div class="dialog @(Ancho ? "dialog-ancho" : "")" role="dialog" aria-modal="true" aria-label="@Title"
+             tabindex="-1" @ref="_dialogo" @onkeydown="AlTeclear">
+            <div class="dialog-head">
+                <div class="dialog-title">@Title</div>
+                @if (OnClose.HasDelegate)
+                {
+                    <button type="button" class="dialog-close" aria-label="Cerrar" @onclick="OnClose"><Icon Name="x" Size="18" /></button>
+                }
+            </div>
             <div class="dialog-body">
                 @Body
             </div>
@@ -20,6 +27,33 @@
     // Pendiente/Cantidad/Ubicación/Vencimiento) se ven apretados en los 480px por defecto
     // — Ancho los deja crecer sin tocar el resto de los diálogos simples de la app.
     [Parameter] public bool Ancho { get; set; }
+    // Cierra el diálogo — la página dueña pone su flag en false. Con esto aparece la X del
+    // encabezado y Esc también cierra. Es opcional: sin él el diálogo se ve como antes.
+    [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public RenderFragment? Body { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+
+    private ElementReference _dialogo;
+    private bool _enfocado;
+
+    // Se enfoca el diálogo al abrirse para que Esc llegue acá (un div sin foco no recibe
+    // teclas). Se rearma cuando se cierra, para que la próxima apertura vuelva a enfocar.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !_enfocado)
+        {
+            _enfocado = true;
+            await _dialogo.FocusAsync();
+        }
+        else if (!Visible)
+        {
+            _enfocado = false;
+        }
+    }
+
+    private async Task AlTeclear(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
 }

@@ -51,7 +51,7 @@ else
     <Pager TotalItems="_unidades.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva unidad" : "Editar unidad")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva unidad" : "Editar unidad")">
     <Body>
         <div class="field">
             <label for="uf-cod">Código</label>

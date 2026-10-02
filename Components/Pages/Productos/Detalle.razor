@@ -148,7 +148,7 @@ else
     </button>
 }
 
-<Dialog Visible="_mostrarEditar" Title="Editar producto">
+<Dialog OnClose="@(() => _mostrarEditar = false)" Visible="_mostrarEditar" Title="Editar producto">
     <Body>
         @if (_producto is not null)
         {
@@ -156,24 +156,14 @@ else
                 <div class="field"><label>Código</label><input class="input" value="@_producto.CodigoProducto" disabled /></div>
                 <div class="field"><label>Categoría</label><input class="input" value="@_producto.CategoriaNombre" disabled /></div>
             </div>
-            <div class="field"><label for="ef-nom">Nombre</label><input class="input" id="ef-nom" @bind="_editNombre" /></div>
+            <div class="field"><label for="ef-nom">Nombre <span class="req">*</span></label><input class="input" id="ef-nom" @bind="_editNombre" /></div>
             <div class="dialog-grid-2">
                 <div class="field"><label for="ef-cos">Costo unitario</label><input class="input" id="ef-cos" type="number" min="0" step="0.01" @bind="_editCosto" /></div>
                 <div class="field"><label for="ef-sm">Stock mínimo</label><input class="input" id="ef-sm" type="number" min="0" step="1" @bind="_editStockMinimo" /></div>
             </div>
             <div class="field">
-                <label for="ef-img">Imagen</label>
-                <div class="form-image-row">
-                    <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_editImagenPreviewUrl) ? "" : $"background-image:url('{_editImagenPreviewUrl}')")"></div>
-                    <div style="flex:1">
-                        <InputFile id="ef-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_procesandoImagen" />
-                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB.</p>
-                        @if (_procesandoImagen)
-                        {
-                            <p class="text-muted" style="font-size:12px;margin:4px 0 0">Procesando imagen…</p>
-                        }
-                    </div>
-                </div>
+                <label>Imagen <span class="text-muted">(opcional)</span></label>
+                <ZonaImagen Id="ef-img" PreviewUrl="@_editImagenPreviewUrl" Procesando="_procesandoImagen" OnChange="OnImagenSeleccionada" />
             </div>
             <div class="field"><label for="ef-det">Detalle</label><textarea class="input" id="ef-det" rows="3" @bind="_editDetalle"></textarea></div>
             @if (_dialogError is not null)

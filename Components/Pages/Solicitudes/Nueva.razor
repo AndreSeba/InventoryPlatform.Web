@@ -164,10 +164,10 @@ else
     </div>
 }
 
-<Dialog Visible="_productoNuevoOpen" Title="Producto nuevo">
+<Dialog OnClose="@(() => _productoNuevoOpen = false)" Visible="_productoNuevoOpen" Title="Producto nuevo">
     <Body>
         <div class="field">
-            <label>Nombre</label>
+            <label>Nombre <span class="req">*</span></label>
             <input class="input" @bind="_nuevoNombre" @bind:event="oninput" placeholder="Nombre del material" />
         </div>
         @if (ProductosSimilares().Count > 0)
@@ -179,7 +179,7 @@ else
         }
         <div class="dialog-grid-2">
             <div class="field">
-                <label>Categoría</label>
+                <label>Categoría <span class="req">*</span></label>
                 <select class="input" @bind="_nuevoCategoriaId">
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var c in _categorias ?? [])
@@ -189,7 +189,7 @@ else
                 </select>
             </div>
             <div class="field">
-                <label>Unidad</label>
+                <label>Unidad <span class="req">*</span></label>
                 <select class="input" @bind="_nuevoUnidad">
                     <option value="">-- Seleccionar --</option>
                     @foreach (var u in _unidades ?? [])
@@ -205,23 +205,14 @@ else
                 <input class="input" type="number" min="0" step="0.01" @bind="_nuevoCosto" />
             </div>
             <div class="field">
-                <label>Cantidad a solicitar</label>
+                <label>Cantidad a solicitar <span class="req">*</span></label>
                 <input class="input" type="number" min="1" step="1" @bind="_nuevoCantidad" />
             </div>
         </div>
         <div class="field">
-            <label>Imagen (opcional)</label>
-            <div class="form-image-row">
-                <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_nuevoImagenPreviewUrl) ? "" : $"background-image:url('{_nuevoImagenPreviewUrl}')")"></div>
-                <div style="flex:1">
-                    <InputFile OnChange="OnNuevoImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_procesandoImagenNueva" />
-                    <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB. Así el encargado ya ve una foto real, no hace falta editar el producto después.</p>
-                    @if (_procesandoImagenNueva)
-                    {
-                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">Procesando imagen…</p>
-                    }
-                </div>
-            </div>
+            <label>Imagen <span class="text-muted">(opcional)</span></label>
+            <ZonaImagen PreviewUrl="@_nuevoImagenPreviewUrl" Procesando="_procesandoImagenNueva" OnChange="OnNuevoImagenSeleccionada"
+                        Ayuda="Así el encargado ya ve una foto real, no hace falta editar el producto después." />
         </div>
         @if (_productoNuevoError is not null)
         {
@@ -408,7 +399,7 @@ else
     {
         _nuevoNombre = "";
         _nuevoCategoriaId = 0;
-        _nuevoUnidad = "";
+        _nuevoUnidad = _unidades?.FirstOrDefault()?.CodigoUnidad ?? "";
         _nuevoCosto = null;
         _nuevoCantidad = 1;
         _nuevoImagenData = null;

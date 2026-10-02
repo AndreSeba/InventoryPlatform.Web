@@ -51,7 +51,7 @@ else
     <Pager TotalItems="_areas.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva área" : "Editar área")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva área" : "Editar área")">
     <Body>
         <div class="field"><label for="af-cod">Código</label><input class="input" id="af-cod" @bind="_codigo" placeholder="MARKETING" /></div>
         <div class="field"><label for="af-nom">Nombre</label><input class="input" id="af-nom" @bind="_nombre" placeholder="Marketing" /></div>

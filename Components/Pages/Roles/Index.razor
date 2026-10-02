@@ -41,7 +41,7 @@ else
     <Pager TotalItems="_roles.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo rol" : "Editar rol")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo rol" : "Editar rol")">
     <Body>
         <div class="dialog-grid-2">
             <div class="field"><label for="rf-nom">Nombre</label><input class="input" id="rf-nom" @bind="_form.Nombre" /></div>

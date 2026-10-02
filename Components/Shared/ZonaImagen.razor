@@ -1,0 +1,36 @@
+@* Zona para subir una imagen: se puede arrastrar un archivo encima o hacer clic. El <input
+   type="file"> cubre toda la zona con opacidad 0, así el navegador ya acepta el arrastre
+   solo — no hace falta JavaScript. *@
+<div class="dropzone @(Procesando ? "is-busy" : "")">
+    <InputFile id="@Id" class="dropzone-input" OnChange="OnChange" accept="image/png,image/jpeg,image/webp" disabled="@Procesando" title="" />
+
+    @if (string.IsNullOrWhiteSpace(PreviewUrl))
+    {
+        <Icon Name="upload-cloud" Size="36" />
+        <div class="dropzone-title">Arrastrá una imagen aquí</div>
+        <div class="dropzone-sub">o hacé clic para explorar</div>
+    }
+    else
+    {
+        <div class="dropzone-preview" style="background-image:url('@PreviewUrl')"></div>
+        <div class="dropzone-sub">Arrastrá otra imagen o hacé clic para reemplazarla</div>
+    }
+
+    <div class="dropzone-hint">JPG, PNG o WEBP, máx. 5 MB.</div>
+    @if (!string.IsNullOrWhiteSpace(Ayuda))
+    {
+        <div class="dropzone-hint">@Ayuda</div>
+    }
+    @if (Procesando)
+    {
+        <div class="dropzone-hint">Procesando imagen…</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string? PreviewUrl { get; set; }
+    [Parameter] public bool Procesando { get; set; }
+    [Parameter] public string? Ayuda { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
+}

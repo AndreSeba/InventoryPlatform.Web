@@ -263,14 +263,32 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 
 /* — dialog — */
 .dialog-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: rgba(17, 24, 39, 0.55); z-index: 100; }
-.dialog { width: min(480px, 100%); max-height: 90vh; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-bg); box-shadow: var(--shadow-lg); }
+.dialog { width: min(480px, 100%); max-height: 90vh; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-6) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-lg); }
+.dialog:focus { outline: none; }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialog-close { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: var(--radius-md); background: transparent; color: var(--color-neutral-600); cursor: pointer; }
+.dialog-close:hover { background: var(--color-neutral-200); color: var(--color-text); }
+.req { color: #b42318; margin-left: 2px; }
+
+/* Zona de arrastrar/soltar imagen (ZonaImagen.razor): el input cubre toda la caja. */
+.dropzone { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 20px 16px; border: 2px dashed var(--color-neutral-400); border-radius: var(--radius-lg); background: var(--color-neutral-100); color: var(--color-neutral-600); transition: border-color .12s ease, background-color .12s ease; }
+.dropzone:hover, .dropzone:focus-within { border-color: var(--color-accent); background: var(--color-accent-100); }
+.dropzone-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.dropzone-input:disabled { cursor: wait; }
+.dropzone-title { font-weight: 600; font-size: 14px; color: var(--color-text); }
+.dropzone-sub { font-size: 13px; }
+.dropzone-hint { font-size: 12px; color: var(--color-neutral-500); }
+.dropzone-preview { width: 96px; height: 96px; border-radius: var(--radius-md); border: 1px solid var(--color-divider); background-color: var(--color-surface); background-size: contain; background-repeat: no-repeat; background-position: center; }
 /* Variante para diálogos con una tabla adentro (Dialog.razor, parámetro Ancho) — crece con
    la pantalla en vez de forzar el contenido a 480px; .table-wrap adentro ya scrollea en
    horizontal si ni así entra (ej. una pantalla de celular). */
 .dialog.dialog-ancho { width: min(880px, 94vw); }
 .dialog-title { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 17px; }
 .dialog-body { font-size: 13px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overflow-x: hidden; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--color-divider); }
+/* Cancelar/Cerrar es un .btn-ghost en cada diálogo; acá se ve como botón secundario con borde. */
+.dialog-actions .btn-ghost { padding: var(--space-2) calc(var(--space-3) * 1.2); border: 1px solid var(--color-divider); background: var(--color-surface); color: var(--color-text); }
+.dialog-actions .btn-ghost:hover:not(:disabled) { background: var(--color-neutral-100); border-color: var(--color-neutral-400); }
 .dialog-error { color: #b42318; font-size: 13px; margin: 0; }
 .dialog-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .dialog-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }

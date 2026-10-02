@@ -44,7 +44,7 @@ else
     <Pager TotalItems="_usuarios.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo usuario" : "Editar usuario")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo usuario" : "Editar usuario")">
     <Body>
         <div class="field"><label for="uf-nom">Nombre completo</label><input class="input" id="uf-nom" @bind="_form.NombreCompleto" /></div>
         @if (_editandoId is null)

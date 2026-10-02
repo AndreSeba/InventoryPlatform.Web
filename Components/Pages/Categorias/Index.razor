@@ -53,7 +53,7 @@ else
     <Pager TotalItems="_categorias.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva categoría" : "Editar categoría")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva categoría" : "Editar categoría")">
     <Body>
         <div class="field"><label for="cf-cod">Código</label><input class="input" id="cf-cod" @bind="_codigo" placeholder="CEREALES" /></div>
         <div class="field"><label for="cf-desc">Descripción</label><input class="input" id="cf-desc" @bind="_descripcion" placeholder="Cereales" /></div>

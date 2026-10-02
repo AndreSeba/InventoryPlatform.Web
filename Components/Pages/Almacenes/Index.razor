@@ -51,7 +51,7 @@ else
     </div>
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo almacén" : "Editar almacén")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo almacén" : "Editar almacén")">
     <Body>
         <div class="dialog-grid-2">
             <div class="field"><label for="af-cod">Código</label><input class="input" id="af-cod" @bind="_codigo" placeholder="BO-EXT-CMP" /></div>

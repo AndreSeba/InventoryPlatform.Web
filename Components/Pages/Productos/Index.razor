@@ -79,7 +79,7 @@ else
     }
 }
 
-<Dialog Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo producto" : "Editar producto")">
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo producto" : "Editar producto")">
     <Body>
         <div class="dialog-grid-2">
             @if (_editandoId is not null)
@@ -90,7 +90,7 @@ else
                 </div>
             }
             <div class="field">
-                <label for="pf-cat">Categoría</label>
+                <label for="pf-cat">Categoría <span class="req">*</span></label>
                 <select class="input" id="pf-cat" @bind="_form.CategoriaId" @bind:after="ActualizarPreviewCodigoAsync">
                     <option value="0">-- Seleccionar --</option>
                     @foreach (var c in _categorias ?? [])
@@ -114,12 +114,12 @@ else
             }
         }
         <div class="field">
-            <label for="pf-nom">Nombre</label>
+            <label for="pf-nom">Nombre <span class="req">*</span></label>
             <input class="input" id="pf-nom" @bind="_form.Nombre" />
         </div>
         <div class="dialog-grid-3">
             <div class="field">
-                <label for="pf-uni">Unidad</label>
+                <label for="pf-uni">Unidad <span class="req">*</span></label>
                 <select class="input" id="pf-uni" @bind="_form.UnidadMedida">
                     @foreach (var u in _unidades ?? [])
                     {
@@ -137,18 +137,8 @@ else
             </div>
         </div>
         <div class="field">
-            <label for="pf-img">Imagen</label>
-            <div class="form-image-row">
-                <div class="form-image-preview" style="@(string.IsNullOrWhiteSpace(_form.ImagenPreviewUrl) ? "" : $"background-image:url('{_form.ImagenPreviewUrl}')")"></div>
-                <div style="flex:1">
-                    <InputFile id="pf-img" OnChange="OnImagenSeleccionada" accept="image/png,image/jpeg,image/webp" disabled="@_procesandoImagen" />
-                    <p class="text-muted" style="font-size:12px;margin:4px 0 0">JPG, PNG o WEBP, máx. 5 MB.</p>
-                    @if (_procesandoImagen)
-                    {
-                        <p class="text-muted" style="font-size:12px;margin:4px 0 0">Procesando imagen…</p>
-                    }
-                </div>
-            </div>
+            <label>Imagen <span class="text-muted">(opcional)</span></label>
+            <ZonaImagen Id="pf-img" PreviewUrl="@_form.ImagenPreviewUrl" Procesando="_procesandoImagen" OnChange="OnImagenSeleccionada" />
         </div>
         <div class="field">
             <label for="pf-det">Detalle</label>
