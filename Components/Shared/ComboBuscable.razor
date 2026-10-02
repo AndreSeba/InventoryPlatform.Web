@@ -24,7 +24,14 @@
                     @foreach (var item in ItemsFiltrados)
                     {
                         <button type="button" class="combo-item @(GetId(item) == SelectedId ? "active" : "")" @onclick="() => Seleccionar(item)">
-                            @GetLabel(item)
+                            @if (ItemTemplate is not null)
+                            {
+                                @ItemTemplate(item)
+                            }
+                            else
+                            {
+                                @GetLabel(item)
+                            }
                         </button>
                     }
                 }
@@ -41,6 +48,9 @@
     [Parameter] public Func<TItem, string> GetLabel { get; set; } = null!;
     [Parameter] public string Placeholder { get; set; } = "-- Seleccionar --";
     [Parameter] public bool Disabled { get; set; }
+    // Cómo se dibuja cada ítem de la lista (ej. con miniatura). Sin esto, se muestra GetLabel.
+    // GetLabel sigue mandando para el texto del botón y para el filtro de búsqueda.
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
 
     private bool _abierto;
     private string _busqueda = "";

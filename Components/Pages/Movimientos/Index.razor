@@ -192,7 +192,22 @@ else
     <Body>
         <div class="field">
             <label>Producto</label>
-            <ComboBuscable TItem="ProductoDto" Items="_productos" SelectedId="_movProductoId" SelectedIdChanged="OnProductoCambiadoAsync" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto" />
+            <ComboBuscable TItem="ProductoDto" Items="_productos" SelectedId="_movProductoId" SelectedIdChanged="OnProductoCambiadoAsync" GetId="ObtenerIdProducto" GetLabel="EtiquetaProducto">
+                <ItemTemplate Context="p">
+                    <span class="combo-prod">
+                        @if (string.IsNullOrWhiteSpace(p.ImagenUrl))
+                        {
+                            <span class="combo-prod-img"><Icon Name="package" Size="18" /></span>
+                        }
+                        else
+                        {
+                            @* loading=lazy: la lista trae todo el catálogo; solo se bajan las fotos que se ven. *@
+                            <img class="combo-prod-img" loading="lazy" decoding="async" alt="" src="@($"{ProductoApi.ApiBaseUrl}{p.ImagenUrl}")" />
+                        }
+                        <span class="combo-prod-text"><strong>@p.CodigoProducto</strong> - @p.Nombre</span>
+                    </span>
+                </ItemTemplate>
+            </ComboBuscable>
         </div>
         <div class="field">
             <label>Sentido del ajuste</label>
@@ -236,7 +251,7 @@ else
                 </select>
             }
         </div>
-        <div class="field"><label>Cantidad</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad</label><CampoCantidad @bind-Value="_movCantidad" /></div>
         <div class="field"><label>Motivo (obligatorio)</label><textarea class="input" rows="3" @bind="_movMotivo"></textarea></div>
         @if (_dialogError is not null)
         {
@@ -266,7 +281,7 @@ else
                 }
             </select>
         </div>
-        <div class="field"><label>Cantidad a devolver</label><input class="input" type="number" min="0" step="1" @bind="_movCantidad" /></div>
+        <div class="field"><label>Cantidad a devolver</label><CampoCantidad @bind-Value="_movCantidad" /></div>
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
