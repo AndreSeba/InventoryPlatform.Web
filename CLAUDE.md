@@ -1,4 +1,4 @@
-# InventoryPlatform.Web — CLAUDE.md
+﻿# InventoryPlatform.Web — CLAUDE.md
 
 > Frontend de la plataforma de Inventario de Material Promocional (Marketing,
 > Nestlé Bolivia). Lee este archivo antes de tocar código. Si el código pide
@@ -269,6 +269,29 @@ Categorías y Áreas: tabla + diálogo, "eliminar" es destildar «Activa».
 - El rail muestra el link con `unidades.ver`, que `Operador` y `Consulta` ya traen
   seedeado (lo necesitan para el formulario de producto).
 - `Icon.razor` tiene el ícono `ruler` agregado para este módulo.
+
+## Login: tarjeta de vidrio sobre un depósito desenfocado (2026-10-02)
+
+`Components/Pages/Home.razor` (ruta `/`, `WelcomeLayout`). Diseño elegido por el usuario entre cuatro
+conceptos generados ("B": vidrio esmerilado sobre un depósito en tonos marrón).
+
+- **Fondo**: `wwwroot/img/login-fondo.svg`, un depósito en perspectiva dibujado en SVG (lo generó un
+  script, ~25 KB, sin foto: carga al instante y no depende de licencias). Para usar una foto real,
+  cambiá la URL de `.login-fondo` en `app.css` — el resto del diseño no cambia.
+- **Dos variantes según el tema**: oscuro (la del diseño) y claro (vidrio blanco sobre fondo cálido). Se
+  definen con variables `--lg-*` en `.login-screen`; el modo claro las redefine con
+  `:root:not([data-theme="dark"])`.
+- **El login arranca oscuro la primera vez** (sin preferencia guardada) pero **no guarda** esa elección:
+  el script del `<head>` de `App.razor` lo aplica solo en `/`, así el resto de la app sigue en claro por
+  defecto. `tema.get` lee primero el atributo ya aplicado.
+- **Logo**: dos PNG con fondo transparente (`nestle-logo-crema.png` para el vidrio oscuro,
+  `nestle-logo-marron.png` para el claro), derivados del original, que es marrón sobre blanco opaco.
+  Un `filter`/`mix-blend-mode` no sirve acá: la tarjeta con `backdrop-filter` aísla la mezcla.
+- **«Mantener sesión iniciada»**: manda `Recordar=true` a `/login-cookie`; con eso la cookie dura hasta
+  que venza el token (8 h), y sin tildar es una cookie de sesión (se borra al cerrar el navegador).
+- **Errores**: `/login-cookie` redirige con `?error=1|bloqueado|inactivo` (solo códigos, nunca el
+  mensaje de la API en la URL) y la página arma el texto.
+- No hay «¿Olvidaste tu contraseña?»: el sistema no tiene reseteo de contraseña.
 
 ## Conteo físico: sesión con trazabilidad y evidencia (2026-10-02)
 

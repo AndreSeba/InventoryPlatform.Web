@@ -1,4 +1,4 @@
-using Inventory.Application.Dtos;
+﻿using Inventory.Application.Dtos;
 using Inventory.Web.Components;
 using Inventory.Web.Services;
 using Inventory.Web.Services.Auth;
@@ -78,23 +78,27 @@ app.MapRazorComponents<App>()
 // Login/logout viven acá (endpoints HTTP normales), no en un componente Blazor — un
 // circuito ya interactivo no puede mandar Set-Cookie (la respuesta HTTP original ya se
 // envió). Un <form method="post"> normal en Home.razor/MainLayout.razor postea acá.
-app.MapPost("/login-cookie", async (HttpContext ctx, AuthApiClient authApi, [FromForm] string email, [FromForm] string password, [FromForm] int paisId) =>
+app.MapPost("/login-cookie", async (HttpContext ctx, AuthApiClient authApi, [FromForm] string email, [FromForm] string password, [FromForm] int paisId, [FromForm] string? recordar) =>
 {
     try
     {
         var resultado = await authApi.LoginAsync(new LoginDto(email, password, paisId));
+        // Con «Mantener sesión iniciada» la cookie sobrevive al cierre del navegador (hasta que
+        // venza el token); sin tildar es una cookie de sesión y se borra al cerrarlo.
         ctx.Response.Cookies.Append("token", resultado.Token, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Strict,
-            Expires = new DateTimeOffset(resultado.ExpiraEn, TimeSpan.Zero),
+            Expires = recordar == "true" ? new DateTimeOffset(resultado.ExpiraEn, TimeSpan.Zero) : null,
         });
         return Results.Redirect("/inicio");
     }
-    catch (ApiException)
+    catch (ApiException ex)
     {
-        return Results.Redirect("/?error=1");
+        // Solo códigos (nunca el mensaje de la API en la URL): la página arma el texto.
+        var motivo = ex.StatusCode switch { 429 => "bloqueado", 403 => "inactivo", _ => "1" };
+        return Results.Redirect($"/?error={motivo}");
     }
 }).DisableAntiforgery();
 

@@ -1,4 +1,4 @@
-@using Microsoft.AspNetCore.Http
+﻿@using Microsoft.AspNetCore.Http
 @inject Inventory.Web.Services.Auth.AuthState AuthState
 
 <!DOCTYPE html>
@@ -15,13 +15,16 @@
             try {
                 var t = localStorage.getItem("tema");
                 if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+                // El login se ve oscuro la primera vez (sin preferencia guardada); no se
+                // guarda, así el resto de la app sigue arrancando en claro.
+                else if (t === null && location.pathname === "/") document.documentElement.setAttribute("data-theme", "dark");
             } catch (e) { }
         })();
     </script>
     <ResourcePreloader />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Inventory.Web.styles.css"]" />
     <ImportMap />

@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @layout Layout.WelcomeLayout
 @inject PaisApiClient PaisApi
 @inject AuthState AuthState
@@ -6,42 +6,48 @@
 
 <PageTitle>Iniciar sesión — Inventario</PageTitle>
 
-@* Fijo arriba a la derecha, siempre visible — el toggle de tema no espera a que
-   carguen los países, así se puede pasar a oscuro antes de que el form esté listo. *@
-<div style="position:fixed; top:20px; right:20px; z-index:10; display:flex; align-items:center; gap:10px">
-    <ThemeToggle />
-    @if (_paises is not null)
-    {
-        <div style="position:relative">
-            <button type="button" class="flag-dropdown-trigger" @onclick="() => _menuAbierto = !_menuAbierto">
-                <Bandera CodigoIso="@_paisSeleccionado?.CodigoIso" Width="22" />
-                <span style="font-size:10px;color:var(--color-neutral-500)">▾</span>
-            </button>
-            @if (_menuAbierto)
-            {
-                <div class="flag-dropdown-menu">
-                    @foreach (var p in _paises)
-                    {
-                        <button type="button" class="flag-dropdown-item" @onclick="() => Seleccionar(p)">
-                            <Bandera CodigoIso="@p.CodigoIso" Width="20" />
-                            <span>@p.Nombre</span>
-                        </button>
-                    }
-                </div>
-            }
-        </div>
-    }
-</div>
+@* Fondo: depósito en perspectiva (login-fondo.svg) + un velo que lo oscurece o aclara según
+   el tema. Para usar una foto real, cambiá la URL de .login-fondo en app.css. *@
+<div class="login-screen">
+    <div class="login-fondo" aria-hidden="true"></div>
+    <div class="login-velo" aria-hidden="true"></div>
 
-<div class="welcome-screen">
-    <div class="welcome-card">
-        <img src="/img/nestle-logo.png" alt="Nestlé" class="welcome-mark" />
-        <h1 style="margin:0 0 4px">Inventario de Material Promocional</h1>
-        <p class="text-muted" style="margin:0 0 28px">Iniciá sesión para continuar.</p>
+    @* Fijo arriba a la derecha, siempre visible — el toggle de tema no espera a que
+       carguen los países, así se puede cambiar el tema antes de que el form esté listo. *@
+    <div class="login-controles">
+        <ThemeToggle />
+        @if (_paises is not null)
+        {
+            <div style="position:relative">
+                <button type="button" class="flag-dropdown-trigger" title="@(_paisSeleccionado?.Nombre ?? "País")" @onclick="() => _menuAbierto = !_menuAbierto">
+                    <Bandera CodigoIso="@_paisSeleccionado?.CodigoIso" Width="22" />
+                    <span>@_paisSeleccionado?.CodigoIso</span>
+                    <span style="font-size:10px;opacity:.7">▾</span>
+                </button>
+                @if (_menuAbierto)
+                {
+                    <div class="flag-dropdown-menu">
+                        @foreach (var p in _paises)
+                        {
+                            <button type="button" class="flag-dropdown-item" @onclick="() => Seleccionar(p)">
+                                <Bandera CodigoIso="@p.CodigoIso" Width="20" />
+                                <span>@p.Nombre</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="login-card">
+        <img src="/img/nestle-logo-crema.png" alt="Nestlé" class="login-logo login-logo-oscuro" />
+        <img src="/img/nestle-logo-marron.png" alt="Nestlé" class="login-logo login-logo-claro" />
+        <h1 class="login-titulo">Inventario de Material Promocional</h1>
 
         @if (_paises is null)
         {
-            <p class="text-muted">Cargando…</p>
+            <p class="login-cargando">Cargando…</p>
         }
         else
         {
@@ -50,33 +56,45 @@
                es el único lugar donde el servidor puede mandar un Set-Cookie (ver
                Program.cs). Por eso los campos son <input name="..."> planos, no
                @bind-Value: el navegador arma el body del POST solo, sin pasar por C#. *@
-            <form method="post" action="/login-cookie">
+            <form method="post" action="/login-cookie" class="login-form">
                 <input type="hidden" name="PaisId" value="@_modelo.PaisId" />
-                <div class="field" style="margin-bottom:14px">
+
+                <div class="login-campo">
                     <label for="email">Email</label>
-                    <input id="email" name="Email" class="input" autofocus />
+                    <div class="login-input">
+                        <span class="login-icono"><Icon Name="mail" Size="17" /></span>
+                        <input id="email" name="Email" type="email" placeholder="nombre@empresa.com" autocomplete="username" required autofocus />
+                    </div>
                 </div>
-                <div class="field" style="margin-bottom:18px">
+
+                <div class="login-campo">
                     <label for="pass">Contraseña</label>
-                    <div style="position:relative">
-                        <input id="pass" name="Password" type="@(_mostrarPassword ? "text" : "password")" class="input" style="padding-right:36px" />
-                        <button type="button" @onclick="() => _mostrarPassword = !_mostrarPassword"
-                            aria-label="@(_mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña")"
-                            style="position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:transparent;border:none;color:var(--color-neutral-500);cursor:pointer">
+                    <div class="login-input">
+                        <span class="login-icono"><Icon Name="lock" Size="17" /></span>
+                        <input id="pass" name="Password" type="@(_mostrarPassword ? "text" : "password")" class="con-ojo" placeholder="••••••••" autocomplete="current-password" required />
+                        <button type="button" class="login-ojo" @onclick="() => _mostrarPassword = !_mostrarPassword"
+                                aria-label="@(_mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña")">
                             <Icon Name="@(_mostrarPassword ? "eye-off" : "eye")" Size="18" />
                         </button>
                     </div>
                 </div>
 
+                <label class="login-recordar">
+                    <input type="checkbox" name="Recordar" value="true" />
+                    Mantener sesión iniciada
+                </label>
+
                 @if (_error is not null)
                 {
-                    <p class="dialog-error" style="margin-bottom:14px">@_error</p>
+                    <p class="login-error" role="alert">@_error</p>
                 }
 
-                <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+                <button type="submit" class="login-boton">Ingresar</button>
             </form>
         }
     </div>
+
+    <p class="login-pie">Material POP · Control de inventario</p>
 </div>
 
 @code {
@@ -103,7 +121,12 @@
         // no matchean — mismo mensaje genérico que ya usaba ApiException para no revelar
         // si el email existe en otro país.
         if (ErrorQuery is not null)
-            _error = "Email o contraseña incorrectos.";
+            _error = ErrorQuery switch
+            {
+                "bloqueado" => "Demasiados intentos fallidos. Esperá unos minutos e intentá de nuevo.",
+                "inactivo" => "Este usuario está desactivado. Contactá a un administrador.",
+                _ => "Email o contraseña incorrectos.",
+            };
 
         try
         {
