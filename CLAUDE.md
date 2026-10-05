@@ -270,22 +270,32 @@ Categorías y Áreas: tabla + diálogo, "eliminar" es destildar «Activa».
   seedeado (lo necesitan para el formulario de producto).
 - `Icon.razor` tiene el ícono `ruler` agregado para este módulo.
 
-## Login: tarjeta de vidrio sobre un depósito desenfocado (2026-10-02)
+## Movimientos es el libro de movimientos, no una lista de solicitudes (2026-10-04)
+
+`/movimientos` muestra UNA fila por movimiento de stock (fecha, N.º `MOV-…`, producto, tipo, cantidad,
+ubicación y almacén, solicitud de origen con enlace, quién, motivo), vengan o no de una solicitud.
+Antes la tabla principal agrupaba por solicitud (N.º, tipo, productos, fecha, quién): era casi la misma
+lista que `/solicitudes`, y los datos propios de cada movimiento quedaban escondidos. **No volver a
+agrupar por solicitud**: la solicitud es solo una referencia (columna «Solicitud», enlazada).
+
+## Login: tarjeta de vidrio sobre un depósito desenfocado (2026-10-02, paleta ajustada 2026-10-04)
 
 `Components/Pages/Home.razor` (ruta `/`, `WelcomeLayout`). Diseño elegido por el usuario entre cuatro
-conceptos generados ("B": vidrio esmerilado sobre un depósito en tonos marrón).
+conceptos generados ("B": vidrio esmerilado sobre un depósito). **Se adaptó a la paleta slate/azul del
+resto del sistema** — un intento de pasar TODA la app a una identidad cálida marrón/crema con títulos en
+serif se probó y se revirtió porque no gustó: no lo vuelvas a proponer sin que lo pida.
 
-- **Fondo**: `wwwroot/img/login-fondo.svg`, un depósito en perspectiva dibujado en SVG (lo generó un
-  script, ~25 KB, sin foto: carga al instante y no depende de licencias). Para usar una foto real,
-  cambiá la URL de `.login-fondo` en `app.css` — el resto del diseño no cambia.
-- **Dos variantes según el tema**: oscuro (la del diseño) y claro (vidrio blanco sobre fondo cálido). Se
-  definen con variables `--lg-*` en `.login-screen`; el modo claro las redefine con
+- **Fondo**: `wwwroot/img/login-fondo.svg`, un depósito en perspectiva dibujado en SVG (~25 KB, sin
+  foto: carga al instante y no depende de licencias), desaturado y con un velo azul marino por CSS. Para
+  usar una foto real, cambiá la URL de `.login-fondo` en `app.css`.
+- **Dos variantes según el tema**: oscuro (vidrio azul marino) y claro (vidrio blanco sobre gris azulado).
+  Se definen con variables `--lg-*` en `.login-screen`; el modo claro las redefine con
   `:root:not([data-theme="dark"])`.
 - **El login arranca oscuro la primera vez** (sin preferencia guardada) pero **no guarda** esa elección:
   el script del `<head>` de `App.razor` lo aplica solo en `/`, así el resto de la app sigue en claro por
   defecto. `tema.get` lee primero el atributo ya aplicado.
-- **Logo**: dos PNG con fondo transparente (`nestle-logo-crema.png` para el vidrio oscuro,
-  `nestle-logo-marron.png` para el claro), derivados del original, que es marrón sobre blanco opaco.
+- **Logo**: dos PNG con fondo transparente (`nestle-logo-blanco.png` sobre el vidrio oscuro,
+  `nestle-logo-marron.png` sobre el claro), derivados del original, que es marrón sobre blanco opaco.
   Un `filter`/`mix-blend-mode` no sirve acá: la tarjeta con `backdrop-filter` aísla la mezcla.
 - **«Mantener sesión iniciada»**: manda `Recordar=true` a `/login-cookie`; con eso la cookie dura hasta
   que venza el token (8 h), y sin tildar es una cookie de sesión (se borra al cerrar el navegador).

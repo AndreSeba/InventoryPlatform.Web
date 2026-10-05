@@ -1,4 +1,4 @@
-@page "/movimientos"
+﻿@page "/movimientos"
 @inject ProductoApiClient ProductoApi
 @inject UbicacionApiClient UbicacionApi
 @inject CategoriaApiClient CategoriaApi
@@ -69,61 +69,58 @@ else
         <p class="dialog-error">@_errorExportar</p>
     }
 
-    <div class="table-wrap">
-        <table class="table">
-            <thead><tr><th>N.º Solicitud</th><th>Tipo</th><th>Producto(s)</th><th>Movimientos</th><th>Última fecha</th><th>Registrado por</th><th></th></tr></thead>
-            <tbody>
-                @foreach (var g in GruposPaginados())
-                {
-                    <tr>
-                        <td class="sol-num">@g.NumeroSolicitud</td>
-                        <td><TipoMovimientoTag Tipo="g.Tipo" /></td>
-                        <td class="celda-truncada" title="@g.ProductosResumen">@g.ProductosResumen</td>
-                        <td>@g.CantidadMovimientos</td>
-                        <td class="text-muted">@g.UltimaFecha.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                        <td><AvatarNombre Nombre="@g.RegistradoPor" /></td>
-                        <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => VerSolicitud(g.SolicitudId)"><Icon Name="eye" Size="16" /></button></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    @if (GruposFiltrados().Count == 0)
+    @* Libro de movimientos: UNA fila por movimiento de stock (entradas, salidas, ajustes y
+       devoluciones, vengan o no de una solicitud). La solicitud de origen es solo una referencia
+       con enlace — la lista de solicitudes vive en su propio módulo. *@
+    @if (Filtrados().Count == 0)
     {
-        <p class="text-muted" style="margin-top:20px">Sin movimientos con solicitud para este filtro.</p>
+        <p class="text-muted" style="margin-top:20px">Sin movimientos para este filtro.</p>
     }
     else
     {
-        <Pager TotalItems="GruposFiltrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
-    }
-
-    @if (MovimientosSueltos().Count > 0)
-    {
-        <div class="hr" style="margin-top:32px"></div>
-        <h3>Ajustes y devoluciones</h3>
-        <p class="text-muted" style="margin-top:-6px">Movimientos que no vienen de una solicitud.</p>
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Ubicación / Retorna</th><th>Almacén</th><th>Registrado por</th><th>Motivo</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>N.º mov.</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th>Ubicación</th><th>Solicitud</th><th>Registrado por</th><th>Motivo</th></tr></thead>
                 <tbody>
-                    @foreach (var m in MovimientosSueltosPaginados())
+                    @foreach (var m in MovimientosPaginados())
                     {
                         <tr>
-                            <td class="text-muted">@m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                            <td class="celda-truncada" title="@m.ProductoNombre">@m.ProductoNombre</td>
-                            <td class="text-muted">@CategoriaDe(m.ProductoId)</td>
+                            <td class="text-muted" style="white-space:nowrap">
+                                @m.FechaMovimiento.ToLocalTime().ToString("dd/MM/yyyy")
+                                <div style="font-size:12px">@m.FechaMovimiento.ToLocalTime().ToString("HH:mm")</div>
+                            </td>
+                            <td class="sol-num">@m.NumeroMovimiento</td>
+                            <td class="celda-truncada celda-corta" title="@m.ProductoNombre">
+                                @m.ProductoNombre
+                                <div class="text-muted" style="font-size:12px">@CategoriaDe(m.ProductoId)</div>
+                            </td>
                             <td><TipoMovimientoTag Tipo="m.TipoMovimiento" /></td>
-                            <td>@m.Cantidad.ToString("N0")</td>
-                            <td class="text-muted">@UbicacionORetorna(m)</td>
-                            <td class="text-muted">@m.AlmacenNombre</td>
+                            <td class="num">@m.Cantidad.ToString("N0")</td>
+                            <td class="text-muted">
+                                @UbicacionORetorna(m)
+                                @if (!string.IsNullOrWhiteSpace(m.AlmacenNombre))
+                                {
+                                    <div style="font-size:12px">@m.AlmacenNombre</div>
+                                }
+                            </td>
+                            <td>
+                                @if (m.SolicitudId is not null)
+                                {
+                                    <a class="sol-num" href="/solicitudes/@m.SolicitudId" title="Abrir la solicitud">@m.NumeroSolicitud</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
                             <td><AvatarNombre Nombre="@m.RegistradoPor" /></td>
-                            <td class="text-muted celda-truncada" title="@m.Motivo">@m.Motivo</td>
+                            <td class="text-muted celda-truncada celda-corta" title="@m.Motivo">@(string.IsNullOrWhiteSpace(m.Motivo) ? "—" : m.Motivo)</td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
-        <Pager TotalItems="MovimientosSueltos().Count" PaginaActual="_paginaSueltos" PaginaActualChanged="p => _paginaSueltos = p" TamanoPagina="TamanoPagina" />
+        <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 
     <div class="hr" style="margin-top:32px"></div>
@@ -310,46 +307,12 @@ else
 
     private const int TamanoPagina = 10;
     private int _pagina = 1;
-    private int _paginaSueltos = 1;
     private int _paginaPrestamos = 1;
 
-    private void ReiniciarPaginas() { _pagina = 1; _paginaSueltos = 1; }
+    private void ReiniciarPaginas() => _pagina = 1;
 
-    // Un movimiento de Entrada/Salida siempre nace de una línea de Solicitud
-    // (ver SolicitudEntregaPanel.razor) — agruparlos por solicitud da una fila por
-    // pedido en vez de una por línea entregada, con un botón "Ver" que lleva al
-    // detalle completo. Ajustes y devoluciones nunca tienen solicitud: quedan aparte.
-    private sealed record GrupoSolicitud(
-        int SolicitudId, string NumeroSolicitud, TipoMovimiento Tipo,
-        int CantidadMovimientos, string ProductosResumen, DateTime UltimaFecha, string RegistradoPor);
-
-    private List<GrupoSolicitud> GruposFiltrados() => Filtrados()
-        .Where(m => m.SolicitudId is not null)
-        .GroupBy(m => (m.SolicitudId!.Value, m.NumeroSolicitud!))
-        .Select(g =>
-        {
-            var productos = g.Select(m => m.ProductoNombre).Distinct().ToList();
-            var registrantes = g.Select(m => m.RegistradoPor).Distinct().ToList();
-            return new GrupoSolicitud(
-                g.Key.Item1, g.Key.Item2, g.First().TipoMovimiento, g.Count(),
-                productos.Count == 1 ? productos[0] : $"{productos.Count} productos",
-                g.Max(m => m.FechaMovimiento),
-                registrantes.Count == 1 ? registrantes[0] : $"{registrantes.Count} personas");
-        })
-        .OrderByDescending(g => g.UltimaFecha)
-        .ToList();
-
-    private List<GrupoSolicitud> GruposPaginados() => GruposFiltrados()
+    private List<MovimientoDto> MovimientosPaginados() => Filtrados()
         .Skip((_pagina - 1) * TamanoPagina)
-        .Take(TamanoPagina)
-        .ToList();
-
-    private List<MovimientoDto> MovimientosSueltos() => Filtrados()
-        .Where(m => m.SolicitudId is null)
-        .ToList();
-
-    private List<MovimientoDto> MovimientosSueltosPaginados() => MovimientosSueltos()
-        .Skip((_paginaSueltos - 1) * TamanoPagina)
         .Take(TamanoPagina)
         .ToList();
 
@@ -357,8 +320,6 @@ else
         .Skip((_paginaPrestamos - 1) * TamanoPagina)
         .Take(TamanoPagina)
         .ToList();
-
-    private void VerSolicitud(int solicitudId) => Nav.NavigateTo($"/solicitudes/{solicitudId}");
 
     private string? _dialog; // "entrada" | "salida" | "ajuste" | "devolucion" | null
     private bool _guardando;
