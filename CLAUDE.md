@@ -310,7 +310,7 @@ Tres pantallas: `/conteos` (listado con filtro por estado), `/conteos/nuevo` (el
 
 - **La selección sigue siendo explícita**: en `/conteos/nuevo` la categoría y el buscador solo
   FILTRAN la lista; entra lo tildado, uno por uno. No hay "seleccionar todos" a propósito. Los
-  productos sin stock salen deshabilitados.
+  productos sin stock salen deshabilitados. Cada fila muestra la foto (`loading="lazy"`, mismo estilo que el selector del ajuste, clases `.sel-prod*`), código, categoría y stock, y se marca entera al clic.
 - **El Excel solo se descarga desde un conteo ya creado** (`Detalle.razor`) — el botón vive junto a
   las cantidades. Se puede subir de vuelta (con la opción de dejarlo como evidencia) o tipear
   las cantidades en la grilla.

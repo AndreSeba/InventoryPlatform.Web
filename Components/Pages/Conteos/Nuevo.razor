@@ -1,4 +1,4 @@
-@page "/conteos/nuevo"
+﻿@page "/conteos/nuevo"
 @inject ConteoApiClient ConteoApi
 @inject ProductoApiClient ProductoApi
 @inject CategoriaApiClient CategoriaApi
@@ -75,20 +75,32 @@ else
             }
         </div>
 
-        <div style="max-height:340px;overflow-y:auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:10px;margin-top:4px">
+        <div class="sel-lista">
             @* Se llama dos veces en vez de guardar en una variable con un bloque de código: ese bloque,
                abierto después de markup dentro del else de arriba, rompe la compilación
                con RZ1010 (ver CLAUDE.md). La lista está en memoria, no cuesta nada. *@
             @if (ProductosFiltrados().Count == 0)
             {
-                <p class="text-muted" style="font-size:13px;margin:4px 0">Ningún producto coincide con el filtro.</p>
+                <p class="text-muted" style="font-size:13px;margin:8px">Ningún producto coincide con el filtro.</p>
             }
             @foreach (var p in ProductosFiltrados())
             {
-                <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;@(p.Existencia <= 0 ? "opacity:.55" : "")">
+                <label class="sel-prod @(_seleccionados.Contains(p.Id) ? "on" : "") @(p.Existencia <= 0 ? "off" : "")">
                     <input type="checkbox" disabled="@(p.Existencia <= 0)" checked="@_seleccionados.Contains(p.Id)" @onchange="@(e => Alternar(p.Id, e.Value))" />
-                    <span style="flex:1">@p.CodigoProducto — @p.Nombre</span>
-                    <span class="text-muted">@(p.Existencia <= 0 ? "Sin stock" : $"{p.Existencia:N0} en sistema")</span>
+                    @if (string.IsNullOrWhiteSpace(p.ImagenUrl))
+                    {
+                        <span class="sel-prod-img"><Icon Name="package" Size="20" /></span>
+                    }
+                    else
+                    {
+                        @* loading=lazy: la lista trae todo el catálogo; solo se bajan las fotos que se ven. *@
+                        <img class="sel-prod-img" loading="lazy" decoding="async" alt="" src="@($"{ProductoApi.ApiBaseUrl}{p.ImagenUrl}")" />
+                    }
+                    <span class="sel-prod-texto">
+                        <span class="sel-prod-nombre"><strong>@p.CodigoProducto</strong> — @p.Nombre</span>
+                        <span class="sel-prod-meta">@p.CategoriaNombre</span>
+                    </span>
+                    <span class="sel-prod-stock @(p.Existencia <= 0 ? "sin" : "")">@(p.Existencia <= 0 ? "Sin stock" : $"{p.Existencia:N0} {p.UnidadMedida}")</span>
                 </label>
             }
         </div>
