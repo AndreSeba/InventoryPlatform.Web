@@ -1,0 +1,30 @@
+@* Badge de estado de una revisión de accesos, con ícono y color. Único lugar donde se decide
+   cómo se ve cada estado: el listado y el detalle usan este mismo. *@
+<span class="tag @Clase @(Grande ? "sol-estado" : "tag-con-icono")"><Icon Name="@Icono" Size="@(Grande ? 14 : 13)" />@Texto</span>
+
+@code {
+    [Parameter, EditorRequired] public EstadoRevisionAcceso Estado { get; set; }
+    // Versión más grande para el encabezado del detalle.
+    [Parameter] public bool Grande { get; set; }
+
+    private string Clase => Estado switch
+    {
+        EstadoRevisionAcceso.EnCurso => "tag-warn",
+        EstadoRevisionAcceso.Cerrada => "tag-success",
+        _ => "tag-neutral",
+    };
+
+    private string Icono => Estado switch
+    {
+        EstadoRevisionAcceso.EnCurso => "clock",
+        EstadoRevisionAcceso.Cerrada => "check-circle",
+        _ => "x-circle",
+    };
+
+    private string Texto => Estado switch
+    {
+        EstadoRevisionAcceso.EnCurso => "En curso",
+        EstadoRevisionAcceso.Cerrada => "Cerrada",
+        _ => "Cancelada",
+    };
+}

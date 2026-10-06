@@ -33,6 +33,10 @@
             {
                 <RailLink Href="/solicitudes/mias" IconName="clipboard" Label="Mis solicitudes" CurrentPath="@_path" />
             }
+            @if (AuthState.HasPermission(Permisos.DevolucionesAvisar))
+            {
+                <RailLink Href="/prestamos/mios" IconName="undo" Label="Mis préstamos" CurrentPath="@_path" />
+            }
             @if (AuthState.HasPermission(Permisos.ConteosVer))
             {
                 <RailLink Href="/conteos" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
@@ -63,7 +67,7 @@
                 <RailLink Href="/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar) || AuthState.HasPermission(Permisos.PaisesVer) || AuthState.HasPermission(Permisos.AuditoriaVer))
+            @if (AuthState.HasPermission(Permisos.UsuariosGestionar) || AuthState.HasPermission(Permisos.RolesGestionar) || AuthState.HasPermission(Permisos.PaisesVer) || AuthState.HasPermission(Permisos.AuditoriaVer) || AuthState.HasPermission(Permisos.AccesosRevisar))
             {
                 <div class="rail-section">Administración</div>
             }
@@ -78,6 +82,10 @@
             @if (AuthState.HasPermission(Permisos.PaisesVer))
             {
                 <RailLink Href="/paises" IconName="globe" Label="Países" CurrentPath="@_path" />
+            }
+            @if (AuthState.HasPermission(Permisos.AccesosRevisar))
+            {
+                <RailLink Href="/accesos" IconName="check-list" Label="Revisión de accesos" CurrentPath="@_path" />
             }
             @if (AuthState.HasPermission(Permisos.AuditoriaVer))
             {
@@ -174,6 +182,7 @@
         var p when p.StartsWith("/productos") => "Productos",
         var p when p.StartsWith("/movimientos") => "Movimientos",
         "/solicitudes/mias" => "Mis solicitudes",
+        var p when p.StartsWith("/prestamos") => "Mis préstamos",
         var p when p.StartsWith("/solicitudes") => "Solicitudes",
         var p when p.StartsWith("/conteos") => "Conteo físico",
         var p when p.StartsWith("/categorias") => "Categorías",
@@ -185,6 +194,7 @@
         var p when p.StartsWith("/roles") => "Roles",
         var p when p.StartsWith("/paises") => "Países",
         var p when p.StartsWith("/auditoria") => "Auditoría",
+        var p when p.StartsWith("/accesos") => "Revisión de accesos",
         _ => "Inicio",
     };
 

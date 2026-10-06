@@ -346,6 +346,44 @@ servicio, `IAuditoriaService`, el nuevo permiso `auditoria.ver`).
   — mismo criterio que Usuarios/Roles/Países, y el backend igual lo exige en el
   endpoint.
 
+## Revisión de accesos (2026-10-06)
+
+`/accesos` (`Components/Pages/Accesos/Index.razor`) y `/accesos/{id}` (`Detalle.razor`), con
+`RevisionAccesoApiClient` y `EstadoRevisionBadge`. Rail "Administración → Revisión de accesos", gateado por
+`Permisos.AccesosRevisar`. Reglas del lado del backend en `InventoryPlatform/CLAUDE.md`.
+
+- **Index**: dos tarjetas (todas las cuentas / administradores) con la última revisión y si venció, botón
+  «Iniciar revisión» (o «Continuar» si ya hay una en curso) e historial paginado.
+- **Detalle**: una fila por cuenta con alertas (administra, nunca ingresó, sin actividad reciente) y los
+  botones Mantener / Quitar / Cambiar rol (estos dos piden motivo en un diálogo) / Deshacer. «Cerrar y
+  aplicar» queda deshabilitado hasta decidir todas; avisa que las decisiones se aplican recién al cerrar.
+  «Mantener las N pendientes sin alertas» decide de una vez las que no tienen nada raro. «Descargar acta» baja
+  el Excel.
+- **La lista de roles viene dentro del detalle** (`RevisionAccesoDetalleDto.Roles`): quien revisa no tiene
+  por qué tener `roles.gestionar`, así que no se pide a `RolApiClient`.
+- **Inicio** muestra un aviso rojo si la revisión de administradores (mensual) o la de todos (trimestral)
+  está vencida, solo para quien tiene el permiso. Si la consulta falla se ignora: es un aviso.
+- Revisar la propia cuenta devuelve 403 con un mensaje claro que se muestra tal cual: con un solo
+  administrador hace falta una segunda persona con `accesos.revisar` (TI o un jefe).
+
+## Mis préstamos y devoluciones con aviso (2026-10-06)
+
+Reglas del lado del backend en `InventoryPlatform/CLAUDE.md` («Devoluciones con aviso del solicitante»).
+`DevolucionApiClient` (`api/devoluciones`).
+
+- **`/prestamos/mios`** (`Components/Pages/Prestamos/Mios.razor`, rail «Mis préstamos», gateado por
+  `Permisos.DevolucionesAvisar`): lo que el usuario pidió con retorno y todavía tiene (pendiente de N, destino,
+  retorno esperado, mora, avisos en camino), botón «Avisar devolución» (cantidad hasta lo que queda sin avisar +
+  notas) y su historial de avisos con estado, quién recibió y cuánto, y «Cancelar aviso» (pide motivo).
+- **`/movimientos`, vista del operario**: la sección «Devoluciones avisadas — por recibir» (solo con
+  `movimientos.devolucion`) lista los avisos pendientes con «Recibir» → diálogo con cantidad recibida (por
+  defecto lo avisado; puede ser menos) y ubicación. «Préstamos pendientes» ahora muestra QUIÉN lo tiene, la
+  solicitud, lo pendiente, la mora y si hay aviso.
+- **La devolución directa («Registrar devolución») solo queda para préstamos sin solicitud** (de antes de los
+  controles): con solicitante el operario recibe contra el aviso. No volver a ofrecer el botón directo en esos.
+- Los avisos los lista `DevolucionApi.ListarAvisosAsync(Pendiente)`: solo se piden si el usuario tiene
+  `movimientos.devolucion` (si no, el endpoint responde 403).
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

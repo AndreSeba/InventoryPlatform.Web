@@ -1,5 +1,6 @@
 @page "/inicio"
 @inject InicioApiClient InicioApi
+@inject RevisionAccesoApiClient RevisionApi
 @inject NavigationManager Nav
 @inject AuthState AuthState
 
@@ -25,6 +26,15 @@
 @if (_error is not null)
 {
     <p class="dialog-error">@_error</p>
+}
+
+@if (_avisoAccesos is not null)
+{
+    <div class="aviso-accesos">
+        <Icon Name="alert" Size="20" />
+        <div class="aviso-accesos-texto"><strong>Revisión de accesos pendiente.</strong> @_avisoAccesos</div>
+        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Nav.NavigateTo("/accesos")'>Ir a revisión de accesos</button>
+    </div>
 }
 
 @if (_resumen is null)
@@ -91,6 +101,7 @@ else
 @code {
     private ResumenInicioDto? _resumen;
     private string? _error;
+    private string? _avisoAccesos;
 
     protected override async Task OnInitializedAsync()
     {
@@ -101,6 +112,25 @@ else
         {
             Nav.NavigateTo("/solicitudes/mias");
             return;
+        }
+
+        // Aviso de revisión de accesos vencida: solo para quien puede resolverla. Si falla no importa,
+        // es un aviso — no debe romper el panel.
+        if (AuthState.HasPermission(Permisos.AccesosRevisar))
+        {
+            try
+            {
+                var estado = await RevisionApi.ObtenerEstadoAsync();
+                if (estado.AdministradoresVencida)
+                    _avisoAccesos = estado.UltimaAdministradores is null
+                        ? "Nunca se revisaron los accesos de los administradores (corresponde cada mes)."
+                        : $"La última revisión de administradores fue hace {estado.DiasDesdeAdministradores} días (corresponde cada {estado.FrecuenciaAdministradoresDias}).";
+                else if (estado.TodosVencida)
+                    _avisoAccesos = estado.UltimaTodos is null
+                        ? "Nunca se revisaron los accesos de todas las cuentas (corresponde cada trimestre)."
+                        : $"La última revisión de todas las cuentas fue hace {estado.DiasDesdeTodos} días (corresponde cada {estado.FrecuenciaTodosDias}).";
+            }
+            catch (ApiException) { }
         }
 
         try

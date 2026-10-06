@@ -1,0 +1,405 @@
+@page "/accesos/{Id:int}"
+@inject RevisionAccesoApiClient RevisionApi
+@inject IJSRuntime JS
+
+<PageTitle>Revisión de accesos</PageTitle>
+
+<div style="margin-bottom:14px">
+    <BotonVolver Href="/accesos" Texto="Volver a revisiones" />
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+}
+
+@if (_revision is null)
+{
+    @if (_error is null)
+    {
+        <p>Cargando…</p>
+    }
+}
+else
+{
+    var r = _revision.Resumen;
+    <div class="card elev-sm sol-card">
+        <div class="sol-head">
+            <div>
+                <h1 class="sol-number">@r.Codigo</h1>
+                <div class="text-muted" style="font-size:14px;margin-top:2px">@(r.Alcance == AlcanceRevisionAcceso.Todos ? "Todas las cuentas activas" : "Cuentas administradoras")</div>
+            </div>
+            <EstadoRevisionBadge Estado="r.Estado" Grande="true" />
+        </div>
+
+        <div class="sol-meta">
+            <div>
+                <div class="sol-meta-label"><Icon Name="user" Size="14" />Iniciada por</div>
+                <div class="sol-meta-value"><AvatarNombre Nombre="@r.IniciadaPor" /></div>
+                <div class="text-muted" style="font-size:12px;margin-top:2px">@r.FechaInicio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="check-list" Size="14" />Avance</div>
+                <div class="sol-meta-value">@r.Decididas de @r.TotalLineas cuentas decididas</div>
+            </div>
+            <div>
+                <div class="sol-meta-label"><Icon Name="clipboard" Size="14" />Decisiones</div>
+                <div class="sol-meta-value">@r.Mantener mantener · @r.Quitar quitar · @r.CambiarRol cambio de rol</div>
+            </div>
+            @if (r.FechaCierre is not null)
+            {
+                <div>
+                    <div class="sol-meta-label"><Icon Name="@(r.Estado == EstadoRevisionAcceso.Cerrada ? "check-circle" : "x-circle")" Size="14" />@(r.Estado == EstadoRevisionAcceso.Cerrada ? "Cerrada por" : "Cancelada por")</div>
+                    <div class="sol-meta-value"><AvatarNombre Nombre="@(r.CerradaPor ?? "—")" /></div>
+                    <div class="text-muted" style="font-size:12px;margin-top:2px">@r.FechaCierre.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_revision.Notas))
+        {
+            <p class="text-muted" style="padding:0 20px 14px;margin:0;font-size:13px">@_revision.Notas</p>
+        }
+    </div>
+
+    @if (r.Estado == EstadoRevisionAcceso.Cancelada)
+    {
+        <p class="dialog-error" style="margin-top:12px">Motivo de cancelación: @_revision.MotivoCancelacion</p>
+    }
+
+    <div class="card elev-sm sol-card" style="margin-top:20px">
+        <div class="sol-head">
+            <h2 style="margin:0;font-size:18px">Cuentas</h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn btn-secondary" disabled="@_descargando" @onclick="DescargarActaAsync"><Icon Name="download" Size="16" />@(_descargando ? "Generando…" : "Descargar acta")</button>
+                @if (EnCurso)
+                {
+                    <button type="button" class="btn btn-ghost" disabled="@_guardando" @onclick="AbrirCancelar">Cancelar revisión</button>
+                    <button type="button" class="btn btn-primary" disabled="@(_guardando || r.Decididas < r.TotalLineas)" @onclick="() => _confirmarCierre = true">Cerrar y aplicar</button>
+                }
+            </div>
+        </div>
+
+        @if (EnCurso)
+        {
+            <div style="padding:0 20px 14px">
+                <p class="text-muted" style="font-size:13px;margin:0 0 8px">
+                    Decidí cada cuenta. <strong>Quitar acceso</strong> y <strong>cambiar de rol</strong> se aplican recién al cerrar la revisión; hasta entonces podés deshacer cualquier decisión.
+                    No podés revisar tu propia cuenta: la revisa otra persona con este permiso.
+                </p>
+                @if (SinAlertas.Count > 0)
+                {
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="MantenerSinAlertasAsync">
+                        Mantener las @SinAlertas.Count pendientes sin alertas
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="sol-lines">
+            <table class="table">
+                <thead>
+                    <tr><th>Cuenta</th><th>Rol</th><th>Último ingreso</th><th>Alertas</th><th>Decisión</th>@if (EnCurso) { <th></th> }</tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in _revision.Lineas)
+                    {
+                        <tr>
+                            <td>
+                                <div>@l.UsuarioNombre @if (l.EsCuentaPropia) { <span class="tag tag-outline">Tu cuenta</span> }</div>
+                                <div class="text-muted" style="font-size:12px">@l.UsuarioEmail</div>
+                            </td>
+                            <td>@l.Rol</td>
+                            <td class="text-muted">@(l.UltimoLoginEn is null ? "Nunca" : l.UltimoLoginEn.Value.ToLocalTime().ToString("dd/MM/yyyy"))</td>
+                            <td>
+                                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                                    @if (l.EsPrivilegiado) { <span class="tag tag-warn tag-con-icono"><Icon Name="shield" Size="13" />Administra</span> }
+                                    @if (l.NuncaIngreso) { <span class="tag tag-danger tag-con-icono"><Icon Name="alert" Size="13" />Nunca ingresó</span> }
+                                    else if (l.SinActividadReciente) { <span class="tag tag-danger tag-con-icono"><Icon Name="clock" Size="13" />Sin ingresar @_revision.DiasSinActividad+ días</span> }
+                                    @if (!l.EsPrivilegiado && !l.NuncaIngreso && !l.SinActividadReciente) { <span class="text-muted">—</span> }
+                                </div>
+                            </td>
+                            <td>
+                                @switch (l.Decision)
+                                {
+                                    case DecisionAcceso.Mantener:
+                                        <span class="tag tag-success tag-con-icono"><Icon Name="check" Size="13" />Mantener</span>
+                                        break;
+                                    case DecisionAcceso.Quitar:
+                                        <span class="tag tag-danger tag-con-icono"><Icon Name="x-circle" Size="13" />Quitar acceso</span>
+                                        break;
+                                    case DecisionAcceso.CambiarRol:
+                                        <span class="tag tag-warn tag-con-icono"><Icon Name="shuffle" Size="13" />Pasa a @l.RolNuevoNombre</span>
+                                        break;
+                                    default:
+                                        <span class="tag tag-neutral tag-con-icono"><Icon Name="clock" Size="13" />Pendiente</span>
+                                        break;
+                                }
+                                @if (!string.IsNullOrWhiteSpace(l.Comentario))
+                                {
+                                    <div class="text-muted" style="font-size:12px;margin-top:2px">@l.Comentario</div>
+                                }
+                                @if (l.RevisadoPor is not null)
+                                {
+                                    <div class="text-muted" style="font-size:11px">@l.RevisadoPor · @l.FechaRevision?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                }
+                            </td>
+                            @if (EnCurso)
+                            {
+                                <td>
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => MantenerAsync(l)">Mantener</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => AbrirDecision(l, DecisionAcceso.Quitar)">Quitar</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@_guardando" @onclick="() => AbrirDecision(l, DecisionAcceso.CambiarRol)">Cambiar rol</button>
+                                        @if (l.Decision != DecisionAcceso.Pendiente)
+                                        {
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_guardando" @onclick="() => DeshacerAsync(l)">Deshacer</button>
+                                        }
+                                    </div>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@* ---------------------------------------------------------------- diálogos *@
+<Dialog Visible="_decidiendo is not null" Title="@(_tipoDecision == DecisionAcceso.Quitar ? "Quitar acceso" : "Cambiar de rol")" OnClose="() => _decidiendo = null">
+    <Body>
+        @if (_decidiendo is not null)
+        {
+            <p style="margin:0 0 8px">
+                @if (_tipoDecision == DecisionAcceso.Quitar)
+                {
+                    <span>Se desactiva la cuenta de <strong>@_decidiendo.UsuarioNombre</strong> al cerrar la revisión. No se borra: queda en el historial.</span>
+                }
+                else
+                {
+                    <span><strong>@_decidiendo.UsuarioNombre</strong> hoy tiene el rol <strong>@_decidiendo.Rol</strong>. Elegí el rol nuevo; se aplica al cerrar la revisión.</span>
+                }
+            </p>
+            @if (_tipoDecision == DecisionAcceso.CambiarRol)
+            {
+                <div class="field">
+                    <label for="ra-rol">Rol nuevo <span class="req">*</span></label>
+                    <select class="input" id="ra-rol" @bind="_rolNuevoId">
+                        <option value="0">Elegí un rol…</option>
+                        @foreach (var rol in _revision!.Roles.Where(x => x.Nombre != _decidiendo.Rol))
+                        {
+                            <option value="@rol.Id">@rol.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field">
+                <label for="ra-comentario">Motivo <span class="req">*</span></label>
+                <input class="input" id="ra-comentario" maxlength="500" placeholder="Ej. Pasó a otra área" @bind="_comentario" @bind:event="oninput" />
+            </div>
+        }
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _decidiendo = null">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarDecisionAsync">@(_guardando ? "Guardando…" : "Guardar decisión")</button>
+    </Actions>
+</Dialog>
+
+<Dialog Visible="_confirmarCierre" Title="Cerrar y aplicar la revisión" OnClose="() => _confirmarCierre = false">
+    <Body>
+        <p style="margin:0 0 8px">Al cerrar, la revisión <strong>@_revision?.Resumen.Codigo</strong> queda registrada y <strong>ya no se puede modificar</strong>. Las decisiones se aplican en ese momento.</p>
+        @if (_revision is not null)
+        {
+            <p class="text-muted" style="margin:0;font-size:13px">
+                Se desactivan @_revision.Resumen.Quitar cuenta(s) y cambia el rol de @_revision.Resumen.CambiarRol. Si algo falla no se aplica nada.
+            </p>
+        }
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _confirmarCierre = false">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="CerrarAsync">@(_guardando ? "Cerrando…" : "Cerrar revisión")</button>
+    </Actions>
+</Dialog>
+
+<Dialog Visible="_cancelando" Title="Cancelar revisión" OnClose="() => _cancelando = false">
+    <Body>
+        <p style="margin:0 0 8px">La revisión queda en el historial como cancelada, sin aplicar ninguna decisión, y no se puede reabrir. Indicá el motivo.</p>
+        <div class="field">
+            <label for="rc-motivo">Motivo <span class="req">*</span></label>
+            <input class="input" id="rc-motivo" maxlength="500" placeholder="Ej. Se abrió por error" @bind="_motivoCancelacion" @bind:event="oninput" />
+        </div>
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _cancelando = false">Volver</button>
+        <button type="button" class="btn btn-primary" style="background:#b42318;border-color:#b42318" disabled="@_guardando" @onclick="CancelarAsync">@(_guardando ? "Cancelando…" : "Cancelar revisión")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private const string ContentTypeXlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    [Parameter] public int Id { get; set; }
+
+    private RevisionAccesoDetalleDto? _revision;
+    private string? _error;
+    private string? _ok;
+    private string? _errorDialogo;
+
+    private bool _guardando;
+    private bool _descargando;
+
+    private RevisionAccesoLineaDto? _decidiendo;
+    private DecisionAcceso _tipoDecision;
+    private int _rolNuevoId;
+    private string _comentario = "";
+
+    private bool _confirmarCierre;
+    private bool _cancelando;
+    private string _motivoCancelacion = "";
+
+    private bool EnCurso => _revision is { Resumen.Estado: EstadoRevisionAcceso.EnCurso };
+
+    // Pendientes que no tienen nada raro: sin alerta de actividad y sin permisos de administración, y que
+    // no son la cuenta de quien revisa (esa la decide otra persona).
+    private List<RevisionAccesoLineaDto> SinAlertas => _revision?.Lineas
+        .Where(l => l.Decision == DecisionAcceso.Pendiente && !l.EsPrivilegiado && !l.NuncaIngreso && !l.SinActividadReciente && !l.EsCuentaPropia)
+        .ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _revision = await RevisionApi.ObtenerAsync(Id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task MantenerAsync(RevisionAccesoLineaDto l) =>
+        await GuardarAsync(l, new DecidirAccesoDto(DecisionAcceso.Mantener, null, null));
+
+    private async Task DeshacerAsync(RevisionAccesoLineaDto l) =>
+        await GuardarAsync(l, new DecidirAccesoDto(DecisionAcceso.Pendiente, null, null));
+
+    private async Task GuardarAsync(RevisionAccesoLineaDto l, DecidirAccesoDto dto)
+    {
+        if (_guardando) return;
+        _guardando = true;
+        _error = _ok = null;
+        try { _revision = await RevisionApi.DecidirAsync(Id, l.Id, dto); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task MantenerSinAlertasAsync()
+    {
+        if (_guardando) return;
+        _guardando = true;
+        _error = _ok = null;
+        try
+        {
+            var total = 0;
+            foreach (var l in SinAlertas)
+            {
+                _revision = await RevisionApi.DecidirAsync(Id, l.Id, new DecidirAccesoDto(DecisionAcceso.Mantener, null, null));
+                total++;
+            }
+            _ok = $"{total} cuenta(s) marcadas para mantener.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private void AbrirDecision(RevisionAccesoLineaDto l, DecisionAcceso tipo)
+    {
+        _decidiendo = l;
+        _tipoDecision = tipo;
+        _rolNuevoId = l.Decision == DecisionAcceso.CambiarRol ? l.RolNuevoId ?? 0 : 0;
+        _comentario = l.Decision == tipo ? l.Comentario ?? "" : "";
+        _errorDialogo = null;
+    }
+
+    private async Task ConfirmarDecisionAsync()
+    {
+        if (_guardando || _decidiendo is null) return;
+        if (_tipoDecision == DecisionAcceso.CambiarRol && _rolNuevoId == 0) { _errorDialogo = "Elegí el rol nuevo."; return; }
+        if (_comentario.Trim().Length < 3) { _errorDialogo = "Indicá el motivo."; return; }
+
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            _revision = await RevisionApi.DecidirAsync(Id, _decidiendo.Id,
+                new DecidirAccesoDto(_tipoDecision, _tipoDecision == DecisionAcceso.CambiarRol ? _rolNuevoId : null, _comentario.Trim()));
+            _decidiendo = null;
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task CerrarAsync()
+    {
+        if (_guardando) return;
+        _guardando = true;
+        _errorDialogo = _error = _ok = null;
+        try
+        {
+            _revision = await RevisionApi.CerrarAsync(Id);
+            _confirmarCierre = false;
+            _ok = "Revisión cerrada: las decisiones se aplicaron. Descargá el acta para archivarla.";
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private void AbrirCancelar()
+    {
+        _motivoCancelacion = "";
+        _errorDialogo = null;
+        _cancelando = true;
+    }
+
+    private async Task CancelarAsync()
+    {
+        if (_guardando) return;
+        if (_motivoCancelacion.Trim().Length < 3) { _errorDialogo = "Indicá el motivo de la cancelación."; return; }
+
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            _revision = await RevisionApi.CancelarAsync(Id, _motivoCancelacion.Trim());
+            _cancelando = false;
+            _ok = "Revisión cancelada.";
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task DescargarActaAsync()
+    {
+        if (_descargando) return;
+        _descargando = true;
+        _error = _ok = null;
+        try
+        {
+            var (contenido, nombre) = await RevisionApi.DescargarActaAsync(Id);
+            await JS.InvokeVoidAsync("descargarArchivo", nombre, ContentTypeXlsx, Convert.ToBase64String(contenido));
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _descargando = false; }
+    }
+}

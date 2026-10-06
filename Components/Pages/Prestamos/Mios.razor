@@ -1,0 +1,266 @@
+@page "/prestamos/mios"
+@inject DevolucionApiClient DevolucionApi
+@inject AuthState AuthState
+
+<PageTitle>Mis préstamos</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Mis préstamos</h1>
+        <p class="text-muted" style="margin-top:-6px">Material que pediste con retorno y todavía tenés. Cuando lo devuelvas, avisalo acá: el operario registra la entrada al recibirlo.</p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+@if (_ok is not null)
+{
+    <p style="color:var(--color-accent-700);font-size:13px">@_ok</p>
+}
+
+@if (_prestamos is null || _avisos is null)
+{
+    @if (_error is null)
+    {
+        <p>Cargando…</p>
+    }
+}
+else
+{
+    @if (_prestamos.Count == 0)
+    {
+        <p class="text-muted" style="margin-top:20px">No tenés material prestado pendiente de devolución.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Producto</th><th>Solicitud</th><th>Pendiente</th><th>Destino</th><th>Retorno esperado</th><th>Aviso</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var p in _prestamos)
+                    {
+                        <tr>
+                            <td>
+                                @p.ProductoNombre
+                                <div class="text-muted" style="font-size:12px">@p.NumeroMovimiento · salió el @p.FechaSalida.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                            </td>
+                            <td class="sol-num">@p.NumeroSolicitud</td>
+                            <td>@p.Pendiente.ToString("N0") <span class="text-muted">de @p.Prestado.ToString("N0")</span></td>
+                            <td class="text-muted">@p.UbicacionExterna</td>
+                            <td class="text-muted">
+                                @(p.FechaRetornoEsperada?.ToString("dd/MM/yyyy") ?? "—")
+                                @if (p.DiasMora > 0)
+                                {
+                                    <span class="tag tag-danger tag-con-icono"><Icon Name="alert" Size="13" />@p.DiasMora día(s) de mora</span>
+                                }
+                            </td>
+                            <td>
+                                @if (p.EnAviso > 0)
+                                {
+                                    <span class="tag tag-warn tag-con-icono"><Icon Name="clock" Size="13" />@p.EnAviso avisadas</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Sin aviso</span>
+                                }
+                            </td>
+                            <td>
+                                @if (p.Pendiente - p.EnAviso > 0)
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => AbrirAviso(p)">Avisar devolución</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <h2 style="font-size:18px;margin:28px 0 10px">Mis avisos de devolución</h2>
+    @if (_avisos.Count == 0)
+    {
+        <p class="text-muted">Todavía no avisaste ninguna devolución.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Aviso</th><th>Producto</th><th>Avisado</th><th>Estado</th><th>Resolución</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var a in _avisos)
+                    {
+                        <tr>
+                            <td>
+                                <div class="sol-num">@a.Codigo</div>
+                                <div class="text-muted" style="font-size:12px">@a.FechaAviso.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                            </td>
+                            <td>@a.ProductoNombre <div class="text-muted" style="font-size:12px">@a.NumeroMovimientoOrigen</div></td>
+                            <td>@a.Cantidad.ToString("N0")</td>
+                            <td>
+                                @switch (a.Estado)
+                                {
+                                    case EstadoAvisoDevolucion.Pendiente:
+                                        <span class="tag tag-warn tag-con-icono"><Icon Name="clock" Size="13" />Esperando recepción</span>
+                                        break;
+                                    case EstadoAvisoDevolucion.Recibido:
+                                        <span class="tag tag-success tag-con-icono"><Icon Name="check-circle" Size="13" />Recibido</span>
+                                        break;
+                                    default:
+                                        <span class="tag tag-neutral tag-con-icono"><Icon Name="x-circle" Size="13" />Cancelado</span>
+                                        break;
+                                }
+                            </td>
+                            <td class="text-muted">
+                                @if (a.Estado == EstadoAvisoDevolucion.Recibido)
+                                {
+                                    <span>@a.CantidadRecibida unidad(es) recibidas por @a.ResueltoPor el @a.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                    <div style="font-size:12px">Entrada @a.NumeroMovimientoDevolucion</div>
+                                }
+                                else if (a.Estado == EstadoAvisoDevolucion.Cancelado)
+                                {
+                                    <span>@a.MotivoCancelacion</span>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (a.Estado == EstadoAvisoDevolucion.Pendiente)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirCancelar(a)">Cancelar aviso</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<Dialog Visible="_avisando is not null" Title="Avisar devolución" OnClose="() => _avisando = null">
+    <Body>
+        @if (_avisando is not null)
+        {
+            <p style="margin:0"><strong>@_avisando.ProductoNombre</strong> — @_avisando.NumeroMovimiento</p>
+            <p class="text-muted" style="margin:2px 0 8px">Podés avisar hasta @(_avisando.Pendiente - _avisando.EnAviso) unidad(es). El operario registra la entrada cuando recibe el material.</p>
+        }
+        <div class="field"><label>Cantidad que vas a devolver</label><CampoCantidad @bind-Value="_cantidad" /></div>
+        <div class="field">
+            <label for="av-notas">Notas (opcional)</label>
+            <input class="input" id="av-notas" maxlength="500" placeholder="Ej. Lo dejo mañana en la tarde" @bind="_notas" @bind:event="oninput" />
+        </div>
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _avisando = null">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AvisarAsync">@(_guardando ? "Avisando…" : "Avisar devolución")</button>
+    </Actions>
+</Dialog>
+
+<Dialog Visible="_cancelando is not null" Title="Cancelar aviso" OnClose="() => _cancelando = null">
+    <Body>
+        <p style="margin:0 0 8px">El aviso <strong>@_cancelando?.Codigo</strong> se cancela y esas unidades vuelven a figurar como pendientes de avisar.</p>
+        <div class="field">
+            <label for="ca-motivo">Motivo <span class="req">*</span></label>
+            <input class="input" id="ca-motivo" maxlength="500" placeholder="Ej. Todavía lo necesito" @bind="_motivo" @bind:event="oninput" />
+        </div>
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _cancelando = null">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="CancelarAsync">@(_guardando ? "Cancelando…" : "Cancelar aviso")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<PrestamoDto>? _prestamos;
+    private List<AvisoDevolucionDto>? _avisos;
+    private string? _error;
+    private string? _ok;
+    private string? _errorDialogo;
+    private bool _guardando;
+
+    private PrestamoDto? _avisando;
+    private int _cantidad;
+    private string _notas = "";
+
+    private AvisoDevolucionDto? _cancelando;
+    private string _motivo = "";
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            var prestamos = DevolucionApi.ListarMisPrestamosAsync();
+            var avisos = DevolucionApi.ListarMisAvisosAsync();
+            await Task.WhenAll(prestamos, avisos);
+            _prestamos = prestamos.Result;
+            _avisos = avisos.Result;
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private void AbrirAviso(PrestamoDto p)
+    {
+        _avisando = p;
+        _cantidad = p.Pendiente - p.EnAviso;
+        _notas = "";
+        _errorDialogo = null;
+    }
+
+    private async Task AvisarAsync()
+    {
+        if (_guardando || _avisando is null) return;
+        if (_cantidad <= 0) { _errorDialogo = "La cantidad debe ser mayor a cero."; return; }
+
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            var aviso = await DevolucionApi.AvisarAsync(new CrearAvisoDevolucionDto(_avisando.MovimientoId, _cantidad, string.IsNullOrWhiteSpace(_notas) ? null : _notas.Trim()));
+            _avisando = null;
+            _ok = $"Aviso {aviso.Codigo} registrado. El operario lo verá como devolución por recibir.";
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private void AbrirCancelar(AvisoDevolucionDto a)
+    {
+        _cancelando = a;
+        _motivo = "";
+        _errorDialogo = null;
+    }
+
+    private async Task CancelarAsync()
+    {
+        if (_guardando || _cancelando is null) return;
+        if (_motivo.Trim().Length < 3) { _errorDialogo = "Indicá el motivo."; return; }
+
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            await DevolucionApi.CancelarAvisoAsync(_cancelando.Id, _motivo.Trim());
+            _cancelando = null;
+            _ok = "Aviso cancelado.";
+            await CargarAsync();
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+}

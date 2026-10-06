@@ -1,0 +1,183 @@
+@page "/accesos"
+@inject RevisionAccesoApiClient RevisionApi
+@inject NavigationManager Nav
+
+<PageTitle>Revisión de accesos</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Revisión de accesos</h1>
+        <p class="text-muted" style="margin-top:-6px">Control periódico de quién tiene acceso al sistema y con qué rol. Cada revisión queda registrada y se puede exportar como acta.</p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_estado is null || _revisiones is null)
+{
+    @if (_error is null)
+    {
+        <p>Cargando…</p>
+    }
+}
+else
+{
+    <div class="kpi-grid">
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon @(_estado.TodosVencida ? "kpi-icon-danger" : "kpi-icon-ok")"><Icon Name="@(_estado.TodosVencida ? "alert" : "check-circle")" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Revisión de todas las cuentas</div>
+                <div class="text-muted" style="font-size:13px">@Texto(_estado.UltimaTodos, _estado.DiasDesdeTodos, _estado.FrecuenciaTodosDias, "trimestral")</div>
+                <div style="margin-top:8px">
+                    @if (_estado.CampanaTodosEnCursoId is not null)
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => Ver(_estado.CampanaTodosEnCursoId.Value)">Continuar revisión en curso</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => AbrirDialogo(AlcanceRevisionAcceso.Todos)">Iniciar revisión</button>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="card elev-sm kpi-card">
+            <div class="kpi-icon @(_estado.AdministradoresVencida ? "kpi-icon-danger" : "kpi-icon-ok")"><Icon Name="@(_estado.AdministradoresVencida ? "alert" : "check-circle")" Size="22" /></div>
+            <div>
+                <div class="card-kicker">Revisión de administradores</div>
+                <div class="text-muted" style="font-size:13px">@Texto(_estado.UltimaAdministradores, _estado.DiasDesdeAdministradores, _estado.FrecuenciaAdministradoresDias, "mensual")</div>
+                <div style="margin-top:8px">
+                    @if (_estado.CampanaAdministradoresEnCursoId is not null)
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => Ver(_estado.CampanaAdministradoresEnCursoId.Value)">Continuar revisión en curso</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => AbrirDialogo(AlcanceRevisionAcceso.Administradores)">Iniciar revisión</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 style="font-size:18px;margin:24px 0 10px">Historial</h2>
+
+    @if (_revisiones.Count == 0)
+    {
+        <p class="text-muted">Todavía no se hizo ninguna revisión. Abrí la primera con los botones de arriba.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Revisión</th><th>Alcance</th><th>Estado</th><th>Avance</th><th>Decisiones</th><th>Iniciada por</th><th>Fecha</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in Paginadas())
+                    {
+                        <tr>
+                            <td><div class="sol-num">@r.Codigo</div></td>
+                            <td>@(r.Alcance == AlcanceRevisionAcceso.Todos ? "Todas las cuentas" : "Administradores")</td>
+                            <td><EstadoRevisionBadge Estado="r.Estado" /></td>
+                            <td class="text-muted">@r.Decididas / @r.TotalLineas</td>
+                            <td class="text-muted">
+                                @if (r.Estado == EstadoRevisionAcceso.Cancelada || r.Decididas == 0)
+                                {
+                                    <span>—</span>
+                                }
+                                else
+                                {
+                                    <span>@r.Mantener mantener · @r.Quitar quitar · @r.CambiarRol cambio de rol</span>
+                                }
+                            </td>
+                            <td><AvatarNombre Nombre="@r.IniciadaPor" /></td>
+                            <td class="text-muted">@r.FechaInicio.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Ver" @onclick="() => Ver(r.Id)"><Icon Name="eye" Size="16" /></button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <Pager TotalItems="_revisiones.Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
+    }
+}
+
+<Dialog Visible="_abriendo is not null" Title="Abrir revisión de accesos" OnClose="() => _abriendo = null">
+    <Body>
+        <p style="margin:0 0 8px">
+            Se toma una foto de las cuentas activas
+            @(_abriendo == AlcanceRevisionAcceso.Administradores ? "con permisos de administración" : "del país")
+            y vas a decidir, cuenta por cuenta, si se mantiene, se quita el acceso o se cambia el rol. Al cerrar la revisión las decisiones se aplican.
+        </p>
+        <div class="field">
+            <label for="ra-notas">Notas (opcional)</label>
+            <input class="input" id="ra-notas" maxlength="500" placeholder="Ej. Revisión trimestral Q4 2026" @bind="_notas" @bind:event="oninput" />
+        </div>
+        @if (_errorDialogo is not null)
+        {
+            <p class="dialog-error">@_errorDialogo</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="() => _abriendo = null">Volver</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AbrirAsync">@(_guardando ? "Abriendo…" : "Abrir revisión")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private EstadoRevisionesAccesoDto? _estado;
+    private List<RevisionAccesoResumenDto>? _revisiones;
+    private string? _error;
+
+    private AlcanceRevisionAcceso? _abriendo;
+    private string _notas = "";
+    private string? _errorDialogo;
+    private bool _guardando;
+
+    private const int TamanoPagina = 10;
+    private int _pagina = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _estado = await RevisionApi.ObtenerEstadoAsync();
+            _revisiones = await RevisionApi.ListarAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private List<RevisionAccesoResumenDto> Paginadas() => (_revisiones ?? [])
+        .Skip((_pagina - 1) * TamanoPagina)
+        .Take(TamanoPagina)
+        .ToList();
+
+    private static string Texto(DateTime? ultima, int? dias, int frecuencia, string nombre) =>
+        ultima is null
+            ? $"Nunca se hizo. Frecuencia {nombre}: cada {frecuencia} días."
+            : $"Última: {ultima.Value.ToLocalTime():dd/MM/yyyy} (hace {dias} días). {(dias > frecuencia ? $"Venció: corresponde cada {frecuencia} días." : $"Próxima antes de {frecuencia - dias} días.")}";
+
+    private void AbrirDialogo(AlcanceRevisionAcceso alcance)
+    {
+        _notas = "";
+        _errorDialogo = null;
+        _abriendo = alcance;
+    }
+
+    private async Task AbrirAsync()
+    {
+        if (_guardando || _abriendo is null) return;
+        _guardando = true;
+        _errorDialogo = null;
+        try
+        {
+            var creada = await RevisionApi.CrearAsync(new CrearRevisionAccesoDto(_abriendo.Value, string.IsNullOrWhiteSpace(_notas) ? null : _notas.Trim()));
+            Nav.NavigateTo($"/accesos/{creada.Resumen.Id}");
+        }
+        catch (ApiException ex) { _errorDialogo = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private void Ver(int id) => Nav.NavigateTo($"/accesos/{id}");
+}

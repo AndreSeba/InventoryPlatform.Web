@@ -3,6 +3,7 @@
 @inject UbicacionApiClient UbicacionApi
 @inject CategoriaApiClient CategoriaApi
 @inject MovimientoApiClient MovimientoApi
+@inject DevolucionApiClient DevolucionApi
 @inject AuthState AuthState
 @inject IJSRuntime JS
 @inject NavigationManager Nav
@@ -123,9 +124,47 @@ else
         <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
 
+    @if (AuthState.HasPermission(Permisos.MovimientosDevolucion))
+    {
+        <div class="hr" style="margin-top:32px"></div>
+        <h3>Devoluciones avisadas — por recibir</h3>
+        <p class="text-muted" style="margin-top:-6px">Quien pidió el material avisó que lo devuelve. Cuando llegue, registrá la entrada contra el aviso.</p>
+
+        @if (_avisos is null)
+        {
+            <p>Cargando…</p>
+        }
+        else if (_avisos.Count == 0)
+        {
+            <p class="text-muted">No hay devoluciones avisadas por recibir.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>Aviso</th><th>Producto</th><th>Cantidad avisada</th><th>Avisó</th><th>Préstamo</th><th>Fecha</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _avisos)
+                        {
+                            <tr>
+                                <td class="sol-num">@a.Codigo</td>
+                                <td>@a.ProductoNombre</td>
+                                <td>@a.Cantidad.ToString("N0")</td>
+                                <td><AvatarNombre Nombre="@a.AvisadoPor" /></td>
+                                <td class="text-muted">@a.NumeroMovimientoOrigen @(a.NumeroSolicitud is null ? "" : $"· {a.NumeroSolicitud}")</td>
+                                <td class="text-muted">@a.FechaAviso.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><button type="button" class="btn btn-primary btn-sm" @onclick="() => AbrirRecepcion(a)">Recibir</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
     <div class="hr" style="margin-top:32px"></div>
     <h3>Préstamos pendientes de devolución</h3>
-    <p class="text-muted" style="margin-top:-6px">Salidas registradas con "Retorna" que todavía no se devolvieron por completo.</p>
+    <p class="text-muted" style="margin-top:-6px">Material que salió con "Retorna" y todavía no volvió por completo, y quién lo tiene.</p>
 
     @if (_prestamos is null)
     {
@@ -139,20 +178,48 @@ else
     {
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>N.º movimiento</th><th>Producto</th><th>Cantidad</th><th>Destino</th><th>Retorno esperado</th><th></th></tr></thead>
+                <thead><tr><th>N.º movimiento</th><th>Producto</th><th>Lo tiene</th><th>Pendiente</th><th>Destino</th><th>Retorno esperado</th><th>Aviso</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var m in PrestamosPaginados())
                     {
                         <tr>
                             <td>@m.NumeroMovimiento</td>
                             <td>@m.ProductoNombre</td>
-                            <td>@m.Cantidad.ToString("N0")</td>
-                            <td class="text-muted">@m.UbicacionExterna</td>
-                            <td class="text-muted">@(m.FechaRetornoEsperada?.ToString("dd/MM/yyyy") ?? "—")</td>
                             <td>
-                                @if (AuthState.HasPermission(Permisos.MovimientosDevolucion))
+                                @if (m.SolicitadoPor is null)
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirDevolucion(m)">Registrar devolución</button>
+                                    <span class="text-muted">Sin solicitud</span>
+                                }
+                                else
+                                {
+                                    <AvatarNombre Nombre="@m.SolicitadoPor" />
+                                    <div class="text-muted" style="font-size:12px">@m.NumeroSolicitud</div>
+                                }
+                            </td>
+                            <td>@m.Pendiente.ToString("N0") <span class="text-muted">de @m.Prestado.ToString("N0")</span></td>
+                            <td class="text-muted">@m.UbicacionExterna</td>
+                            <td class="text-muted">
+                                @(m.FechaRetornoEsperada?.ToString("dd/MM/yyyy") ?? "—")
+                                @if (m.DiasMora > 0)
+                                {
+                                    <span class="tag tag-danger tag-con-icono"><Icon Name="alert" Size="13" />@m.DiasMora día(s) de mora</span>
+                                }
+                            </td>
+                            <td>
+                                @if (m.EnAviso > 0)
+                                {
+                                    <span class="tag tag-warn tag-con-icono"><Icon Name="clock" Size="13" />@m.EnAviso avisadas</span>
+                                }
+                                else if (m.SolicitadoPor is not null)
+                                {
+                                    <span class="text-muted">Sin aviso</span>
+                                }
+                            </td>
+                            <td>
+                                @* Un préstamo sin solicitud (de antes de los controles) no tiene a quién avisar: se devuelve directo. *@
+                                @if (m.SolicitadoPor is null && AuthState.HasPermission(Permisos.MovimientosDevolucion))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AbrirDevolucionDirecta(m)">Registrar devolución</button>
                                 }
                             </td>
                         </tr>
@@ -262,11 +329,18 @@ else
 </Dialog>
 
 <!-- ===== Diálogo: Devolución ===== -->
-<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "devolucion")" Title="Registrar devolución">
+<Dialog OnClose="CerrarDialogo" Visible="@(_dialog == "devolucion")" Title="@(_recibiendoAviso is null ? "Registrar devolución" : "Recibir devolución")">
     <Body>
-        @if (_devolviendoMov is not null)
+        @if (_recibiendoAviso is not null)
         {
-            <p class="text-muted" style="margin:0">@_devolviendoMov.NumeroMovimiento — @_devolviendoMov.ProductoNombre (salieron @_devolviendoMov.Cantidad.ToString("N0"))</p>
+            <p style="margin:0">
+                <strong>@_recibiendoAviso.ProductoNombre</strong> — @_recibiendoAviso.NumeroMovimientoOrigen
+            </p>
+            <p class="text-muted" style="margin:2px 0 0">@_recibiendoAviso.AvisadoPor avisó que devuelve @_recibiendoAviso.Cantidad.ToString("N0") unidad(es) (@_recibiendoAviso.Codigo). Si llegó menos, registrá lo que realmente recibís: el resto sigue como préstamo pendiente.</p>
+        }
+        else if (_devolviendoPrestamo is not null)
+        {
+            <p class="text-muted" style="margin:0">@_devolviendoPrestamo.NumeroMovimiento — @_devolviendoPrestamo.ProductoNombre (pendientes @_devolviendoPrestamo.Pendiente.ToString("N0") de @_devolviendoPrestamo.Prestado.ToString("N0"))</p>
         }
         <div class="field">
             <label>Ubicación de retorno</label>
@@ -278,7 +352,7 @@ else
                 }
             </select>
         </div>
-        <div class="field"><label>Cantidad a devolver</label><CampoCantidad @bind-Value="_movCantidad" /></div>
+        <div class="field"><label>@(_recibiendoAviso is null ? "Cantidad a devolver" : "Cantidad recibida")</label><CampoCantidad @bind-Value="_movCantidad" /></div>
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
@@ -286,13 +360,14 @@ else
     </Body>
     <Actions>
         <button type="button" class="btn btn-ghost" @onclick="CerrarDialogo">Cancelar</button>
-        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarDevolucion">Confirmar devolución</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="ConfirmarDevolucion">@(_recibiendoAviso is null ? "Confirmar devolución" : "Confirmar recepción")</button>
     </Actions>
 </Dialog>
 
 @code {
     private List<MovimientoDto>? _movimientos;
-    private List<MovimientoDto>? _prestamos;
+    private List<PrestamoDto>? _prestamos;
+    private List<AvisoDevolucionDto>? _avisos;
     private List<ProductoDto>? _productos;
     private List<UbicacionDto>? _ubicaciones;
     private List<CategoriaDto>? _categorias;
@@ -316,7 +391,7 @@ else
         .Take(TamanoPagina)
         .ToList();
 
-    private List<MovimientoDto> PrestamosPaginados() => (_prestamos ?? [])
+    private List<PrestamoDto> PrestamosPaginados() => (_prestamos ?? [])
         .Skip((_paginaPrestamos - 1) * TamanoPagina)
         .Take(TamanoPagina)
         .ToList();
@@ -333,7 +408,8 @@ else
     private string? _movUbicacionExterna;
     private DateTime? _movFechaRetorno;
     private bool _movAjustePositivo = true;
-    private MovimientoDto? _devolviendoMov;
+    private PrestamoDto? _devolviendoPrestamo;      // devolución directa (préstamo sin solicitud)
+    private AvisoDevolucionDto? _recibiendoAviso;      // recepción contra un aviso del solicitante
 
     // Salida y Ajuste negativo solo dejan elegir ubicaciones donde el producto realmente
     // tiene stock (Entrada/Ajuste positivo/Devolución siguen con la lista completa, porque
@@ -353,14 +429,19 @@ else
             // En paralelo: son cinco pedidos independientes, y uno tras otro la pantalla
             // tardaba la SUMA de las cinco latencias en vez de la del más lento.
             var movimientos = MovimientoApi.ListarAsync();
-            var prestamos = MovimientoApi.ListarPrestamosPendientesAsync();
+            var prestamos = DevolucionApi.ListarPrestamosAsync();
             var productos = ProductoApi.ListarAsync();
             var ubicaciones = UbicacionApi.ListarAsync();
             var categorias = CategoriaApi.ListarAsync();
-            await Task.WhenAll(movimientos, prestamos, productos, ubicaciones, categorias);
+            // Los avisos por recibir solo los ve (y los pide) quien registra devoluciones.
+            var avisos = AuthState.HasPermission(Permisos.MovimientosDevolucion)
+                ? DevolucionApi.ListarAvisosAsync(EstadoAvisoDevolucion.Pendiente)
+                : Task.FromResult(new List<AvisoDevolucionDto>());
+            await Task.WhenAll(movimientos, prestamos, productos, ubicaciones, categorias, avisos);
 
             _movimientos = movimientos.Result;
             _prestamos = prestamos.Result;
+            _avisos = avisos.Result;
             _productos = productos.Result;
             _ubicaciones = ubicaciones.Result;
             _categorias = categorias.Result;
@@ -368,7 +449,7 @@ else
         catch (ApiException ex)
         {
             _error = ex.Message;
-            _movimientos = []; _prestamos = []; _productos = []; _ubicaciones = []; _categorias = [];
+            _movimientos = []; _prestamos = []; _avisos = []; _productos = []; _ubicaciones = []; _categorias = [];
         }
     }
 
@@ -444,8 +525,9 @@ else
     private void AbrirEntrada() { LimpiarCampos(); _dialog = "entrada"; }
     private void AbrirSalida() { LimpiarCampos(); _dialog = "salida"; }
     private void AbrirAjuste() { LimpiarCampos(); _dialog = "ajuste"; }
-    private void AbrirDevolucion(MovimientoDto m) { LimpiarCampos(); _devolviendoMov = m; _dialog = "devolucion"; }
-    private void CerrarDialogo() { _dialog = null; _devolviendoMov = null; }
+    private void AbrirRecepcion(AvisoDevolucionDto a) { LimpiarCampos(); _recibiendoAviso = a; _movCantidad = a.Cantidad; _dialog = "devolucion"; }
+    private void AbrirDevolucionDirecta(PrestamoDto p) { LimpiarCampos(); _devolviendoPrestamo = p; _movCantidad = p.Pendiente; _dialog = "devolucion"; }
+    private void CerrarDialogo() { _dialog = null; _devolviendoPrestamo = null; _recibiendoAviso = null; }
 
     private async Task ConfirmarAjuste()
     {
@@ -469,14 +551,15 @@ else
 
     private async Task ConfirmarDevolucion()
     {
-        if (_guardando || _devolviendoMov is null) return;
+        if (_guardando || (_devolviendoPrestamo is null && _recibiendoAviso is null)) return;
         if (_movUbicacionId <= 0) { _dialogError = "Seleccione dónde vuelve el material."; return; }
         if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
 
         _guardando = true; _dialogError = null;
         try
         {
-            var r = await MovimientoApi.RegistrarDevolucionAsync(new RegistrarDevolucionDto(_devolviendoMov.Id, _movUbicacionId, _movCantidad, "Devolución de préstamo"));
+            var origenId = _recibiendoAviso?.MovimientoOrigenId ?? _devolviendoPrestamo!.MovimientoId;
+            var r = await MovimientoApi.RegistrarDevolucionAsync(new RegistrarDevolucionDto(origenId, _movUbicacionId, _movCantidad, "Devolución de préstamo", _recibiendoAviso?.Id));
             _ok = $"Devolución {r.NumeroMovimiento} confirmada.";
             _dialog = null;
             await CargarAsync();
