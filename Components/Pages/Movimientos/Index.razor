@@ -46,6 +46,29 @@
 }
 else
 {
+    @* Tres secciones en pestañas (antes iban una debajo de otra y había que bajar para llegar a los préstamos).
+       Los contadores y el aviso rojo de mora dejan ver lo urgente sin cambiar de pestaña. *@
+    <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab @(_tab == TabLibro ? "on" : "")" aria-selected="@(_tab == TabLibro)" @onclick="() => _tab = TabLibro">
+            Movimientos <span class="cnt">@_movimientos.Count.ToString("N0")</span>
+        </button>
+        @if (AuthState.HasPermission(Permisos.MovimientosDevolucion))
+        {
+            <button type="button" role="tab" class="tab @(_tab == TabAvisos ? "on" : "")" aria-selected="@(_tab == TabAvisos)" @onclick="() => _tab = TabAvisos">
+                Devoluciones por recibir <span class="cnt @(CantidadAvisos > 0 ? "warn" : "")">@CantidadAvisos</span>
+            </button>
+        }
+        <button type="button" role="tab" class="tab @(_tab == TabPrestamos ? "on" : "")" aria-selected="@(_tab == TabPrestamos)" @onclick="() => _tab = TabPrestamos">
+            Préstamos pendientes <span class="cnt">@(_prestamos?.Count ?? 0)</span>
+            @if (PrestamosEnMora > 0)
+            {
+                <span class="cnt danger">@PrestamosEnMora en mora</span>
+            }
+        </button>
+    </div>
+
+    @if (_tab == TabLibro)
+    {
     <div class="filter-row">
         <select class="input" style="max-width:220px" @bind="_filtroCategoria" @bind:after="ReiniciarPaginas">
             <option value="">Todas las categorías</option>
@@ -123,10 +146,10 @@ else
         </div>
         <Pager TotalItems="Filtrados().Count" PaginaActual="_pagina" PaginaActualChanged="p => _pagina = p" TamanoPagina="TamanoPagina" />
     }
+    }
 
-    @if (AuthState.HasPermission(Permisos.MovimientosDevolucion))
+    @if (_tab == TabAvisos && AuthState.HasPermission(Permisos.MovimientosDevolucion))
     {
-        <div class="hr" style="margin-top:32px"></div>
         <h3>Devoluciones avisadas — por recibir</h3>
         <p class="text-muted" style="margin-top:-6px">Quien pidió el material avisó que lo devuelve. Cuando llegue, registrá la entrada contra el aviso.</p>
 
@@ -162,7 +185,8 @@ else
         }
     }
 
-    <div class="hr" style="margin-top:32px"></div>
+    @if (_tab == TabPrestamos)
+    {
     <h3>Préstamos pendientes de devolución</h3>
     <p class="text-muted" style="margin-top:-6px">Material que salió con "Retorna" y todavía no volvió por completo, y quién lo tiene.</p>
 
@@ -228,6 +252,7 @@ else
             </table>
         </div>
         <Pager TotalItems="_prestamos.Count" PaginaActual="_paginaPrestamos" PaginaActualChanged="p => _paginaPrestamos = p" TamanoPagina="TamanoPagina" />
+    }
     }
 }
 
@@ -368,6 +393,14 @@ else
     private List<MovimientoDto>? _movimientos;
     private List<PrestamoDto>? _prestamos;
     private List<AvisoDevolucionDto>? _avisos;
+
+    private const string TabLibro = "libro";
+    private const string TabAvisos = "avisos";
+    private const string TabPrestamos = "prestamos";
+    private string _tab = TabLibro;
+
+    private int CantidadAvisos => _avisos?.Count ?? 0;
+    private int PrestamosEnMora => _prestamos?.Count(p => p.DiasMora > 0) ?? 0;
     private List<ProductoDto>? _productos;
     private List<UbicacionDto>? _ubicaciones;
     private List<CategoriaDto>? _categorias;
