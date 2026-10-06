@@ -780,3 +780,6 @@ input[type="file"] { max-width: 100%; }
 .cnt.danger { background: #fee4e2; color: #b42318; }
 :root[data-theme="dark"] .cnt.warn { background: #4a3a14; color: #fcd34d; }
 :root[data-theme="dark"] .cnt.danger { background: #4a1f1c; color: #fca5a5; }
+
+/* Campo que falta completar (p. ej. la ubicación de una línea con cantidad) */
+.input.input-error { border-color: #b42318; }

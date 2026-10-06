@@ -2,7 +2,7 @@
    para no pisar lo que se está tipeando) o ajustar de a uno con los botones. Úsese con
    @bind-Value. *@
 <div class="qty-field">
-    <input class="input" type="number" min="@Min" max="@Max" step="1" value="@Value" @onchange="AlEscribir" />
+    <input class="input" type="number" min="@Min" max="@Max" step="1" value="@Value" @key="_version" @onchange="AlEscribir" />
     <button type="button" class="btn btn-secondary qty-field-btn" aria-label="Restar uno" disabled="@(Value <= Min)" @onclick="() => CambiarAsync(Value - 1)"><Icon Name="minus" Size="14" /></button>
     <button type="button" class="btn btn-secondary qty-field-btn" aria-label="Sumar uno" disabled="@(Max is not null && Value >= Max)" @onclick="() => CambiarAsync(Value + 1)"><Icon Name="plus" Size="14" /></button>
 </div>
@@ -13,8 +13,15 @@
     [Parameter] public int Min { get; set; }
     [Parameter] public int? Max { get; set; }
 
+    // Ver el mismo comentario en SolicitudEntregaPanel: sin una clave nueva, un valor escrito fuera de tope
+    // (que se corrige al mismo número de antes) quedaría a la vista aunque el modelo ya lo haya cortado.
+    private int _version;
+
     private async Task AlEscribir(ChangeEventArgs e)
-        => await CambiarAsync(int.TryParse(e.Value?.ToString(), out var n) ? n : Min);
+    {
+        _version++;
+        await CambiarAsync(int.TryParse(e.Value?.ToString(), out var n) ? n : Min);
+    }
 
     private async Task CambiarAsync(int nuevo)
     {

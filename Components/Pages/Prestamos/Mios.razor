@@ -149,7 +149,7 @@ else
             <p style="margin:0"><strong>@_avisando.ProductoNombre</strong> — @_avisando.NumeroMovimiento</p>
             <p class="text-muted" style="margin:2px 0 8px">Podés avisar hasta @(_avisando.Pendiente - _avisando.EnAviso) unidad(es). El operario registra la entrada cuando recibe el material.</p>
         }
-        <div class="field"><label>Cantidad que vas a devolver</label><CampoCantidad @bind-Value="_cantidad" /></div>
+        <div class="field"><label>Cantidad que vas a devolver</label><CampoCantidad @bind-Value="_cantidad" Min="1" Max="MaximoAvisable" /></div>
         <div class="field">
             <label for="av-notas">Notas (opcional)</label>
             <input class="input" id="av-notas" maxlength="500" placeholder="Ej. Lo dejo mañana en la tarde" @bind="_notas" @bind:event="oninput" />
@@ -193,6 +193,9 @@ else
 
     private PrestamoDto? _avisando;
     private int _cantidad;
+
+    // Lo que todavía no está avisado de ese préstamo: se puede avisar menos, nunca más.
+    private int? MaximoAvisable => _avisando is null ? null : _avisando.Pendiente - _avisando.EnAviso;
     private string _notas = "";
 
     private AvisoDevolucionDto? _cancelando;
@@ -225,6 +228,7 @@ else
     {
         if (_guardando || _avisando is null) return;
         if (_cantidad <= 0) { _errorDialogo = "La cantidad debe ser mayor a cero."; return; }
+        if (_cantidad > MaximoAvisable) { _errorDialogo = $"No podés avisar más de {MaximoAvisable:N0} unidad(es): es lo que queda de este préstamo."; return; }
 
         _guardando = true;
         _errorDialogo = null;

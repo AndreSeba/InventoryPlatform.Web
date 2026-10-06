@@ -377,7 +377,7 @@ else
                 }
             </select>
         </div>
-        <div class="field"><label>@(_recibiendoAviso is null ? "Cantidad a devolver" : "Cantidad recibida")</label><CampoCantidad @bind-Value="_movCantidad" /></div>
+        <div class="field"><label>@(_recibiendoAviso is null ? "Cantidad a devolver" : "Cantidad recibida")</label><CampoCantidad @bind-Value="_movCantidad" Min="1" Max="MaximoDevolucion" /></div>
         @if (_dialogError is not null)
         {
             <p class="dialog-error">@_dialogError</p>
@@ -441,6 +441,9 @@ else
     private string? _movUbicacionExterna;
     private DateTime? _movFechaRetorno;
     private bool _movAjustePositivo = true;
+    // Tope de la devolución: contra un aviso, lo avisado; directa, lo que sigue prestado. Menos se puede, más no.
+    private int? MaximoDevolucion => _recibiendoAviso?.Cantidad ?? _devolviendoPrestamo?.Pendiente;
+
     private PrestamoDto? _devolviendoPrestamo;      // devolución directa (préstamo sin solicitud)
     private AvisoDevolucionDto? _recibiendoAviso;      // recepción contra un aviso del solicitante
 
@@ -587,6 +590,7 @@ else
         if (_guardando || (_devolviendoPrestamo is null && _recibiendoAviso is null)) return;
         if (_movUbicacionId <= 0) { _dialogError = "Seleccione dónde vuelve el material."; return; }
         if (_movCantidad <= 0) { _dialogError = "La cantidad debe ser mayor a cero."; return; }
+        if (_movCantidad > MaximoDevolucion) { _dialogError = $"No podés registrar más de {MaximoDevolucion:N0} unidad(es): es lo {(_recibiendoAviso is null ? "que sigue prestado" : "que se avisó")}."; return; }
 
         _guardando = true; _dialogError = null;
         try

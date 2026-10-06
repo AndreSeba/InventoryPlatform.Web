@@ -1,8 +1,9 @@
 @* Registrar entrada/salida siempre parte de una Solicitud aprobada — pedido explícito del
    usuario (antes se elegía producto libre, uno por uno; ahora se elige la solicitud y salen
-   sus líneas pendientes). Mismo patrón de "una línea, un Registrar" que ya usa
-   Solicitudes/Detalle.razor (EntregarAsync) — acá se reusa esa misma llamada a la API, solo
-   que disparada desde Movimientos en vez de desde el detalle de la solicitud. *@
+   sus líneas pendientes). Un solo botón («Registrar todo») registra todas las líneas con
+   cantidad, pero solo después de validar TODO: cada línea con cantidad necesita su ubicación,
+   la cantidad no puede superar lo pendiente y, en una salida, tampoco el stock de esa
+   ubicación. Las líneas con cantidad 0 se saltean (entrega parcial de la solicitud). *@
 @inject SolicitudApiClient SolicitudApi
 @inject MovimientoApiClient MovimientoApi
 @inject ProductoApiClient ProductoApi
@@ -46,13 +47,14 @@ else if (_solicitud is not null)
                         {
                             <th>Vencimiento</th>
                         }
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var d in pendientes)
                     {
                         var pendiente = d.CantidadAprobada!.Value - d.CantidadEntregada;
+                        var cantidad = _cantidad.GetValueOrDefault(d.Id);
+                        var faltaUbicacion = cantidad > 0 && _ubicacion.GetValueOrDefault(d.Id) <= 0;
                         <tr>
                             <td>
                                 @d.ProductoNombre
@@ -62,13 +64,13 @@ else if (_solicitud is not null)
                                 }
                             </td>
                             <td class="text-muted">@pendiente.ToString("N0")</td>
-                            <td><input class="input" style="max-width:90px" type="number" min="0" step="1" @bind="_cantidad[d.Id]" /></td>
+                            <td><input class="input" style="max-width:90px" type="number" min="0" max="@pendiente" step="1" value="@cantidad" @key="@($"q{d.Id}-{_version.GetValueOrDefault(d.Id)}")" @onchange="e => CambiarCantidad(d.Id, pendiente, e)" /></td>
                             <td>
-                                <select class="input" style="max-width:190px" @bind="_ubicacion[d.Id]">
+                                <select class="input @(faltaUbicacion ? "input-error" : "")" style="max-width:230px" @bind="_ubicacion[d.Id]">
                                     <option value="0">-- Ubicación --</option>
                                     @foreach (var u in UbicacionesPara(d.ProductoId))
                                     {
-                                        <option value="@u.Id">@u.CodigoUbicacion — @u.AlmacenNombre</option>
+                                        <option value="@u.Id">@EtiquetaUbicacion(d.ProductoId, u)</option>
                                     }
                                 </select>
                             </td>
@@ -76,11 +78,17 @@ else if (_solicitud is not null)
                             {
                                 <td><input class="input" style="max-width:150px" type="date" @bind="_fechaVencimiento[d.Id]" /></td>
                             }
-                            <td><button type="button" class="btn btn-secondary btn-sm" disabled="@_guardandoLinea" @onclick="() => RegistrarLineaAsync(d)">Registrar</button></td>
                         </tr>
                     }
                 </tbody>
             </table>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:12px;flex-wrap:wrap">
+            <span class="text-muted" style="font-size:13px">@LineasARegistrar() línea(s) a registrar · cantidad 0 = se saltea</span>
+            <button type="button" class="btn btn-primary" disabled="@(_guardando || LineasARegistrar() == 0)" @onclick="RegistrarTodoAsync">
+                @(_guardando ? "Registrando…" : "Registrar todo")
+            </button>
         </div>
     }
 }
@@ -103,11 +111,14 @@ else if (_solicitud is not null)
     private int _solicitudId;
     private SolicitudDto? _solicitud;
     private bool _cargandoLineas;
-    private bool _guardandoLinea;
+    private bool _guardando;
     private string? _error;
     private string? _ok;
 
     private readonly Dictionary<int, int> _cantidad = [];
+    // Cambia cada vez que se corrige una cantidad: Blazor no vuelve a pintar un campo cuyo valor «no cambió»
+    // (si se escribió 99 y el tope es 6, el modelo sigue en 6 y el 99 quedaría a la vista); la clave nueva lo recrea.
+    private readonly Dictionary<int, int> _version = [];
     private readonly Dictionary<int, int> _ubicacion = [];
     private readonly Dictionary<int, DateTime?> _fechaVencimiento = [];
     private readonly Dictionary<int, List<UbicacionConExistenciaDto>> _stockPorProducto = [];
@@ -135,6 +146,8 @@ else if (_solicitud is not null)
     private List<SolicitudDetalleDto> LineasPendientes() =>
         _solicitud?.Detalles.Where(d => d.CantidadAprobada is not null && d.CantidadAprobada > d.CantidadEntregada).ToList() ?? [];
 
+    private int LineasARegistrar() => LineasPendientes().Count(d => _cantidad.GetValueOrDefault(d.Id) > 0);
+
     private List<UbicacionDto> UbicacionesPara(int productoId)
     {
         if (Tipo == TipoSolicitud.Entrada)
@@ -144,6 +157,52 @@ else if (_solicitud is not null)
             return stock.Select(u => new UbicacionDto(u.UbicacionId, default, "", "", null, u.UbicacionCodigo, true, u.AlmacenId, u.AlmacenNombre, "")).ToList();
 
         return [];
+    }
+
+    // Lo que hay del producto en esa ubicación (solo se usa en una salida, donde la lista ya viene filtrada por stock).
+    private int ExistenciaEn(int productoId, int ubicacionId) =>
+        _stockPorProducto.TryGetValue(productoId, out var stock)
+            ? stock.FirstOrDefault(u => u.UbicacionId == ubicacionId)?.Existencia ?? 0
+            : 0;
+
+    private string EtiquetaUbicacion(int productoId, UbicacionDto u) =>
+        Tipo == TipoSolicitud.Salida
+            ? $"{u.CodigoUbicacion} — {u.AlmacenNombre} · {ExistenciaEn(productoId, u.Id):N0} disp."
+            : $"{u.CodigoUbicacion} — {u.AlmacenNombre}";
+
+    // La cantidad se corta entre 0 y lo pendiente: escribir de más no pasa, queda en el tope.
+    private void CambiarCantidad(int detalleId, int pendiente, ChangeEventArgs e)
+    {
+        var n = int.TryParse(e.Value?.ToString(), out var v) ? v : 0;
+        _cantidad[detalleId] = Math.Clamp(n, 0, pendiente);
+        _version[detalleId] = _version.GetValueOrDefault(detalleId) + 1;
+        _error = null;
+    }
+
+    // Prepara los diccionarios de las líneas que siguen pendientes: hay que tenerlos cargados ANTES de que la
+    // fila renderice, porque el @bind de la ubicación y del vencimiento usa el indexador (KeyNotFound si falta).
+    // Lo que el usuario ya eligió se conserva; la cantidad vuelve a lo pendiente actual.
+    private void PrepararLineas()
+    {
+        var vigentes = LineasPendientes();
+        var ids = vigentes.Select(d => d.Id).ToHashSet();
+        foreach (var k in _cantidad.Keys.Where(k => !ids.Contains(k)).ToList()) _cantidad.Remove(k);
+        foreach (var k in _ubicacion.Keys.Where(k => !ids.Contains(k)).ToList()) _ubicacion.Remove(k);
+        foreach (var k in _fechaVencimiento.Keys.Where(k => !ids.Contains(k)).ToList()) _fechaVencimiento.Remove(k);
+
+        foreach (var d in vigentes)
+        {
+            _cantidad[d.Id] = d.CantidadAprobada!.Value - d.CantidadEntregada;
+            _ubicacion.TryAdd(d.Id, 0);
+            _fechaVencimiento.TryAdd(d.Id, null);
+        }
+    }
+
+    private async Task CargarStockAsync(IEnumerable<int> productoIds)
+    {
+        if (Tipo != TipoSolicitud.Salida) return;
+        foreach (var id in productoIds.Distinct())
+            _stockPorProducto[id] = (await ProductoApi.ListarUbicacionesConStockAsync(id)).ToList();
     }
 
     private async Task SeleccionarAsync(int id)
@@ -162,76 +221,103 @@ else if (_solicitud is not null)
         try
         {
             _solicitud = await SolicitudApi.ObtenerPorIdAsync(id);
-            foreach (var d in LineasPendientes())
-            {
-                _cantidad[d.Id] = d.CantidadAprobada!.Value - d.CantidadEntregada;
-                _ubicacion[d.Id] = 0;
-                _fechaVencimiento[d.Id] = null;
-                if (Tipo == TipoSolicitud.Salida)
-                    _stockPorProducto[d.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(d.ProductoId)).ToList();
-            }
+            await CargarStockAsync(LineasPendientes().Select(d => d.ProductoId));
+            PrepararLineas();
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _cargandoLineas = false; }
     }
 
-    private async Task RegistrarLineaAsync(SolicitudDetalleDto detalle)
+    // Valida TODAS las líneas antes de registrar nada: un solo botón no puede dejar la solicitud a medias
+    // por algo que se podía ver de antemano. Devuelve el primer problema, o null si todo está en orden.
+    private string? Validar(List<SolicitudDetalleDto> lineas)
     {
-        if (_guardandoLinea || _solicitud is null) return;
+        if (lineas.Count == 0)
+            return "Indicá la cantidad de al menos una línea.";
 
-        var cantidad = _cantidad.GetValueOrDefault(detalle.Id);
-        var ubicacionId = _ubicacion.GetValueOrDefault(detalle.Id);
-        var pendiente = detalle.CantidadAprobada!.Value - detalle.CantidadEntregada;
+        var sinUbicacion = lineas.Where(d => _ubicacion.GetValueOrDefault(d.Id) <= 0).Select(d => d.ProductoNombre).ToList();
+        if (sinUbicacion.Count > 0)
+            return $"Seleccioná la ubicación de: {string.Join(", ", sinUbicacion)}.";
 
-        if (cantidad <= 0) { _error = "Indicá la cantidad a registrar."; return; }
-        if (cantidad > pendiente) { _error = $"No podés registrar más de lo pendiente ({pendiente:N0})."; return; }
-        if (ubicacionId <= 0) { _error = "Seleccioná una ubicación."; return; }
-
-        _guardandoLinea = true; _error = null; _ok = null;
-        try
+        foreach (var d in lineas)
         {
-            if (Tipo == TipoSolicitud.Entrada)
-            {
-                var fechaVenc = _fechaVencimiento.GetValueOrDefault(detalle.Id);
-                var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", detalle.Id,
-                    fechaVenc is not null ? DateOnly.FromDateTime(fechaVenc.Value) : null));
-                _ok = $"Recepción {r.NumeroMovimiento} registrada.";
-            }
-            else
-            {
-                var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
-                    detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
-                    detalle.Retorna, detalle.Retorna ? detalle.UbicacionExterna : null,
-                    detalle.Retorna ? detalle.FechaRetornoEsperada : null, detalle.Id));
-                _ok = $"Entrega {r.NumeroMovimiento} registrada.";
-            }
-
-            _solicitud = await SolicitudApi.ObtenerPorIdAsync(_solicitud.Id);
-
-            // Si la línea recién registrada fue una entrega PARCIAL, sigue pendiente después
-            // del reload (con menos "pendiente" que antes) — sigue apareciendo en la tabla.
-            // Sacar sus entradas de los diccionarios y no reponerlas revienta el @bind de esa
-            // fila con KeyNotFoundException (mismo bug de fondo que ya documenta
-            // Solicitudes/Detalle.razor: hay que pre-cargar antes de que la fila renderice,
-            // nunca confiar en que la clave ya esté puesta). Se sacan las 3 y se recargan
-            // desde cero para TODAS las líneas todavía pendientes, con el pendiente actualizado.
-            _cantidad.Remove(detalle.Id);
-            _ubicacion.Remove(detalle.Id);
-            _fechaVencimiento.Remove(detalle.Id);
-            foreach (var d in LineasPendientes())
-            {
-                _cantidad.TryAdd(d.Id, d.CantidadAprobada!.Value - d.CantidadEntregada);
-                _ubicacion.TryAdd(d.Id, 0);
-                _fechaVencimiento.TryAdd(d.Id, null);
-            }
+            var cantidad = _cantidad.GetValueOrDefault(d.Id);
+            var pendiente = d.CantidadAprobada!.Value - d.CantidadEntregada;
+            if (cantidad > pendiente)
+                return $"{d.ProductoNombre}: no podés registrar más de lo pendiente ({pendiente:N0}).";
 
             if (Tipo == TipoSolicitud.Salida)
-                _stockPorProducto[detalle.ProductoId] = (await ProductoApi.ListarUbicacionesConStockAsync(detalle.ProductoId)).ToList();
+            {
+                var disponible = ExistenciaEn(d.ProductoId, _ubicacion[d.Id]);
+                if (cantidad > disponible)
+                    return $"{d.ProductoNombre}: en esa ubicación solo hay {disponible:N0} (pediste sacar {cantidad:N0}).";
+            }
+        }
+        return null;
+    }
 
-            await OnRegistrado.InvokeAsync();
+    private async Task RegistrarTodoAsync()
+    {
+        if (_guardando || _solicitud is null) return;
+
+        var lineas = LineasPendientes().Where(d => _cantidad.GetValueOrDefault(d.Id) > 0).ToList();
+        _error = _ok = null;
+        var problema = Validar(lineas);
+        if (problema is not null) { _error = problema; return; }
+
+        _guardando = true;
+        var hechos = new List<string>();
+        try
+        {
+            foreach (var detalle in lineas)
+            {
+                var cantidad = _cantidad[detalle.Id];
+                var ubicacionId = _ubicacion[detalle.Id];
+                try
+                {
+                    if (Tipo == TipoSolicitud.Entrada)
+                    {
+                        var fechaVenc = _fechaVencimiento.GetValueOrDefault(detalle.Id);
+                        var r = await MovimientoApi.RegistrarEntradaAsync(new RegistrarEntradaDto(
+                            detalle.ProductoId, ubicacionId, cantidad, $"Recepción solicitud {_solicitud.NumeroSolicitud}", detalle.Id,
+                            fechaVenc is not null ? DateOnly.FromDateTime(fechaVenc.Value) : null));
+                        hechos.Add(r.NumeroMovimiento);
+                    }
+                    else
+                    {
+                        var r = await MovimientoApi.RegistrarSalidaAsync(new RegistrarSalidaDto(
+                            detalle.ProductoId, ubicacionId, cantidad, $"Entrega solicitud {_solicitud.NumeroSolicitud}",
+                            detalle.Retorna, detalle.Retorna ? detalle.UbicacionExterna : null,
+                            detalle.Retorna ? detalle.FechaRetornoEsperada : null, detalle.Id));
+                        hechos.Add(r.NumeroMovimiento);
+                    }
+                }
+                catch (ApiException ex)
+                {
+                    // Cada línea es su propio movimiento: si una falla (por ejemplo, alguien más sacó el stock un
+                    // instante antes), las anteriores ya quedaron registradas. Se dice cuáles y se corta ahí.
+                    _error = hechos.Count == 0
+                        ? $"{detalle.ProductoNombre}: {ex.Message}"
+                        : $"Se registraron {hechos.Count} de {lineas.Count} línea(s) ({string.Join(", ", hechos)}). Falló {detalle.ProductoNombre}: {ex.Message}";
+                    break;
+                }
+            }
+
+            if (_error is null)
+                _ok = hechos.Count == 1
+                    ? $"{(Tipo == TipoSolicitud.Entrada ? "Recepción" : "Entrega")} {hechos[0]} registrada."
+                    : $"{hechos.Count} líneas registradas: {string.Join(", ", hechos)}.";
+
+            if (hechos.Count > 0)
+            {
+                // Se vuelve a leer la solicitud: lo registrado sale de «pendientes» (o baja su pendiente si fue parcial).
+                _solicitud = await SolicitudApi.ObtenerPorIdAsync(_solicitud.Id);
+                await CargarStockAsync(lineas.Select(d => d.ProductoId));
+                PrepararLineas();
+                await OnRegistrado.InvokeAsync();
+            }
         }
         catch (ApiException ex) { _error = ex.Message; }
-        finally { _guardandoLinea = false; }
+        finally { _guardando = false; }
     }
 }
