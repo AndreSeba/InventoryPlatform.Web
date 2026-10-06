@@ -384,6 +384,19 @@ Reglas del lado del backend en `InventoryPlatform/CLAUDE.md` («Devoluciones con
 - Los avisos los lista `DevolucionApi.ListarAvisosAsync(Pendiente)`: solo se piden si el usuario tiene
   `movimientos.devolucion` (si no, el endpoint responde 403).
 
+## Campanita de notificaciones (2026-10-06)
+
+`Components/Shared/NotificacionesCampana.razor` en la topbar (antes del tema) + `NotificacionApiClient`. Reglas y
+catálogo de notificaciones en `InventoryPlatform/CLAUDE.md` («Notificaciones»).
+
+- **Se refresca sola** cada 60 s y al navegar (no más de una vez cada 8 s). El temporizador y la primera carga
+  arrancan en `OnAfterRenderAsync(firstRender)`, no antes: en el prerender todavía no hay sesión. Si la API falla
+  se conserva lo que ya había (es un aviso; nunca rompe la pantalla).
+- Panel desplegable con ícono por categoría y color por severidad (reusa `kpi-icon-accent/warn/danger`, que ya
+  tienen modo oscuro), punto azul en las no leídas, «Marcar todas como leídas». Al abrir una notificación se
+  marca leída y se navega a su `Url`. En mobile el panel ocupa el ancho de la pantalla.
+- Ícono `bell` agregado a `Icon.razor`. El aviso de revisión de accesos de Inicio se mantiene (la campanita lo suma).
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

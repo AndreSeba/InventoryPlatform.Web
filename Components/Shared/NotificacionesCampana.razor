@@ -1,0 +1,179 @@
+@* Campanita de la topbar. Muestra las notificaciones de la persona (ver NotificacionService en el backend):
+   trabajo pendiente, resultado de sus pedidos, alertas de inventario y de control. Se actualiza sola cada
+   minuto y al cambiar de página. *@
+@implements IDisposable
+@inject NotificacionApiClient Api
+@inject NavigationManager Nav
+
+<div class="notif">
+    <button type="button" class="notif-btn" aria-label="Notificaciones" aria-expanded="@_abierto" title="Notificaciones" @onclick="Alternar">
+        <Icon Name="bell" Size="18" />
+        @if (NoLeidas > 0)
+        {
+            <span class="notif-badge">@(NoLeidas > 99 ? "99+" : NoLeidas.ToString())</span>
+        }
+    </button>
+
+    @if (_abierto)
+    {
+        <div class="notif-backdrop" @onclick="Cerrar"></div>
+        <div class="notif-panel" role="dialog" aria-label="Notificaciones">
+            <div class="notif-head">
+                <strong>Notificaciones</strong>
+                <button type="button" class="btn btn-ghost btn-sm" disabled="@(NoLeidas == 0 || _guardando)" @onclick="MarcarTodasAsync">Marcar todas como leídas</button>
+            </div>
+            <div class="notif-list">
+                @if (_datos is null)
+                {
+                    <p class="notif-vacio">@(_error ?? "Cargando…")</p>
+                }
+                else if (_datos.Items.Count == 0)
+                {
+                    <p class="notif-vacio">No tenés notificaciones. Cuando algo necesite tu atención, aparece acá.</p>
+                }
+                else
+                {
+                    @foreach (var n in _datos.Items)
+                    {
+                        <button type="button" class="notif-item @(n.Leida ? "" : "unread")" @onclick="() => AbrirAsync(n)">
+                            <span class="notif-ico @ClaseSeveridad(n.Severidad)"><Icon Name="@Icono(n)" Size="15" /></span>
+                            <span class="notif-body">
+                                <span class="notif-title">@n.Titulo</span>
+                                <span class="notif-msg">@n.Mensaje</span>
+                                <span class="notif-meta">@Etiqueta(n.Categoria) · @Hace(n.FechaCreacion)</span>
+                            </span>
+                            @if (!n.Leida)
+                            {
+                                <span class="notif-dot" aria-label="Sin leer"></span>
+                            }
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly TimeSpan Intervalo = TimeSpan.FromSeconds(60);
+
+    private NotificacionesDto? _datos;
+    private string? _error;
+    private bool _abierto;
+    private bool _guardando;
+    private Timer? _timer;
+    private DateTime _ultimaCarga = DateTime.MinValue;
+
+    private int NoLeidas => _datos?.NoLeidas ?? 0;
+
+    // La primera carga y el temporizador arrancan DESPUÉS de renderizar: en el prerender todavía no hay sesión.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        Nav.LocationChanged += OnLocationChanged;
+        _timer = new Timer(_ => InvokeAsync(() => CargarAsync()), null, Intervalo, Intervalo);
+        await CargarAsync();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        // Navegar es buen momento para refrescar (apenas hizo algo que puede generar una notificación),
+        // pero sin pedirle a la API más de una vez cada pocos segundos.
+        if ((DateTime.UtcNow - _ultimaCarga).TotalSeconds > 8)
+            _ = InvokeAsync(() => CargarAsync());
+    }
+
+    private async Task CargarAsync()
+    {
+        _ultimaCarga = DateTime.UtcNow;
+        try
+        {
+            _datos = await Api.ListarAsync();
+            _error = null;
+        }
+        catch (ApiException ex)
+        {
+            // Es un aviso: si falla se conserva lo que ya había, nunca rompe la pantalla.
+            if (_datos is null) _error = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            if (_datos is null) _error = "No se pudo conectar con el servidor.";
+        }
+        StateHasChanged();
+    }
+
+    private async Task Alternar()
+    {
+        _abierto = !_abierto;
+        if (_abierto) await CargarAsync();
+    }
+
+    private void Cerrar() => _abierto = false;
+
+    private async Task AbrirAsync(NotificacionDto n)
+    {
+        try
+        {
+            if (!n.Leida) await Api.MarcarLeidaAsync(n.Id);
+        }
+        catch (ApiException) { }
+
+        _abierto = false;
+        await CargarAsync();
+        if (!string.IsNullOrEmpty(n.Url)) Nav.NavigateTo(n.Url);
+    }
+
+    private async Task MarcarTodasAsync()
+    {
+        if (_guardando) return;
+        _guardando = true;
+        try
+        {
+            await Api.MarcarTodasLeidasAsync();
+            await CargarAsync();
+        }
+        catch (ApiException) { }
+        finally { _guardando = false; }
+    }
+
+    private static string ClaseSeveridad(SeveridadNotificacion s) => s switch
+    {
+        SeveridadNotificacion.Alerta => "kpi-icon-danger",
+        SeveridadNotificacion.Aviso => "kpi-icon-warn",
+        _ => "kpi-icon-accent",
+    };
+
+    private static string Icono(NotificacionDto n) => n.Categoria switch
+    {
+        CategoriaNotificacion.Pendiente => "clock",
+        CategoriaNotificacion.Resultado => n.Severidad == SeveridadNotificacion.Alerta ? "x-circle" : "check-circle",
+        CategoriaNotificacion.Inventario => n.Severidad == SeveridadNotificacion.Alerta ? "alert" : "package",
+        _ => "shield",
+    };
+
+    private static string Etiqueta(CategoriaNotificacion c) => c switch
+    {
+        CategoriaNotificacion.Pendiente => "Pendiente",
+        CategoriaNotificacion.Resultado => "Tu pedido",
+        CategoriaNotificacion.Inventario => "Inventario",
+        _ => "Control",
+    };
+
+    private static string Hace(DateTime utc)
+    {
+        var d = DateTime.UtcNow - utc;
+        if (d.TotalMinutes < 1) return "ahora";
+        if (d.TotalMinutes < 60) return $"hace {(int)d.TotalMinutes} min";
+        if (d.TotalHours < 24) return $"hace {(int)d.TotalHours} h";
+        if (d.TotalDays < 7) return $"hace {(int)d.TotalDays} d";
+        return utc.ToLocalTime().ToString("dd/MM/yyyy");
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        _timer?.Dispose();
+    }
+}
