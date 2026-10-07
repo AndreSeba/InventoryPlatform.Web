@@ -337,11 +337,18 @@ servicio, `IAuditoriaService`, el nuevo permiso `auditoria.ver`).
   lista filtrada completa y acá se pagina con `<Pager/>`, mismo criterio que
   Movimientos/Solicitudes.
 - **El diff campo por campo se arma en el cliente**, no en la API: cada fila tiene un
-  botón "Ver cambios" que expande una sub-tabla Campo/Antes/Después. Parsea
-  `ValorAnterior`/`ValorNuevo` (ambos JSON) con `System.Text.Json.JsonDocument`,
-  compara clave por clave, y **solo muestra los campos que cambiaron** — con ~10
-  campos por entidad, mostrar todos siempre sería ruido. En una fila de "Crear"
+  botón "Ver cambios" que expande una sub-tabla Campo/Antes/Después. Compara clave por
+  clave los dos JSON y **solo muestra los campos que cambiaron**. En una fila de "Crear"
   (`ValorAnterior` null) se ven todos los campos de `ValorNuevo` como alta.
+- **Texto legible, nunca el JSON crudo (2026-10-07)**: `Services/AuditoriaLegible.cs` traduce cada valor:
+  nombres de campo en español, estados/tipos con su nombre (`Estado: Pendiente → Aprobada`), ids resueltos a nombres
+  (producto, ubicación, almacén, área, categoría, rol, usuario; `CatalogosAuditoria` se llena en
+  `OnInitializedAsync` y cada catálogo es opcional: sin permiso o con error queda «#id»), Sí/No, fechas
+  `dd/MM/yyyy`, tamaños en KB/MB, las líneas de una solicitud como «PRODUCTO: pidió 29» o «Línea #1083: aprobada — → 60»
+  (solo lo que cambió) y los permisos de un rol como `+ codigo` / `− codigo`. También nombra entidades y acciones
+  («Aviso de devolución», «Registrar entrada») en la tabla y los filtros; el valor real sigue siendo el que se filtra.
+  **Si un servicio del backend audita un campo, enum o entidad nuevo, agregarlo ahí** (`Campos`, `Entidades`, `Acciones`,
+  y el `switch` de `Numero` si es un id o un enum): sin entrada se muestra el nombre del campo separado en palabras.
 - Rail link en "Administración", gateado por `AuthState.HasPermission(Permisos.AuditoriaVer)`
   — mismo criterio que Usuarios/Roles/Países, y el backend igual lo exige en el
   endpoint.

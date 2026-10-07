@@ -1,6 +1,12 @@
 @page "/auditoria"
-@using System.Text.Json
 @inject AuditoriaApiClient AuditoriaApi
+@inject ProductoApiClient ProductoApi
+@inject UbicacionApiClient UbicacionApi
+@inject AlmacenApiClient AlmacenApi
+@inject AreaApiClient AreaApi
+@inject CategoriaApiClient CategoriaApi
+@inject RolApiClient RolApi
+@inject UsuarioApiClient UsuarioApi
 
 <PageTitle>Auditoría</PageTitle>
 
@@ -27,14 +33,14 @@ else
             <option value="">Todas las entidades</option>
             @foreach (var e in _catalogo.Entidades)
             {
-                <option value="@e">@e</option>
+                <option value="@e">@AuditoriaLegible.Entidad(e)</option>
             }
         </select>
         <select class="input" style="max-width:200px" @bind="_filtroAccion" @bind:after="AplicarFiltrosAsync">
             <option value="">Todas las acciones</option>
             @foreach (var a in _catalogo.Acciones)
             {
-                <option value="@a">@a</option>
+                <option value="@a">@AuditoriaLegible.Accion(a)</option>
             }
         </select>
         <input class="input" style="max-width:170px" type="date" title="Desde" @bind="_filtroDesde" @bind:after="AplicarFiltrosAsync" />
@@ -61,9 +67,9 @@ else
                     {
                         <tr>
                             <td class="text-muted">@r.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>@r.Entidad</td>
+                            <td>@AuditoriaLegible.Entidad(r.Entidad)</td>
                             <td class="text-muted">@r.EntidadId</td>
-                            <td><span class="@AccionTagClase(r.Accion)">@r.Accion</span></td>
+                            <td><span class="@AccionTagClase(r.Accion)">@AuditoriaLegible.Accion(r.Accion)</span></td>
                             <td class="text-muted">@r.UsuarioNombre</td>
                             <td class="text-muted celda-truncada" title="@r.Motivo">@r.Motivo</td>
                             <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => Alternar(r.Id)">@(_expandidos.Contains(r.Id) ? "Ocultar" : "Ver cambios")</button></td>
@@ -72,7 +78,7 @@ else
                         {
                             <tr>
                                 <td colspan="7" style="background:var(--color-neutral-100)">
-                                    @{ var diferencias = Diferencias(r.ValorAnterior, r.ValorNuevo); }
+                                    @{ var diferencias = AuditoriaLegible.Diferencias(r.Entidad, r.ValorAnterior, r.ValorNuevo, _nombres); }
                                     @if (diferencias.Count == 0)
                                     {
                                         <p class="text-muted" style="margin:8px 4px">Sin campos con cambios registrados.</p>
@@ -85,9 +91,9 @@ else
                                                 @foreach (var d in diferencias)
                                                 {
                                                     <tr>
-                                                        <td>@d.Campo</td>
-                                                        <td class="text-muted">@d.Antes</td>
-                                                        <td>@d.Despues</td>
+                                                        <td style="vertical-align:top;white-space:nowrap">@d.Campo</td>
+                                                        <td class="text-muted" style="vertical-align:top">@foreach (var l in d.Antes) { <div>@l</div> }</td>
+                                                        <td style="vertical-align:top">@foreach (var l in d.Despues) { <div>@l</div> }</td>
                                                     </tr>
                                                 }
                                             </tbody>
@@ -108,6 +114,7 @@ else
     private CatalogoAuditoriaDto? _catalogo;
     private List<AuditoriaDto>? _registros;
     private string? _error;
+    private readonly CatalogosAuditoria _nombres = new();
 
     private string _filtroEntidad = "";
     private string _filtroAccion = "";
@@ -137,6 +144,26 @@ else
             _catalogo = new CatalogoAuditoriaDto([], []);
             _registros = [];
         }
+        await CargarNombresAsync();
+    }
+
+    // Para decir «Vaso logo Mabel» en vez de «ProductoId 1392». Cada catálogo es opcional: si el usuario no tiene el
+    // permiso para listarlo (o falla), esos ids se muestran como «#id» y la auditoría sigue funcionando.
+    private async Task CargarNombresAsync()
+    {
+        static async Task Cargar<T>(Func<Task<List<T>>> pedir, Dictionary<int, string> destino, Func<T, (int Id, string Nombre)> mapa)
+        {
+            try { foreach (var x in await pedir()) { var (id, nombre) = mapa(x); destino[id] = nombre; } }
+            catch (Exception) { /* sin permiso o sin respuesta: se queda con «#id» */ }
+        }
+
+        await Cargar(() => ProductoApi.ListarAsync(null, true), _nombres.Productos, p => (p.Id, p.Nombre));
+        await Cargar(() => UbicacionApi.ListarAsync(true), _nombres.Ubicaciones, u => (u.Id, u.CodigoUbicacion));
+        await Cargar(() => AlmacenApi.ListarAsync(true), _nombres.Almacenes, a => (a.Id, a.Nombre));
+        await Cargar(() => AreaApi.ListarAsync(true), _nombres.Areas, a => (a.Id, a.NombreArea));
+        await Cargar(() => CategoriaApi.ListarAsync(true), _nombres.Categorias, c => (c.Id, c.CodigoCategoria));
+        await Cargar(() => RolApi.ListarAsync(), _nombres.Roles, r => (r.Id, r.Nombre));
+        await Cargar(() => UsuarioApi.ListarAsync(), _nombres.Usuarios, u => (u.Id, u.NombreCompleto));
     }
 
     private async Task AplicarFiltrosAsync()
@@ -171,54 +198,4 @@ else
         var a when a.StartsWith("Desactivar") || a.StartsWith("Rechazar") => "tag tag-warn",
         _ => "tag tag-outline",
     };
-
-    // Compara los dos JSON guardados campo por campo y devuelve solo los que cambiaron —
-    // en "Crear" (ValorAnterior null) todos los campos de ValorNuevo aparecen como cambio.
-    private sealed record Diferencia(string Campo, string Antes, string Despues);
-
-    private static List<Diferencia> Diferencias(string? anteriorJson, string? nuevoJson)
-    {
-        var anterior = ParsearObjeto(anteriorJson);
-        var nuevo = ParsearObjeto(nuevoJson);
-
-        var campos = new List<string>();
-        if (anterior is not null) campos.AddRange(anterior.Value.EnumerateObject().Select(p => p.Name));
-        if (nuevo is not null) campos.AddRange(nuevo.Value.EnumerateObject().Select(p => p.Name));
-
-        var resultado = new List<Diferencia>();
-        foreach (var campo in campos.Distinct())
-        {
-            var antes = ValorTexto(anterior, campo);
-            var despues = ValorTexto(nuevo, campo);
-            if (antes != despues)
-                resultado.Add(new Diferencia(campo, antes, despues));
-        }
-        return resultado;
-    }
-
-    private static JsonElement? ParsearObjeto(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try
-        {
-            var elemento = JsonDocument.Parse(json).RootElement;
-            return elemento.ValueKind == JsonValueKind.Object ? elemento : null;
-        }
-        catch (JsonException) { return null; }
-    }
-
-    private static string ValorTexto(JsonElement? contenedor, string campo)
-    {
-        if (contenedor is null || !contenedor.Value.TryGetProperty(campo, out var valor))
-            return "—";
-
-        return valor.ValueKind switch
-        {
-            JsonValueKind.Null => "—",
-            JsonValueKind.String => valor.GetString() is { Length: > 0 } s ? s : "—",
-            JsonValueKind.True or JsonValueKind.False => valor.GetBoolean() ? "Sí" : "No",
-            JsonValueKind.Array or JsonValueKind.Object => valor.GetRawText(),
-            _ => valor.ToString(),
-        };
-    }
 }
