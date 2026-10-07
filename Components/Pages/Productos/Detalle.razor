@@ -75,6 +75,9 @@ else
         </div>
     }
 
+    @* El historial de movimientos exige movimientos.ver: un solicitante ve el producto y su stock, no quién lo movió. *@
+    @if (VeHistorial)
+    {
     <div class="hr" style="margin-top:36px"></div>
     <h3>Historial</h3>
     @if (_historial.Count == 0)
@@ -105,7 +108,11 @@ else
         </div>
         <Pager TotalItems="_historial.Count" PaginaActual="_paginaHistorial" PaginaActualChanged="p => _paginaHistorial = p" TamanoPagina="TamanoPaginaHistorial" />
     }
+    }
 
+    @* La ficha imprimible es un documento del almacén: solo quien registra entradas o salidas (operario) la ve y la imprime. *@
+    @if (PuedeImprimirFicha)
+    {
     <div class="hr no-print" style="margin-top:36px"></div>
     <h3 class="no-print">Ficha imprimible</h3>
     <div class="printable printable-form">
@@ -146,6 +153,7 @@ else
         <Icon Name="print" Size="14" />
         Imprimir ficha
     </button>
+    }
 }
 
 <Dialog OnClose="@(() => _mostrarEditar = false)" Visible="_mostrarEditar" Title="Editar producto">
@@ -208,6 +216,9 @@ else
     private string? _editImagenContentType;
     private string? _editImagenPreviewUrl;
 
+    private bool VeHistorial => AuthState.HasPermission(Permisos.MovimientosVer);
+    private bool PuedeImprimirFicha => AuthState.HasPermission(Permisos.MovimientosEntrada) || AuthState.HasPermission(Permisos.MovimientosSalida);
+
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
     private async Task CargarAsync()
@@ -215,8 +226,11 @@ else
         try
         {
             _producto = await ProductoApi.ObtenerPorIdAsync(Id);
-            _historial = (await MovimientoApi.ListarPorProductoAsync(Id)).OrderByDescending(m => m.FechaMovimiento).ToList();
             _stockPorAlmacen = await ProductoApi.ListarUbicacionesConStockAsync(Id);
+            // Sin permiso de movimientos ni se pide el historial (el backend lo rechazaría con 403 y la página mostraría el error).
+            _historial = VeHistorial
+                ? (await MovimientoApi.ListarPorProductoAsync(Id)).OrderByDescending(m => m.FechaMovimiento).ToList()
+                : [];
 
             if (_producto is not null)
             {
