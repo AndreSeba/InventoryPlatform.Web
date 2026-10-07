@@ -1,6 +1,7 @@
 @page "/inicio"
 @inject InicioApiClient InicioApi
 @inject RevisionAccesoApiClient RevisionApi
+@inject Microsoft.Extensions.Options.IOptions<FuncionesOptions> Funciones
 @inject NavigationManager Nav
 @inject AuthState AuthState
 
@@ -116,7 +117,7 @@ else
 
         // Aviso de revisión de accesos vencida: solo para quien puede resolverla. Si falla no importa,
         // es un aviso — no debe romper el panel.
-        if (AuthState.HasPermission(Permisos.AccesosRevisar))
+        if (Funciones.Value.RevisionAccesos && AuthState.HasPermission(Permisos.AccesosRevisar))
         {
             try
             {

@@ -1,0 +1,29 @@
+@* Pantalla de un módulo que ya está construido pero todavía no se habilitó (interruptor «Funciones» en
+   appsettings). Quien entra ve qué va a hacer y que está planificado, no una pantalla a medias. *@
+<div class="card elev-sm planificado">
+    <div class="planificado-head">
+        <span class="kpi-icon kpi-icon-accent"><Icon Name="@Icono" Size="22" /></span>
+        <div>
+            <h1 style="margin:0">@Titulo</h1>
+            <span class="tag tag-warn tag-con-icono" style="margin-top:6px"><Icon Name="clock" Size="13" />Planificado</span>
+        </div>
+    </div>
+    <p class="text-muted" style="margin:14px 0 8px">@Descripcion</p>
+    @if (Puntos.Count > 0)
+    {
+        <ul class="planificado-lista">
+            @foreach (var p in Puntos)
+            {
+                <li>@p</li>
+            }
+        </ul>
+    }
+    <p class="text-muted" style="margin:14px 0 0;font-size:13px">Este módulo todavía no está habilitado. Se activará cuando se confirme su puesta en marcha.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = "";
+    [Parameter] public string Descripcion { get; set; } = "";
+    [Parameter] public string Icono { get; set; } = "clock";
+    [Parameter] public List<string> Puntos { get; set; } = [];
+}

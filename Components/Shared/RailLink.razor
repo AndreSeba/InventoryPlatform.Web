@@ -3,6 +3,10 @@
 <a href="@Href" class="rail-link @(IsActive ? "active" : "")" title="@Label">
     <Icon Name="@IconName" />
     <span>@Label</span>
+    @if (!string.IsNullOrEmpty(Insignia))
+    {
+        <span class="rail-insignia">@Insignia</span>
+    }
 </a>
 
 @code {
@@ -10,6 +14,8 @@
     [Parameter] public string IconName { get; set; } = "box";
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string CurrentPath { get; set; } = "";
+    // Etiqueta chica a la derecha (p. ej. «Planificado» en un módulo todavía no habilitado).
+    [Parameter] public string? Insignia { get; set; }
 
     private bool IsActive => CurrentPath.StartsWith(Href, StringComparison.OrdinalIgnoreCase);
 }

@@ -397,6 +397,13 @@ catálogo de notificaciones en `InventoryPlatform/CLAUDE.md` («Notificaciones»
   marca leída y se navega a su `Url`. En mobile el panel ocupa el ancho de la pantalla.
 - Ícono `bell` agregado a `Icon.razor`. El aviso de revisión de accesos de Inicio se mantiene (la campanita lo suma).
 
+## Módulos planificados: interruptor `Funciones` (2026-10-07)
+
+`appsettings.json` → `Funciones:RevisionAccesos` (por defecto **false**; `FuncionesOptions`). Apagado: `/accesos` y
+`/accesos/{id}` muestran `ModuloPlanificado` (qué hará el módulo + etiqueta «Planificado») en vez de la pantalla
+funcional, el aviso de revisión vencida de Inicio no aparece y el enlace del menú queda con la insignia «Planificado»
+(`RailLink` tiene el parámetro opcional `Insignia`). Encender: `true` aquí y en la API (mismo nombre).
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

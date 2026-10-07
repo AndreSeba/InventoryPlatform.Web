@@ -783,3 +783,11 @@ input[type="file"] { max-width: 100%; }
 
 /* Campo que falta completar (p. ej. la ubicación de una línea con cantidad) */
 .input.input-error { border-color: #b42318; }
+
+/* Módulo planificado (todavía no habilitado) */
+.rail-insignia { margin-left: auto; padding: 1px 7px; border-radius: 8px; background: rgba(255,255,255,.14); color: var(--sidebar-text); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.app-rail.collapsed .rail-insignia { display: none; }
+.planificado { max-width: 640px; padding: 24px 28px; }
+.planificado-head { display: flex; align-items: center; gap: 16px; }
+.planificado-head .kpi-icon { width: 52px; height: 52px; }
+.planificado-lista { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }

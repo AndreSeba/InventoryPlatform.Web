@@ -1,8 +1,22 @@
 @page "/accesos"
 @inject RevisionAccesoApiClient RevisionApi
 @inject NavigationManager Nav
+@inject Microsoft.Extensions.Options.IOptions<FuncionesOptions> Funciones
 
 <PageTitle>Revisión de accesos</PageTitle>
+
+@if (!Funciones.Value.RevisionAccesos)
+{
+    <ModuloPlanificado Titulo="Revisión de accesos" Icono="check-list"
+        Descripcion="Control periódico de quién tiene acceso al sistema y con qué rol. Cada revisión queda registrada y se exporta como acta."
+        Puntos='@(new List<string> {
+            "Revisión trimestral de todas las cuentas y mensual de las administradoras.",
+            "Decisión por cuenta: mantener, quitar el acceso o cambiar el rol, con su motivo.",
+            "Al cerrar, las decisiones se aplican juntas y queda un acta en Excel para TI.",
+            "Aviso cuando la revisión está vencida." })' />
+}
+else
+{
 
 <div class="page-head">
     <div>
@@ -124,6 +138,7 @@ else
         <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="AbrirAsync">@(_guardando ? "Abriendo…" : "Abrir revisión")</button>
     </Actions>
 </Dialog>
+}
 
 @code {
     private EstadoRevisionesAccesoDto? _estado;
@@ -140,6 +155,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Funciones.Value.RevisionAccesos) return;
+
         try
         {
             _estado = await RevisionApi.ObtenerEstadoAsync();

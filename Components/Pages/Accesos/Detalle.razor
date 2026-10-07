@@ -1,8 +1,22 @@
 @page "/accesos/{Id:int}"
 @inject RevisionAccesoApiClient RevisionApi
 @inject IJSRuntime JS
+@inject Microsoft.Extensions.Options.IOptions<FuncionesOptions> Funciones
 
 <PageTitle>Revisión de accesos</PageTitle>
+
+@if (!Funciones.Value.RevisionAccesos)
+{
+    <ModuloPlanificado Titulo="Revisión de accesos" Icono="check-list"
+        Descripcion="Control periódico de quién tiene acceso al sistema y con qué rol. Cada revisión queda registrada y se exporta como acta."
+        Puntos='@(new List<string> {
+            "Revisión trimestral de todas las cuentas y mensual de las administradoras.",
+            "Decisión por cuenta: mantener, quitar el acceso o cambiar el rol, con su motivo.",
+            "Al cerrar, las decisiones se aplican juntas y queda un acta en Excel para TI.",
+            "Aviso cuando la revisión está vencida." })' />
+}
+else
+{
 
 <div style="margin-bottom:14px">
     <BotonVolver Href="/accesos" Texto="Volver a revisiones" />
@@ -251,6 +265,7 @@ else
         <button type="button" class="btn btn-primary" style="background:#b42318;border-color:#b42318" disabled="@_guardando" @onclick="CancelarAsync">@(_guardando ? "Cancelando…" : "Cancelar revisión")</button>
     </Actions>
 </Dialog>
+}
 
 @code {
     private const string ContentTypeXlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -284,6 +299,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Funciones.Value.RevisionAccesos) return;
+
         try { _revision = await RevisionApi.ObtenerAsync(Id); }
         catch (ApiException ex) { _error = ex.Message; }
     }

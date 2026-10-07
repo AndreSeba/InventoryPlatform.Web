@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
 @inject AuthState AuthState
+@inject Microsoft.Extensions.Options.IOptions<FuncionesOptions> Funciones
 @implements IDisposable
 
 <div class="app-shell">
@@ -85,7 +86,7 @@
             }
             @if (AuthState.HasPermission(Permisos.AccesosRevisar))
             {
-                <RailLink Href="/accesos" IconName="check-list" Label="Revisión de accesos" CurrentPath="@_path" />
+                <RailLink Href="/accesos" IconName="check-list" Label="Revisión de accesos" Insignia="@(Funciones.Value.RevisionAccesos ? null : "Planificado")" CurrentPath="@_path" />
             }
             @if (AuthState.HasPermission(Permisos.AuditoriaVer))
             {
