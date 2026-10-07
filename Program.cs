@@ -7,8 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+// El límite por defecto de un mensaje del circuito es 32 KB: la firma dibujada (PNG en base64) lo supera con facilidad y el
+// circuito se cortaba en silencio al guardarla. 1 MB sobra para cualquier firma (el servidor igual la topa en 300 KB).
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(o => o.MaximumReceiveMessageSize = 1024 * 1024);
 
 // Cliente HTTP hacia la Web API — este frontend nunca accede a la base de
 // datos directamente, solo consume la API real de InventoryPlatform.

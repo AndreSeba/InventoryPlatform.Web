@@ -419,7 +419,9 @@ desde el nombre del usuario al pie del menú lateral. Reglas del backend en `Inv
 - **El dibujo es JS** (`wwwroot/js/firma.js`, `window.firmaPad`): eventos de puntero (mouse/táctil/lápiz), lienzo interno de 900×300
   que se ve más chico, exporta **recortado al trazo** como PNG transparente (`exportar` devuelve null si está vacío o es un punto).
   Se inicia en `OnAfterRenderAsync` cuando aparece el `<canvas>` (cada vez que se muestra de nuevo hay que volver a iniciarlo: `_padListo`).
-- Guardar pide la contraseña; si es mala el servidor responde 400 con el mensaje y el dibujo se conserva.
+- **Trampa del tamaño de mensaje**: el PNG de una firma real en base64 pesa 20–50 KB y el límite por defecto de un mensaje de Blazor Server
+  es 32 KB, así que guardar se cortaba en silencio. `Program.cs` sube `MaximumReceiveMessageSize` a 1 MB y `firma.js` exporta a como mucho
+  480 px de ancho. Si algún día se sube otra imagen por el circuito, el mismo límite aplica.
 - **Formulario imprimible** (`Solicitudes/Detalle.razor`): tres firmas — solicitante (imagen), proveedor (recuadro vacío para firma a mano, con
   nombre/CI) y «Autoriza / Firma almacén» (imagen, solo si la solicitud está aprobada). Las imágenes vienen de
   `SolicitudApi.ObtenerFirmasAsync`; si no se pueden pedir el formulario sale igual sin imagen. El bloque de firmas ocupa más alto que

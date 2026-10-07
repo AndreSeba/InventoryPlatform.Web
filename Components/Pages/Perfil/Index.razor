@@ -24,7 +24,7 @@
     <h3 style="margin:0 0 4px">Mi firma</h3>
     <p class="text-muted" style="margin:0 0 14px;font-size:13px">
         Dibujala con el mouse (o con el dedo en una tablet). Queda guardada en tu usuario y se estampa sola en el formulario
-        impreso cuando pedís una solicitud o la autorizás. Nadie más puede cambiarla: guardarla pide tu contraseña.
+        impreso cuando pedís una solicitud o la autorizás.
     </p>
 
     @if (_error is not null) { <p class="dialog-error">@_error</p> }
@@ -53,12 +53,8 @@
                 <canvas @ref="_canvas" class="firma-pad" aria-label="Recuadro para dibujar la firma"></canvas>
                 <span class="firma-pad-hint">Firmá acá</span>
             </div>
-            <div class="field" style="max-width:300px;margin-top:14px">
-                <label for="fp-pass">Tu contraseña (para confirmar)</label>
-                <input class="input" id="fp-pass" type="password" autocomplete="current-password" @bind="_password" @bind:event="oninput" />
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-                <button type="button" class="btn btn-primary" @onclick="GuardarAsync" disabled="@(_guardando || string.IsNullOrEmpty(_password))">Guardar firma</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+                <button type="button" class="btn btn-primary" @onclick="GuardarAsync" disabled="@_guardando">Guardar firma</button>
                 <button type="button" class="btn btn-secondary" @onclick="LimpiarAsync" disabled="@_guardando">Borrar y repetir</button>
                 @if (_actual is { Tiene: true })
                 {
@@ -76,7 +72,6 @@
     private bool _editando;
     private bool _guardando;
     private bool _padListo;
-    private string _password = "";
     private string? _error;
     private string? _ok;
 
@@ -107,13 +102,13 @@
 
     private void Redibujar()
     {
-        _ok = null; _error = null; _password = ""; _padListo = false;
+        _ok = null; _error = null; _padListo = false;
         _editando = true;
     }
 
     private void Cancelar()
     {
-        _error = null; _password = ""; _padListo = false;
+        _error = null; _padListo = false;
         _editando = false;
     }
 
@@ -136,8 +131,8 @@
         _guardando = true;
         try
         {
-            _actual = await FirmaApi.GuardarAsync(new GuardarFirmaDto(png, _password));
-            _password = ""; _padListo = false; _editando = false;
+            _actual = await FirmaApi.GuardarAsync(new GuardarFirmaDto(png));
+            _padListo = false; _editando = false;
             _ok = "Firma guardada. Ya se estampa en tus formularios.";
         }
         catch (ApiException ex) { _error = ex.Message; }

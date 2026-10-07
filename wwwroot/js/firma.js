@@ -81,11 +81,15 @@
             const margen = 14;
             const ancho = Math.max(maxX - minX + 1 + margen * 2, 120);
             const alto = Math.max(maxY - minY + 1 + margen * 2, 50);
+            // Se reduce a la mitad (como mucho 480 px de ancho): alcanza para imprimir una firma de ~5 cm y el PNG pesa ~4 veces menos.
+            const escala = Math.min(1, 480 / ancho);
             const salida = document.createElement('canvas');
-            salida.width = ancho;
-            salida.height = alto;
+            salida.width = Math.max(60, Math.round(ancho * escala));
+            salida.height = Math.max(30, Math.round(alto * escala));
             const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-            salida.getContext('2d').drawImage(canvas, cx - ancho / 2, cy - alto / 2, ancho, alto, 0, 0, ancho, alto);
+            const sctx = salida.getContext('2d');
+            sctx.imageSmoothingQuality = 'high';
+            sctx.drawImage(canvas, cx - ancho / 2, cy - alto / 2, ancho, alto, 0, 0, salida.width, salida.height);
             return salida.toDataURL('image/png').split(',')[1];
         },
 
