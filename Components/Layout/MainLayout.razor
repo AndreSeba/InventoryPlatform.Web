@@ -18,11 +18,11 @@
                 <RailLink Href="/inicio" IconName="home" Label="Inicio" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.ProductosVer))
+            @if (VeProductos)
             {
                 <RailLink Href="/productos" IconName="box" Label="Productos" CurrentPath="@_path" />
             }
-            @if (AuthState.HasPermission(Permisos.MovimientosVer))
+            @if (VeMovimientos)
             {
                 <RailLink Href="/movimientos" IconName="shuffle" Label="Movimientos" CurrentPath="@_path" />
             }
@@ -43,27 +43,27 @@
                 <RailLink Href="/conteos" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
             }
 
-            @if (AuthState.HasPermission(Permisos.CategoriasVer) || AuthState.HasPermission(Permisos.AreasVer) || AuthState.HasPermission(Permisos.UbicacionesVer) || AuthState.HasPermission(Permisos.UnidadesVer) || AuthState.HasPermission(Permisos.AlmacenesVer))
+            @if (VeCategorias || VeAreas || VeUbicaciones || VeUnidades || VeAlmacenes)
             {
                 <div class="rail-section">Catálogos</div>
             }
-            @if (AuthState.HasPermission(Permisos.CategoriasVer))
+            @if (VeCategorias)
             {
                 <RailLink Href="/categorias" IconName="tag" Label="Categorías" CurrentPath="@_path" />
             }
-            @if (AuthState.HasPermission(Permisos.AreasVer))
+            @if (VeAreas)
             {
                 <RailLink Href="/areas" IconName="building" Label="Áreas" CurrentPath="@_path" />
             }
-            @if (AuthState.HasPermission(Permisos.AlmacenesVer))
+            @if (VeAlmacenes)
             {
                 <RailLink Href="/almacenes" IconName="warehouse" Label="Almacenes" CurrentPath="@_path" />
             }
-            @if (AuthState.HasPermission(Permisos.UbicacionesVer))
+            @if (VeUbicaciones)
             {
                 <RailLink Href="/ubicaciones" IconName="rack" Label="Ubicaciones" CurrentPath="@_path" />
             }
-            @if (AuthState.HasPermission(Permisos.UnidadesVer))
+            @if (VeUnidades)
             {
                 <RailLink Href="/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
             }
@@ -178,6 +178,18 @@
     }
 
     private void CerrarRail() => _railAbierto = false;
+
+    // Un enlace del menú solo aparece si la pantalla se puede usar COMPLETA: cada una, además de su permiso «ver», pide datos de otros
+    // módulos al cargar (p. ej. Áreas cuenta las solicitudes, Ubicaciones los movimientos). Si falta alguno la pantalla solo mostraría
+    // «No tenés permiso», así que mejor no ofrecerla. Si una pantalla pide algo nuevo al cargar, sumarlo acá.
+    private bool Ve(params string[] permisos) => permisos.All(AuthState.HasPermission);
+    private bool VeProductos => Ve(Permisos.ProductosVer, Permisos.CategoriasVer, Permisos.UnidadesVer);
+    private bool VeMovimientos => Ve(Permisos.MovimientosVer, Permisos.ProductosVer, Permisos.UbicacionesVer, Permisos.CategoriasVer);
+    private bool VeCategorias => Ve(Permisos.CategoriasVer, Permisos.ProductosVer);
+    private bool VeAreas => Ve(Permisos.AreasVer, Permisos.SolicitudesVer);
+    private bool VeAlmacenes => Ve(Permisos.AlmacenesVer);
+    private bool VeUbicaciones => Ve(Permisos.UbicacionesVer, Permisos.MovimientosVer);
+    private bool VeUnidades => Ve(Permisos.UnidadesVer, Permisos.ProductosVer);
 
     private string ScreenTitle() => _path switch
     {

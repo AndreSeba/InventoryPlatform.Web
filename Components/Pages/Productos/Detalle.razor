@@ -312,7 +312,9 @@ else
         }
     }
 
-    private async Task Imprimir() => await JS.InvokeVoidAsync("print");
+    // window.print() bloquea el navegador mientras el diálogo de impresión está abierto; llamado directo, la llamada de JS
+    // interop vence (1 min) y lanza TaskCanceledException. imprimirPagina vuelve al instante y el diálogo se abre después.
+    private async Task Imprimir() => await JS.InvokeVoidAsync("imprimirPagina");
 
     // Ubicación(es) donde el producto tiene stock HOY — puede ser una sola o varias
     // (el mismo producto guardado en más de un rack); se listan todas, separadas por coma.

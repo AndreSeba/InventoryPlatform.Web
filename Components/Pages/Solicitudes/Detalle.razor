@@ -314,6 +314,8 @@ else
 
     private const int FilasMinimasTabla = 32;
 
-    private async Task Imprimir() => await JS.InvokeVoidAsync("print");
+    // window.print() bloquea el navegador mientras el diálogo de impresión está abierto; llamado directo, la llamada de JS
+    // interop vence (1 min) y lanza TaskCanceledException. imprimirPagina vuelve al instante y el diálogo se abre después.
+    private async Task Imprimir() => await JS.InvokeVoidAsync("imprimirPagina");
 
 }

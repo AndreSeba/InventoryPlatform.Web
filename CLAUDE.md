@@ -175,6 +175,12 @@ igual) + un gate de "¿hay sesión?" antes de mostrar cualquier página.
   backend**, llega acá por la referencia a `Inventory.Application` (que a su
   vez referencia `Inventory.Domain`). Si el backend agrega un permiso nuevo,
   este proyecto lo ve al recompilar, sin duplicar el código del permiso acá.
+- **Un enlace del menú solo aparece si la pantalla se puede usar COMPLETA** (2026-10-07): cada pantalla, además de su permiso «ver»,
+  pide datos de otros módulos al cargar (Áreas cuenta las solicitudes → `solicitudes.ver`; Ubicaciones los movimientos →
+  `movimientos.ver`; Categorías y Unidades los productos; Productos pide categorías y unidades; Movimientos pide productos,
+  ubicaciones y categorías). Si faltaba alguno la pantalla solo decía «No tenés permiso para hacer esto». `MainLayout` tiene un
+  `VeXxx` por enlace con esos permisos juntos. **Si una pantalla pasa a pedir algo nuevo al cargar, sumar el permiso ahí.** Con los roles
+  de hoy solo cambia el Solicitante (ve Productos, Mis solicitudes, Mis préstamos, Categorías y Unidades; ya no Áreas ni Ubicaciones).
 - **`/usuarios` y `/roles`** (nuevas, `Components/Pages/Usuarios/Index.razor`
   y `Components/Pages/Roles/Index.razor`) — gestión de usuarios (alta con
   contraseña inicial, editar nombre/rol/activo) y roles (alta/edición con

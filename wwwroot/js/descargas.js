@@ -23,3 +23,7 @@ window.crearUrlBlob = (contentType, base64) =>
     URL.createObjectURL(new Blob([base64ABytes(base64)], { type: contentType }));
 
 window.liberarUrlBlob = (url) => URL.revokeObjectURL(url);
+
+// Abre el diálogo de impresión SIN bloquear la llamada de Blazor: window.print() no vuelve hasta que se cierra el diálogo,
+// y si tarda más del tiempo de espera del circuito (1 min) la llamada falla con TaskCanceledException.
+window.imprimirPagina = () => { setTimeout(() => window.print(), 0); };
