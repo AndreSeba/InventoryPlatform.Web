@@ -620,8 +620,24 @@ input[type="file"] { max-width: 100%; }
 .printable-form-table th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; text-align: left; }
 .printable-form-motivo { border-top: 1px solid #000; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; min-height: 44px; }
 .printable-form-motivo .pf-label { font-weight: 600; white-space: nowrap; }
-.printable-form-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 24px 20px 12px; page-break-inside: avoid; break-inside: avoid; }
-.printable-form-firmas div { border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 10px; font-weight: 600; }
+.printable-form-firmas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; margin: 18px 20px 12px; page-break-inside: avoid; break-inside: avoid; }
+.pf-firma { display: flex; flex-direction: column; }
+.pf-firma-espacio { height: 64px; display: flex; align-items: flex-end; justify-content: center; }
+.pf-firma-img { max-height: 60px; max-width: 100%; object-fit: contain; }
+.pf-firma-linea { border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 10px; font-weight: 600; }
+.pf-firma-nombre { text-align: center; font-size: 9.5px; margin-top: 3px; min-height: 12px; }
+
+/* Mi perfil: recuadro de firma */
+.perfil-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.perfil-datos div { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.perfil-datos .text-muted { font-size: 12px; }
+.firma-pad-wrap { position: relative; max-width: 600px; }
+.firma-pad { display: block; width: 100%; aspect-ratio: 3 / 1; background: #fff; border: 1px dashed var(--color-neutral-400, #9ca3af); border-radius: var(--radius-md); touch-action: none; cursor: crosshair; }
+.firma-pad-hint { position: absolute; left: 12px; bottom: 8px; font-size: 11px; color: #9ca3af; pointer-events: none; }
+.firma-actual { max-width: 600px; background: #fff; border: 1px solid var(--color-divider); border-radius: var(--radius-md); padding: 10px; text-align: center; }
+.firma-actual img { max-width: 100%; max-height: 130px; }
+.rail-user-link { text-decoration: none; display: block; border-radius: var(--radius-md); }
+.rail-user-link:hover { background: var(--sidebar-active-bg, rgba(255,255,255,.08)); }
 
 /* ============================================================
    Responsive — tablet/celular. Un solo breakpoint (900px) para el
@@ -724,8 +740,11 @@ input[type="file"] { max-width: 100%; }
   .printable-form-row .pf-value { padding: 2mm 3mm; }
   .printable-form-table th, .printable-form-table td { font-size: 10pt; height: 6mm; padding: 0 2mm; }
   .printable-form-motivo { min-height: 14mm; padding: 3mm; }
-  .printable-form-firmas { margin: 8mm 6mm 4mm; gap: 20mm; }
-  .printable-form-firmas div { font-size: 9pt; padding-top: 2mm; }
+  .printable-form-firmas { margin: 6mm 6mm 4mm; gap: 10mm; }
+  .pf-firma-espacio { height: 14mm; }
+  .pf-firma-img { max-height: 13mm; }
+  .pf-firma-linea { font-size: 8.5pt; padding-top: 1.5mm; }
+  .pf-firma-nombre { font-size: 8pt; }
 }
 
 /* — Blazor circuit error banner (oculto salvo que Blazor lo active) — */

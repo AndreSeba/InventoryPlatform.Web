@@ -29,7 +29,7 @@ public static class AuditoriaLegible
         ["Producto"] = "Producto", ["Movimiento"] = "Movimiento", ["Solicitud"] = "Solicitud", ["SesionConteo"] = "Conteo físico",
         ["Usuario"] = "Usuario", ["Rol"] = "Rol", ["Categoria"] = "Categoría", ["Area"] = "Área", ["Ubicacion"] = "Ubicación",
         ["Unidad"] = "Unidad", ["Almacen"] = "Almacén", ["Pais"] = "País", ["AvisoDevolucion"] = "Aviso de devolución",
-        ["RevisionAcceso"] = "Revisión de accesos",
+        ["RevisionAcceso"] = "Revisión de accesos", ["FirmaUsuario"] = "Firma de usuario",
     };
 
     private static readonly Dictionary<string, string> Acciones = new()
@@ -58,7 +58,7 @@ public static class AuditoriaLegible
         ["ConteoOrigenId"] = "Conteo de origen", ["LineasConDiferencia"] = "Líneas con diferencia", ["Evidencias"] = "Archivos de evidencia",
         ["NombreArchivo"] = "Archivo", ["ContentType"] = "Tipo de archivo", ["TamanoBytes"] = "Tamaño", ["Alcance"] = "Alcance", ["Cuentas"] = "Cuentas",
         ["Mantener"] = "Mantener", ["Quitar"] = "Quitar acceso", ["CambiarRol"] = "Cambiar de rol", ["Decision"] = "Decisión",
-        ["RolNuevo"] = "Rol nuevo", ["Comentario"] = "Comentario", ["UsuarioEmail"] = "Cuenta",
+        ["RolNuevo"] = "Rol nuevo", ["Comentario"] = "Comentario", ["UsuarioEmail"] = "Cuenta", ["Tiene"] = "Tiene firma", ["Version"] = "Versión",
     };
 
     // Los campos de un renglón de una lista (líneas de solicitud, etc.)

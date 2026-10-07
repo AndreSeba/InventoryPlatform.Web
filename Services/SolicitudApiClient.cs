@@ -32,6 +32,15 @@ public class SolicitudApiClient
         return await respuesta.Content.ReadFromJsonAsync<List<SolicitudDto>>(cancellationToken: ct) ?? [];
     }
 
+    // Firmas manuscritas del formulario imprimible (null si no se pudieron pedir: el formulario sale igual, sin imagen).
+    public async Task<FirmasSolicitudDto?> ObtenerFirmasAsync(int id, CancellationToken ct = default)
+    {
+        var respuesta = await _http.GetAsync($"api/solicitudes/{id}/firmas", ct);
+        if (!respuesta.IsSuccessStatusCode)
+            return null;
+        return await respuesta.Content.ReadFromJsonAsync<FirmasSolicitudDto>(cancellationToken: ct);
+    }
+
     public async Task<SolicitudDto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
     {
         var respuesta = await _http.GetAsync($"api/solicitudes/{id}", ct);

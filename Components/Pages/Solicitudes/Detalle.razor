@@ -187,9 +187,34 @@ else
             <span>@(_solicitud.Estado == EstadoSolicitud.Rechazada ? _solicitud.MotivoRechazo : "")</span>
         </div>
 
+        @* Tres firmas: solicitante y quien autoriza con la firma guardada en su perfil (solo si realmente hicieron la
+           acción: el servidor no devuelve la de quien autoriza hasta que se aprueba); el proveedor firma a mano en papel. *@
         <div class="printable-form-firmas">
-            <div>NOMBRE Y FIRMA<br />PROVEEDOR/SOLICITANTE</div>
-            <div>FIRMA ALMACÉN</div>
+            <div class="pf-firma">
+                <div class="pf-firma-espacio">
+                    @if (_firmas?.SolicitantePngBase64 is { } fs)
+                    {
+                        <img class="pf-firma-img" src="data:image/png;base64,@fs" alt="Firma del solicitante" />
+                    }
+                </div>
+                <div class="pf-firma-linea">NOMBRE Y FIRMA<br />SOLICITANTE</div>
+                <div class="pf-firma-nombre">@_solicitud.SolicitadoPor@(string.IsNullOrEmpty(_firmas?.SolicitanteCargo) ? "" : " · " + _firmas!.SolicitanteCargo)</div>
+            </div>
+            <div class="pf-firma">
+                <div class="pf-firma-espacio"></div>
+                <div class="pf-firma-linea">NOMBRE, CI Y FIRMA<br />PROVEEDOR</div>
+                <div class="pf-firma-nombre">&nbsp;</div>
+            </div>
+            <div class="pf-firma">
+                <div class="pf-firma-espacio">
+                    @if (_firmas?.AutorizaPngBase64 is { } fa)
+                    {
+                        <img class="pf-firma-img" src="data:image/png;base64,@fa" alt="Firma de quien autoriza" />
+                    }
+                </div>
+                <div class="pf-firma-linea">AUTORIZA<br />FIRMA ALMACÉN</div>
+                <div class="pf-firma-nombre">@(_solicitud.AprobadoPor ?? "")@(string.IsNullOrEmpty(_firmas?.AutorizaCargo) ? "" : " · " + _firmas!.AutorizaCargo)</div>
+            </div>
         </div>
     </div>
     <button type="button" class="btn btn-primary no-print" style="margin-top:16px" @onclick="Imprimir">
@@ -210,11 +235,15 @@ else
 
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
+    private FirmasSolicitudDto? _firmas;
+
     private async Task CargarAsync()
     {
         try
         {
             _solicitud = await SolicitudApi.ObtenerPorIdAsync(Id);
+            // Las firmas manuscritas del formulario; si no se pueden pedir, el formulario sale igual, sin imagen.
+            _firmas = _solicitud is null ? null : await SolicitudApi.ObtenerFirmasAsync(Id);
             if (_solicitud is not null)
                 foreach (var d in _solicitud.Detalles)
                 {

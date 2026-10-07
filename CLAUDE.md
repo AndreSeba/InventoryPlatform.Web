@@ -411,6 +411,20 @@ catálogo de notificaciones en `InventoryPlatform/CLAUDE.md` («Notificaciones»
 funcional, el aviso de revisión vencida de Inicio no aparece y el enlace del menú queda con la insignia «Planificado»
 (`RailLink` tiene el parámetro opcional `Insignia`). Encender: `true` aquí y en la API (mismo nombre).
 
+## Mi perfil y firma manuscrita (2026-10-07)
+
+`/perfil` (`Components/Pages/Perfil/Index.razor`, `FirmaApiClient`): datos de la cuenta y el recuadro para dibujar la firma. Se abre
+desde el nombre del usuario al pie del menú lateral. Reglas del backend en `InventoryPlatform/CLAUDE.md` («Firma manuscrita por usuario»).
+
+- **El dibujo es JS** (`wwwroot/js/firma.js`, `window.firmaPad`): eventos de puntero (mouse/táctil/lápiz), lienzo interno de 900×300
+  que se ve más chico, exporta **recortado al trazo** como PNG transparente (`exportar` devuelve null si está vacío o es un punto).
+  Se inicia en `OnAfterRenderAsync` cuando aparece el `<canvas>` (cada vez que se muestra de nuevo hay que volver a iniciarlo: `_padListo`).
+- Guardar pide la contraseña; si es mala el servidor responde 400 con el mensaje y el dibujo se conserva.
+- **Formulario imprimible** (`Solicitudes/Detalle.razor`): tres firmas — solicitante (imagen), proveedor (recuadro vacío para firma a mano, con
+  nombre/CI) y «Autoriza / Firma almacén» (imagen, solo si la solicitud está aprobada). Las imágenes vienen de
+  `SolicitudApi.ObtenerFirmasAsync`; si no se pueden pedir el formulario sale igual sin imagen. El bloque de firmas ocupa más alto que
+  antes y la tabla (única zona `flex:1` del formulario de 250 mm) cede espacio: caben ~18 líneas reales por hoja en vez de ~21.
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

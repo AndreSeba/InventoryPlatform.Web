@@ -94,10 +94,10 @@
             }
 
             <div class="rail-footer">
-                <div class="rail-user">
+                <a class="rail-user rail-user-link" href="/perfil" title="Mi perfil y mi firma">
                     <span class="rail-user-name">@AuthState.NombreCompleto</span>
-                    <span class="rail-user-role">@AuthState.RolNombre</span>
-                </div>
+                    <span class="rail-user-role">@AuthState.RolNombre · Mi perfil</span>
+                </a>
                 @* POST HTTP normal, no @onclick — /logout-cookie necesita borrar el
                    Set-Cookie de verdad, algo que un circuito ya interactivo no puede
                    hacer (ver Program.cs y el mismo comentario en Home.razor). *@
@@ -196,6 +196,7 @@
         var p when p.StartsWith("/roles") => "Roles",
         var p when p.StartsWith("/paises") => "Países",
         var p when p.StartsWith("/auditoria") => "Auditoría",
+        var p when p.StartsWith("/perfil") => "Mi perfil",
         var p when p.StartsWith("/accesos") => "Revisión de accesos",
         _ => "Inicio",
     };

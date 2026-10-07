@@ -1,0 +1,161 @@
+@page "/perfil"
+@inject FirmaApiClient FirmaApi
+@inject AuthState AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Mi perfil</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Mi perfil</h1>
+        <p class="text-muted" style="margin-top:-6px">Tu cuenta y tu firma. La firma se estampa en los formularios de solicitud que pediste o autorizaste.</p>
+    </div>
+</div>
+
+<div class="card elev-sm" style="padding:20px;max-width:720px;margin-bottom:18px">
+    <div class="perfil-datos">
+        <div><span class="text-muted">Nombre</span><strong>@AuthState.NombreCompleto</strong></div>
+        <div><span class="text-muted">Rol</span><strong>@AuthState.RolNombre</strong></div>
+        <div><span class="text-muted">País</span><strong>@AuthState.PaisNombre</strong></div>
+    </div>
+</div>
+
+<div class="card elev-sm" style="padding:20px;max-width:720px">
+    <h3 style="margin:0 0 4px">Mi firma</h3>
+    <p class="text-muted" style="margin:0 0 14px;font-size:13px">
+        Dibujala con el mouse (o con el dedo en una tablet). Queda guardada en tu usuario y se estampa sola en el formulario
+        impreso cuando pedís una solicitud o la autorizás. Nadie más puede cambiarla: guardarla pide tu contraseña.
+    </p>
+
+    @if (_error is not null) { <p class="dialog-error">@_error</p> }
+    @if (_ok is not null) { <p style="color:var(--color-accent-700);font-size:13px">@_ok</p> }
+
+    @if (_cargando)
+    {
+        <p>Cargando…</p>
+    }
+    else
+    {
+        @if (_actual is { Tiene: true } && !_editando)
+        {
+            <div class="firma-actual">
+                <img src="data:image/png;base64,@_actual.PngBase64" alt="Tu firma" />
+            </div>
+            <p class="text-muted" style="font-size:12.5px;margin:6px 0 14px">Registrada el @(_actual.FechaRegistro?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button type="button" class="btn btn-secondary" @onclick="Redibujar">Dibujar de nuevo</button>
+                <button type="button" class="btn btn-ghost" style="color:#b42318" @onclick="EliminarAsync" disabled="@_guardando">Quitar mi firma</button>
+            </div>
+        }
+        else
+        {
+            <div class="firma-pad-wrap">
+                <canvas @ref="_canvas" class="firma-pad" aria-label="Recuadro para dibujar la firma"></canvas>
+                <span class="firma-pad-hint">Firmá acá</span>
+            </div>
+            <div class="field" style="max-width:300px;margin-top:14px">
+                <label for="fp-pass">Tu contraseña (para confirmar)</label>
+                <input class="input" id="fp-pass" type="password" autocomplete="current-password" @bind="_password" @bind:event="oninput" />
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+                <button type="button" class="btn btn-primary" @onclick="GuardarAsync" disabled="@(_guardando || string.IsNullOrEmpty(_password))">Guardar firma</button>
+                <button type="button" class="btn btn-secondary" @onclick="LimpiarAsync" disabled="@_guardando">Borrar y repetir</button>
+                @if (_actual is { Tiene: true })
+                {
+                    <button type="button" class="btn btn-ghost" @onclick="Cancelar" disabled="@_guardando">Cancelar</button>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private FirmaPropiaDto? _actual;
+    private ElementReference _canvas;
+    private bool _cargando = true;
+    private bool _editando;
+    private bool _guardando;
+    private bool _padListo;
+    private string _password = "";
+    private string? _error;
+    private string? _ok;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Sin sesión en el prerender (el circuito aún no tiene token): se carga en OnAfterRender.
+        await Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { _actual = await FirmaApi.ObtenerAsync(); }
+            catch (ApiException ex) { _error = ex.Message; }
+            _cargando = false;
+            _editando = _actual is not { Tiene: true };
+            StateHasChanged();
+            return;
+        }
+        // El recuadro existe solo mientras se está dibujando; se (re)inicia cada vez que aparece.
+        if (!_cargando && (_editando || _actual is not { Tiene: true }) && !_padListo)
+        {
+            await JS.InvokeVoidAsync("firmaPad.iniciar", _canvas);
+            _padListo = true;
+        }
+    }
+
+    private void Redibujar()
+    {
+        _ok = null; _error = null; _password = ""; _padListo = false;
+        _editando = true;
+    }
+
+    private void Cancelar()
+    {
+        _error = null; _password = ""; _padListo = false;
+        _editando = false;
+    }
+
+    private async Task LimpiarAsync()
+    {
+        _error = null;
+        await JS.InvokeVoidAsync("firmaPad.limpiar", _canvas);
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_guardando) return;
+        _error = null; _ok = null;
+        var png = await JS.InvokeAsync<string?>("firmaPad.exportar", _canvas);
+        if (png is null)
+        {
+            _error = "Dibujá tu firma en el recuadro antes de guardar (el trazo es muy corto o está vacío).";
+            return;
+        }
+        _guardando = true;
+        try
+        {
+            _actual = await FirmaApi.GuardarAsync(new GuardarFirmaDto(png, _password));
+            _password = ""; _padListo = false; _editando = false;
+            _ok = "Firma guardada. Ya se estampa en tus formularios.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (_guardando) return;
+        _guardando = true; _error = null; _ok = null;
+        try
+        {
+            await FirmaApi.EliminarAsync();
+            _actual = new FirmaPropiaDto(false, null, null);
+            _padListo = false; _editando = true;
+            _ok = "Quitaste tu firma. Los formularios ya firmados conservan la que se usó.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _guardando = false; }
+    }
+}

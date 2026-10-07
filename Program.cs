@@ -59,6 +59,7 @@ builder.Services.AddHttpClient<InicioApiClient>(client => client.BaseAddress = n
 builder.Services.AddHttpClient<RevisionAccesoApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<DevolucionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<NotificacionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<FirmaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.Configure<FuncionesOptions>(builder.Configuration.GetSection(FuncionesOptions.SectionName));
 
 var app = builder.Build();
