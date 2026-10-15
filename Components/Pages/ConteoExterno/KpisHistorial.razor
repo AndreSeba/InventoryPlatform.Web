@@ -1,0 +1,69 @@
+@page "/conteo-externo/kpis"
+@inject ConteoExternoSesionApiClient SesionApi
+@inject NavigationManager Nav
+
+<PageTitle>KPIs — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>KPIs — Historial multi-sesión</h1>
+        <p class="text-muted" style="margin-top:-6px">Exactitud e IRA de cada sesión, para comparar en el tiempo.</p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_historial is null)
+{
+    <p>Cargando…</p>
+}
+else if (_historial.Count == 0)
+{
+    <p class="text-muted" style="margin-top:16px">Todavía no hay sesiones de conteo.</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:16px">
+        <table class="table">
+            <thead><tr><th>Sesión</th><th>Estado</th><th>Fecha</th><th>IRA lote</th><th>IRA código</th><th>Exactitud valor</th><th>Dif. neta (Bs)</th><th>Sin contar</th></tr></thead>
+            <tbody>
+                @foreach (var k in _historial)
+                {
+                    <tr style="cursor:pointer" @onclick="() => Ir(k.SesionId)">
+                        <td>@k.SesionNombre</td>
+                        <td><span class="tag @(k.Estado == EstadoConteoExternoSesion.Cerrada ? "tag-neutral" : "tag-accent")">@(k.Estado == EstadoConteoExternoSesion.Cerrada ? "Cerrada" : "En curso")</span></td>
+                        <td class="text-muted">@(k.FechaCierre ?? k.CreadoEn).ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td>@(k.IraLotes?.ToString("P1") ?? "—")</td>
+                        <td>@(k.IraCodigos?.ToString("P1") ?? "—")</td>
+                        <td>@(k.ExactitudValor?.ToString("P1") ?? "—")</td>
+                        <td>@k.DiferenciaNetaBob.ToString("0.00")</td>
+                        <td class="text-muted">@k.SinContar</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<ConteoExternoSesionKpiDto>? _historial;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _historial = await SesionApi.ObtenerHistorialKpisAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _historial = [];
+        }
+    }
+
+    private void Ir(int sesionId) => Nav.NavigateTo($"/conteo-externo/sesiones/{sesionId}");
+}

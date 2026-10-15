@@ -1,0 +1,277 @@
+@page "/conteo-externo/sesiones/{Id:int}"
+@inject ConteoExternoSesionApiClient SesionApi
+@inject NavigationManager Nav
+@inject AuthState AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Sesión de conteo — Conteo Externo</PageTitle>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_sesion is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="page-head">
+        <div>
+            <h1>@_sesion.Nombre</h1>
+            <p class="text-muted" style="margin-top:-6px">
+                <span class="tag @(_sesion.Estado == EstadoConteoExternoSesion.Cerrada ? "tag-neutral" : "tag-accent")">@(_sesion.Estado == EstadoConteoExternoSesion.Cerrada ? "Cerrada" : "En curso")</span>
+                &nbsp;Creada por @_sesion.CreadoPorNombre el @_sesion.CreadoEn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                @if (_sesion.Estado == EstadoConteoExternoSesion.Cerrada)
+                {
+                    <text> · Cerrada por @_sesion.CerradoPorNombre el @_sesion.FechaCierre?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</text>
+                }
+            </p>
+        </div>
+        <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-secondary" disabled="@_descargando" @onclick="DescargarExcel"><Icon Name="download" Size="16" />@(_descargando ? "Generando…" : "Descargar KPIs (Excel)")</button>
+            @if (_sesion.Estado == EstadoConteoExternoSesion.EnCurso && AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+            {
+                <button type="button" class="btn btn-primary" disabled="@_cerrando" @onclick="Cerrar">@(_cerrando ? "Cerrando…" : "Cerrar sesión")</button>
+            }
+        </div>
+    </div>
+
+    @if (_cerrarError is not null)
+    {
+        <p class="dialog-error">@_cerrarError</p>
+    }
+
+    @if (_kpis is not null)
+    {
+        <div class="card" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
+            <div><div class="text-muted" style="font-size:12px">IRA por lote</div><div style="font-size:20px;font-weight:600">@(_kpis.IraLotes?.ToString("P1") ?? "—")</div></div>
+            <div><div class="text-muted" style="font-size:12px">IRA por código</div><div style="font-size:20px;font-weight:600">@(_kpis.IraCodigos?.ToString("P1") ?? "—")</div></div>
+            <div><div class="text-muted" style="font-size:12px">Valor del inventario (Bs)</div><div style="font-size:20px;font-weight:600">@_kpis.ValorInventario.ToString("0.00")</div></div>
+            <div><div class="text-muted" style="font-size:12px">Diferencia neta (Bs)</div><div style="font-size:20px;font-weight:600">@_kpis.DiferenciaNetaBob.ToString("0.00")</div></div>
+            <div><div class="text-muted" style="font-size:12px">Exactitud de valor</div><div style="font-size:20px;font-weight:600">@(_kpis.ExactitudValor?.ToString("P1") ?? "—")</div></div>
+            <div><div class="text-muted" style="font-size:12px">Sin contar</div><div style="font-size:20px;font-weight:600">@_kpis.SinContar</div></div>
+        </div>
+    }
+
+    <div class="table-wrap" style="margin-top:16px">
+        <table class="table">
+            <thead><tr><th>Producto</th><th>Almacén</th><th>Lote</th><th>Existencia</th><th>Contado</th><th>Diferencia</th><th>Dif. valor (Bs)</th><th>Observación</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var l in _sesion.Lineas)
+                {
+                    <tr>
+                        <td>@l.ProductoCodigo <span class="text-muted">— @l.ProductoNombre</span></td>
+                        <td class="text-muted" title="@l.AlmacenCodigo">@l.AlmacenNombre</td>
+                        <td class="text-muted">@(l.Lote ?? "—")</td>
+                        <td>@l.ExistenciaSistema @l.UnidadCodigo</td>
+                        <td>@(l.TotalContado?.ToString() ?? "Sin contar")</td>
+                        <td class="@ClaseDiferencia(l.Diferencia)">@(l.Diferencia?.ToString("0.####") ?? "—")</td>
+                        <td class="@ClaseDiferencia(l.Diferencia)">@(l.DiferenciaValor?.ToString("0.00") ?? "—")</td>
+                        <td class="text-muted">@(l.Observacion ?? "—")</td>
+                        <td>
+                            @if (_sesion.Estado == EstadoConteoExternoSesion.EnCurso && AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            {
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Contar" @onclick="() => AbrirConteo(l)"><Icon Name="edit" Size="16" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="CerrarDialogoConteo" Visible="_dialogOpen" Title="@($"Conteo — {_lineaActual?.ProductoCodigo}")">
+    <Body>
+        @if (_lineaActual is not null)
+        {
+            <div class="field">
+                <label for="cec-nro">Número de conteo</label>
+                <select class="input" id="cec-nro" @bind="_numeroConteo">
+                    @for (var n = 1; n <= 4; n++)
+                    {
+                        <option value="@n">Conteo @n@(n == _lineaActual.ConteoVigente ? " (vigente)" : "")</option>
+                    }
+                </select>
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Vale el número más alto que tenga algo cargado — los anteriores quedan de respaldo, no se suman.
+                </p>
+            </div>
+            @foreach (var (fila, i) in _filas.Select((f, i) => (f, i)))
+            {
+                <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+                    <div class="field" style="flex:1;margin-bottom:0">
+                        @if (i == 0)
+                        {
+                            <label>Ubicación</label>
+                        }
+                        <input class="input" @bind="fila.Ubicacion" placeholder="UB1" />
+                    </div>
+                    <div class="field" style="width:140px;margin-bottom:0">
+                        @if (i == 0)
+                        {
+                            <label>Cantidad</label>
+                        }
+                        <input class="input" type="number" step="any" @bind="fila.Cantidad" />
+                    </div>
+                    <button type="button" class="btn btn-icon-outline" title="Quitar" @onclick="() => _filas.Remove(fila)"><Icon Name="x" Size="14" /></button>
+                </div>
+            }
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _filas.Add(new FilaConteo())">+ Agregar ubicación</button>
+
+            <div class="field" style="margin-top:16px">
+                <label for="cec-obs">Observación (opcional)</label>
+                <input class="input" id="cec-obs" @bind="_observacion" maxlength="200" />
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarDialogoConteo">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="GuardarConteo">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ConteoExternoSesionDetalleDto? _sesion;
+    private ConteoExternoSesionKpiDto? _kpis;
+    private string? _error;
+    private bool _cerrando;
+    private string? _cerrarError;
+    private bool _descargando;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private ConteoExternoLineaDto? _lineaActual;
+    private int _numeroConteo = 1;
+    private string _observacion = "";
+    private List<FilaConteo> _filas = [];
+
+    private class FilaConteo
+    {
+        public string Ubicacion { get; set; } = "";
+        public decimal? Cantidad { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _sesion = await SesionApi.ObtenerAsync(Id);
+            _kpis = await SesionApi.ObtenerKpisAsync(Id);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DescargarExcel()
+    {
+        if (_descargando) return;
+        _descargando = true;
+        try
+        {
+            var (contenido, nombre) = await SesionApi.DescargarKpisExcelAsync(Id);
+            await JS.InvokeVoidAsync("descargarArchivo", nombre, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(contenido));
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+
+    private static string ClaseDiferencia(decimal? diferencia) => diferencia switch
+    {
+        null => "text-muted",
+        0 => "text-muted",
+        var d when d > 0 => "tag-accent",
+        _ => "",
+    };
+
+    private void AbrirConteo(ConteoExternoLineaDto linea)
+    {
+        _lineaActual = linea;
+        _numeroConteo = linea.ConteoVigente ?? 1;
+        _observacion = linea.Observacion ?? "";
+        _filas = linea.Registros.Count > 0
+            ? linea.Registros.Select(r => new FilaConteo { Ubicacion = r.Ubicacion, Cantidad = r.Cantidad }).ToList()
+            : [new FilaConteo()];
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void CerrarDialogoConteo()
+    {
+        _dialogOpen = false;
+        _dialogError = null;
+    }
+
+    private async Task GuardarConteo()
+    {
+        if (_guardando || _lineaActual is null) return;
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            // Indexador, no ToDictionary: dos filas con la misma ubicación (p. ej. ambas en
+            // blanco) no deben tirar una excepción del lado del cliente — la última gana.
+            var cantidades = new Dictionary<string, decimal?>();
+            foreach (var fila in _filas.Where(f => !string.IsNullOrWhiteSpace(f.Ubicacion) || f.Cantidad is not null))
+                cantidades[fila.Ubicacion] = fila.Cantidad;
+
+            await SesionApi.RegistrarConteoAsync(_lineaActual.Id, _numeroConteo, new RegistrarConteoExternoDto(cantidades));
+
+            if (_observacion != (_lineaActual.Observacion ?? ""))
+                await SesionApi.ActualizarObservacionAsync(_lineaActual.Id, new ActualizarObservacionConteoExternoDto(string.IsNullOrWhiteSpace(_observacion) ? null : _observacion));
+
+            CerrarDialogoConteo();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task Cerrar()
+    {
+        if (_cerrando) return;
+        _cerrando = true;
+        _cerrarError = null;
+
+        try
+        {
+            await SesionApi.CerrarAsync(Id);
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _cerrarError = ex.Message;
+        }
+        finally
+        {
+            _cerrando = false;
+        }
+    }
+}

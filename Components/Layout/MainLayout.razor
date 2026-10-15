@@ -99,6 +99,8 @@
                 <RailLink Href="/conteo-externo/catalogo" IconName="package" Label="Catálogo" CurrentPath="@_path" />
                 <RailLink Href="/conteo-externo/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
                 <RailLink Href="/conteo-externo/existencias" IconName="box" Label="Existencias" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/sesiones" IconName="check-list" Label="Sesiones de conteo" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/kpis" IconName="history" Label="KPIs" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -221,6 +223,8 @@
         var p when p.StartsWith("/conteo-externo/catalogo") => "Catálogo (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/unidades") => "Unidades (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/existencias") => "Existencias (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/sesiones") => "Sesiones de conteo (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/kpis") => "KPIs (Conteo Externo)",
         _ => "Inicio",
     };
 

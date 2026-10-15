@@ -1,0 +1,168 @@
+@page "/conteo-externo/sesiones"
+@inject ConteoExternoSesionApiClient SesionApi
+@inject ConteoExternoProductoApiClient ProductoApi
+@inject NavigationManager Nav
+@inject AuthState AuthState
+
+<PageTitle>Sesiones de conteo — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Sesiones de conteo (Conteo Externo)</h1>
+        <p class="text-muted" style="margin-top:-6px">Cada sesión congela las existencias que coincidan con el filtro al momento de crearla.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva sesión</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_sesiones is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:16px">
+        <table class="table">
+            <thead><tr><th>Nombre</th><th>Estado</th><th>Líneas</th><th>Creada por</th><th>Creada</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var s in _sesiones)
+                {
+                    <tr style="cursor:pointer" @onclick="() => Ir(s.Id)">
+                        <td>@s.Nombre</td>
+                        <td><span class="tag @(s.Estado == EstadoConteoExternoSesion.Cerrada ? "tag-neutral" : "tag-accent")">@(s.Estado == EstadoConteoExternoSesion.Cerrada ? "Cerrada" : "En curso")</span></td>
+                        <td class="text-muted">@s.LineasContadas / @s.TotalLineas</td>
+                        <td class="text-muted">@s.CreadoPorNombre</td>
+                        <td class="text-muted">@s.CreadoEn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td><button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Abrir" @onclick="() => Ir(s.Id)" @onclick:stopPropagation="true"><Icon Name="check-list" Size="16" /></button></td>
+                    </tr>
+                }
+                @if (_sesiones.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-muted">Todavía no hay sesiones de conteo.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="Nueva sesión de conteo">
+    <Body>
+        <div class="field">
+            <label for="cesf-nom">Nombre</label>
+            <input class="input" id="cesf-nom" @bind="_nombre" placeholder="Conteo mensual Octubre" />
+        </div>
+        <div class="field">
+            <label for="cesf-fam">Familia (opcional)</label>
+            <select class="input" id="cesf-fam" @bind="_familia">
+                <option value="">Todas</option>
+                @foreach (var f in _familias ?? [])
+                {
+                    <option value="@f">@f</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="cesf-alm">Almacén (opcional)</label>
+            <input class="input" id="cesf-alm" @bind="_almacenCodigo" placeholder="Código de almacén…" />
+        </div>
+        <p class="text-muted" style="font-size:12px">
+            La sesión toma TODAS las existencias activas que coincidan con estos filtros (sin filtrar nada, toma todo el catálogo). Tiene que haber al menos una.
+        </p>
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Creando…" : "Crear sesión")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ConteoExternoSesionResumenDto>? _sesiones;
+    private List<string>? _familias;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private string _nombre = "";
+    private string _familia = "";
+    private string _almacenCodigo = "";
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _sesiones = await SesionApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _sesiones = [];
+        }
+    }
+
+    private void Ir(int id) => Nav.NavigateTo($"/conteo-externo/sesiones/{id}");
+
+    private async void AbrirNueva()
+    {
+        _nombre = "";
+        _familia = "";
+        _almacenCodigo = "";
+        _dialogError = null;
+        try
+        {
+            _familias = await ProductoApi.ListarFamiliasAsync();
+        }
+        catch (ApiException)
+        {
+            _familias = [];
+        }
+        _dialogOpen = true;
+        StateHasChanged();
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingrese un nombre."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            var creada = await SesionApi.CrearAsync(new CrearConteoExternoSesionDto(
+                _nombre,
+                string.IsNullOrWhiteSpace(_familia) ? null : _familia,
+                string.IsNullOrWhiteSpace(_almacenCodigo) ? null : _almacenCodigo));
+            Cerrar();
+            Ir(creada.Id);
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

@@ -457,6 +457,37 @@ de conteo físico totalmente independiente del resto del sistema, ver el detalle
   backend la rechaza con 409).
 - **Sin verificar por compilación todavía** (sin SDK de .NET en el entorno donde se escribió).
 
+### Sesiones de conteo y KPIs (Fases 3+4, `ConteoExternoSesionApiClient`)
+
+`/conteo-externo/sesiones`, `/conteo-externo/sesiones/{id}` y `/conteo-externo/kpis`. Reglas del
+lado del backend (conteo vigente, costo congelado al crear la sesión, IRA por lote/código) en
+`InventoryPlatform/CLAUDE.md`.
+
+- **La selección de la sesión es por criterio (Familia/Almacén), al revés que `/conteos`**: acá
+  "todas las existencias que coincidan" es el flujo normal (viene de una herramienta de conteo
+  masivo por almacén completo), no un conjunto elegido producto por producto como en el conteo
+  físico general. Sin filtro, toma todo el catálogo activo.
+- **Diálogo "Contar"** (`SesionDetalle.razor`): selector de número de conteo (1 a 4, marca cuál es
+  el "vigente" actual) + filas dinámicas de ubicación/cantidad. **Mismo cuidado que el conteo
+  físico general al armar el diccionario a mandar**: se usa un indexador en un loop
+  (`cantidades[fila.Ubicacion] = fila.Cantidad`), nunca `.ToDictionary(...)` — dos filas con la
+  misma ubicación (típicamente ambas en blanco, apenas agregadas) tiran `ArgumentException` con
+  `.ToDictionary` y rompen el diálogo del lado del cliente antes de llegar a la API.
+  `RegistrarConteoAsync` reemplaza TODAS las filas de ese número de conteo: guardar con menos
+  ubicaciones que antes borra las que ya no están, a propósito (la grilla manda su estado
+  completo, no un alta incremental).
+- **Panel de KPIs** arriba de la tabla de líneas (IRA por lote, IRA por código, valor del
+  inventario, diferencia neta en Bs, exactitud de valor, líneas sin contar) — mismos nombres que
+  usa el backend, sin traducir a otra terminología.
+- **Descarga de Excel** (`DescargarKpisExcelAsync` + `JS.InvokeVoidAsync("descargarArchivo", ...)`)
+  reusa el mismo helper `wwwroot/js/descargas.js` que ya usan la evidencia del conteo físico
+  general y el acta de revisión de accesos — no se agregó JS nuevo para esto.
+- **`/conteo-externo/kpis`** (`KpisHistorial.razor`): compara los KPIs de todas las sesiones
+  (cerradas y en curso), cada fila navega al detalle de esa sesión.
+- Rail: `check-list` (Sesiones de conteo) y `history` (KPIs), mismos íconos que ya usan `/conteos`
+  y `/auditoria` respectivamente — no se agregó ningún ícono nuevo a `Icon.razor` para esta fase.
+- **Sin verificar por compilación todavía.**
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por
