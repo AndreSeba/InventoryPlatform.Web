@@ -1,0 +1,175 @@
+@page "/conteo-externo/almacenes"
+@inject ConteoExternoAlmacenApiClient AlmacenApi
+@inject AuthState AuthState
+
+<PageTitle>Almacenes — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Almacenes (Conteo Externo)</h1>
+        <p class="text-muted" style="margin-top:-6px">Solo le pone un nombre legible al código de almacén que ya usan las existencias — el código sigue siendo la identidad real.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNuevo">+ Nuevo almacén</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_almacenes is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Nombre</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var a in _almacenes)
+                {
+                    <tr>
+                        <td>@a.Codigo</td>
+                        <td class="text-muted">@a.Nombre</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            {
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(a)"><Icon Name="edit" Size="16" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo almacén" : "Editar almacén")">
+    <Body>
+        <div class="field">
+            <label for="ceaf-cod">Código</label>
+            @if (_editandoId is null)
+            {
+                <input class="input" id="ceaf-cod" @bind="_codigo" placeholder="ALM01" maxlength="30" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Tiene que ser el mismo código que ya aparece en las existencias. No se puede cambiar después.
+                </p>
+            }
+            else
+            {
+                <input class="input" id="ceaf-cod" value="@_codigo" disabled />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    El código no se puede cambiar. Si está mal, destildá «Activo» y creá un almacén nuevo.
+                </p>
+            }
+        </div>
+        <div class="field">
+            <label for="ceaf-nom">Nombre</label>
+            <input class="input" id="ceaf-nom" @bind="_nombre" maxlength="150" placeholder="Depósito central" />
+        </div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activo (destildar para eliminarlo)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ConteoExternoAlmacenDto>? _almacenes;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _codigo = "";
+    private string _nombre = "";
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _almacenes = await AlmacenApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _almacenes = [];
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _nombre = "";
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(ConteoExternoAlmacenDto a)
+    {
+        _editandoId = a.Id;
+        _codigo = a.Codigo;
+        _nombre = a.Nombre;
+        _activo = a.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingrese un código."; return; }
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingrese un nombre."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await AlmacenApi.CrearAsync(new CrearConteoExternoAlmacenDto(_codigo, _nombre));
+            else
+                await AlmacenApi.ActualizarAsync(_editandoId.Value, new ActualizarConteoExternoAlmacenDto(_nombre, _activo));
+
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

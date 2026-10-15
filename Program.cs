@@ -70,6 +70,7 @@ builder.Services.AddHttpClient<ConteoExternoProductoApiClient>(client => client.
 builder.Services.AddHttpClient<ConteoExternoExistenciaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<ConteoExternoSesionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<ConteoExternoImportacionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<ConteoExternoAlmacenApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.Configure<FuncionesOptions>(builder.Configuration.GetSection(FuncionesOptions.SectionName));
 
 var app = builder.Build();

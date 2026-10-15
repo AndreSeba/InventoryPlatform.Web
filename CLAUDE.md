@@ -514,6 +514,21 @@ abortar toda la importación, detección de códigos nuevos, unidad/costo que nu
   "error", solo el resumen con lo que se aplicó y lo que no.
 - **Sin verificar por compilación todavía.**
 
+### Nombres de almacén (Fase 6, `ConteoExternoAlmacenApiClient`) — módulo completo
+
+`/conteo-externo/almacenes`, mismo patrón visual que `/conteo-externo/unidades` (tabla + diálogo,
+código deshabilitado al editar, "eliminar" = destildar «Activo»). Reglas del backend en
+`InventoryPlatform/CLAUDE.md`.
+
+- **Solo le pone nombre a un código que ya existe en otro lado** — el campo "Almacén" del alta de
+  `/conteo-externo/existencias` sigue siendo texto libre (no se convirtió en un `<select>` contra
+  este catálogo): un error de tipeo ahí no lo frena el sistema, se nota cuando el nombre no
+  aparece en las tablas que ya resuelven el nombre por código (Existencias, Sesiones).
+- Con esta fase se completan las 6 fases planificadas del módulo — ver el resumen de las 6 en
+  `InventoryPlatform/CLAUDE.md`. Falta generar y aplicar las migraciones del backend, y probar
+  todo de punta a punta (no se pudo compilar en el entorno donde se escribió).
+- **Sin verificar por compilación todavía.**
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por
