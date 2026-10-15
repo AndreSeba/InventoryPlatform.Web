@@ -488,6 +488,32 @@ lado del backend (conteo vigente, costo congelado al crear la sesión, IRA por l
   y `/auditoria` respectivamente — no se agregó ningún ícono nuevo a `Icon.razor` para esta fase.
 - **Sin verificar por compilación todavía.**
 
+### Importación desde Excel externo (Fase 5, `ConteoExternoImportacionApiClient`)
+
+`/conteo-externo/importar`. Reglas del lado del backend (vista previa + mapeo, fila por fila sin
+abortar toda la importación, detección de códigos nuevos, unidad/costo que nunca se pisan) en
+`InventoryPlatform/CLAUDE.md`.
+
+- **Dos pasos, mismo archivo mandado dos veces**: subir el Excel (`ZonaArchivo`, reusado tal cual)
+  dispara `VistaPreviaAsync` y muestra encabezados + unas filas de muestra; recién ahí aparecen
+  los `<select>` de mapeo (uno por campo: Código/Nombre/Familia/Almacén/Lote/Cantidad/Unidad/
+  Costo) y el botón "Confirmar importación" vuelve a leer el mismo `IBrowserFile` con
+  `OpenReadStream` (se guarda la referencia al archivo, no los bytes, entre los dos pasos) y llama
+  `ConfirmarAsync`.
+- **El mapeo se manda como campos de formulario, no como JSON** (`mapeo.ColCodigo`,
+  `mapeo.ColAlmacen`, etc., dentro del mismo `MultipartFormDataContent` que el archivo) — así los
+  bindea el `[FromForm] MapeoColumnasConteoExternoDto mapeo` del controller junto al `IFormFile`.
+  Si se cambia esta pantalla, mantener ese prefijo `mapeo.` en los nombres de campo.
+- **`0` significa "sin elegir columna"** en los `<select>` (`_colCodigo`, `_colAlmacen`, etc.) —
+  nunca una columna real (las columnas del mapeo son 1-based, igual que el Excel). El botón de
+  confirmar queda deshabilitado mientras Código/Almacén/Cantidad sigan en `0`. Nombre/Familia/
+  Lote/Unidad/Costo son opcionales — esos campos sí pueden quedar en `0` ("No aplica") y se
+  mandan como `null`.
+- **El resultado muestra los 4 contadores + la lista de advertencias** (una por fila omitida o con
+  algo raro) — la importación nunca falla entera por una fila mala, así que no hay una pantalla de
+  "error", solo el resumen con lo que se aplicó y lo que no.
+- **Sin verificar por compilación todavía.**
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

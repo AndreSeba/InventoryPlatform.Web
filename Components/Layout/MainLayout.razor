@@ -101,6 +101,7 @@
                 <RailLink Href="/conteo-externo/existencias" IconName="box" Label="Existencias" CurrentPath="@_path" />
                 <RailLink Href="/conteo-externo/sesiones" IconName="check-list" Label="Sesiones de conteo" CurrentPath="@_path" />
                 <RailLink Href="/conteo-externo/kpis" IconName="history" Label="KPIs" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/importar" IconName="upload-cloud" Label="Importar Excel" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -225,6 +226,7 @@
         var p when p.StartsWith("/conteo-externo/existencias") => "Existencias (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/sesiones") => "Sesiones de conteo (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/kpis") => "KPIs (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/importar") => "Importar desde Excel (Conteo Externo)",
         _ => "Inicio",
     };
 

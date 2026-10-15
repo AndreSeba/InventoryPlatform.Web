@@ -1,0 +1,224 @@
+@page "/conteo-externo/importar"
+@inject ConteoExternoImportacionApiClient ImportacionApi
+
+<PageTitle>Importar desde Excel — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Importar existencias desde Excel</h1>
+        <p class="text-muted" style="margin-top:-6px">
+            Para el Excel de un sistema externo, con sus propias columnas — elegí el archivo y después decidí qué columna es cada cosa.
+        </p>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+<div class="card" style="margin-top:16px">
+    <ZonaArchivo Titulo="Subir Excel" Accept=".xlsx" Ayuda="Máx. 10 MB. Primero se muestra una vista previa para mapear las columnas." Procesando="_cargandoVistaPrevia" OnChange="CargarVistaPreviaAsync" />
+</div>
+
+@if (_vistaPrevia is not null)
+{
+    <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Vista previa (@_vistaPrevia.TotalFilas fila(s) de datos en el archivo)</h3>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        @for (var c = 0; c < _vistaPrevia.Encabezados.Count; c++)
+                        {
+                            <th>Col. @(c + 1)<br /><span class="text-muted">@_vistaPrevia.Encabezados[c]</span></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var fila in _vistaPrevia.Filas)
+                    {
+                        <tr>
+                            @foreach (var celda in fila)
+                            {
+                                <td class="text-muted">@celda</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Mapeo de columnas</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+            <div class="field">
+                <label>Código de producto (obligatorio)</label>
+                <select class="input" @bind="_colCodigo">@ColumnOptions()</select>
+            </div>
+            <div class="field">
+                <label>Nombre (solo si se crean productos nuevos)</label>
+                <select class="input" @bind="_colNombre">@ColumnOptionsOpcional()</select>
+            </div>
+            <div class="field">
+                <label>Familia (opcional)</label>
+                <select class="input" @bind="_colFamilia">@ColumnOptionsOpcional()</select>
+            </div>
+            <div class="field">
+                <label>Almacén (obligatorio)</label>
+                <select class="input" @bind="_colAlmacen">@ColumnOptions()</select>
+            </div>
+            <div class="field">
+                <label>Lote (opcional)</label>
+                <select class="input" @bind="_colLote">@ColumnOptionsOpcional()</select>
+            </div>
+            <div class="field">
+                <label>Cantidad (obligatorio)</label>
+                <select class="input" @bind="_colCantidad">@ColumnOptions()</select>
+            </div>
+            <div class="field">
+                <label>Unidad (solo hace falta para fijarla la primera vez)</label>
+                <select class="input" @bind="_colUnidad">@ColumnOptionsOpcional()</select>
+            </div>
+            <div class="field">
+                <label>Costo de referencia (solo si el producto no tiene uno)</label>
+                <select class="input" @bind="_colCosto">@ColumnOptionsOpcional()</select>
+            </div>
+            <div class="field">
+                <label>Fila donde empiezan los datos</label>
+                <input class="input" type="number" min="2" @bind="_filaInicioDatos" />
+            </div>
+        </div>
+        <div class="field" style="margin-top:8px">
+            <label class="seg" style="display:inline-flex;align-items:center;gap:6px">
+                <input type="checkbox" @bind="_crearProductosNuevos" />
+                Crear automáticamente los productos cuyo código no exista todavía en el catálogo
+            </label>
+        </div>
+
+        <button type="button" class="btn btn-primary" style="margin-top:12px" disabled="@(_importando || _colCodigo == 0 || _colAlmacen == 0 || _colCantidad == 0)" @onclick="ConfirmarAsync">
+            @(_importando ? "Importando…" : "Confirmar importación")
+        </button>
+    </div>
+}
+
+@if (_resultado is not null)
+{
+    <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Resultado</h3>
+        <p>
+            @_resultado.ProductosCreados producto(s) nuevo(s) · @_resultado.ExistenciasCreadas existencia(s) nueva(s) ·
+            @_resultado.ExistenciasActualizadas existencia(s) actualizada(s) · @_resultado.FilasOmitidas fila(s) omitida(s)
+        </p>
+        @if (_resultado.Advertencias.Count > 0)
+        {
+            <p class="text-muted">Advertencias:</p>
+            <ul class="text-muted" style="max-height:260px;overflow:auto">
+                @foreach (var advertencia in _resultado.Advertencias)
+                {
+                    <li>@advertencia</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private VistaPreviaImportacionConteoExternoDto? _vistaPrevia;
+    private ImportacionConteoExternoResultadoDto? _resultado;
+    private string? _error;
+    private bool _cargandoVistaPrevia;
+    private bool _importando;
+    private IBrowserFile? _archivo;
+
+    private int _colCodigo;
+    private int _colNombre;
+    private int _colFamilia;
+    private int _colAlmacen;
+    private int _colLote;
+    private int _colCantidad;
+    private int _colUnidad;
+    private int _colCosto;
+    private int _filaInicioDatos = 2;
+    private bool _crearProductosNuevos = true;
+
+    private const long TamanoMaximoBytes = 10 * 1024 * 1024;
+
+    private RenderFragment ColumnOptions() => builder =>
+    {
+        builder.OpenElement(0, "option");
+        builder.AddAttribute(1, "value", "0");
+        builder.AddContent(2, "— Elegir columna —");
+        builder.CloseElement();
+        for (var c = 1; c <= (_vistaPrevia?.Encabezados.Count ?? 0); c++)
+        {
+            builder.OpenElement(3, "option");
+            builder.AddAttribute(4, "value", c.ToString());
+            builder.AddContent(5, $"Col. {c} — {_vistaPrevia!.Encabezados[c - 1]}");
+            builder.CloseElement();
+        }
+    };
+
+    private RenderFragment ColumnOptionsOpcional() => builder =>
+    {
+        builder.OpenElement(0, "option");
+        builder.AddAttribute(1, "value", "0");
+        builder.AddContent(2, "No aplica");
+        builder.CloseElement();
+        for (var c = 1; c <= (_vistaPrevia?.Encabezados.Count ?? 0); c++)
+        {
+            builder.OpenElement(3, "option");
+            builder.AddAttribute(4, "value", c.ToString());
+            builder.AddContent(5, $"Col. {c} — {_vistaPrevia!.Encabezados[c - 1]}");
+            builder.CloseElement();
+        }
+    };
+
+    private async Task CargarVistaPreviaAsync(InputFileChangeEventArgs e)
+    {
+        if (_cargandoVistaPrevia) return;
+        _cargandoVistaPrevia = true;
+        _error = null;
+        _vistaPrevia = null;
+        _resultado = null;
+        try
+        {
+            _archivo = e.File;
+            if (_archivo.Size > TamanoMaximoBytes) { _error = "El archivo no puede superar los 10 MB."; return; }
+
+            await using var stream = _archivo.OpenReadStream(TamanoMaximoBytes);
+            _vistaPrevia = await ImportacionApi.VistaPreviaAsync(stream, _archivo.Name);
+            _colCodigo = _colNombre = _colFamilia = _colAlmacen = _colLote = _colCantidad = _colUnidad = _colCosto = 0;
+            _filaInicioDatos = 2;
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _cargandoVistaPrevia = false; }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_importando || _archivo is null) return;
+        _importando = true;
+        _error = null;
+        _resultado = null;
+        try
+        {
+            var mapeo = new MapeoColumnasConteoExternoDto(
+                _filaInicioDatos, _colCodigo,
+                _colNombre == 0 ? null : _colNombre,
+                _colFamilia == 0 ? null : _colFamilia,
+                _colAlmacen,
+                _colLote == 0 ? null : _colLote,
+                _colCantidad,
+                _colUnidad == 0 ? null : _colUnidad,
+                _colCosto == 0 ? null : _colCosto,
+                _crearProductosNuevos);
+
+            await using var stream = _archivo.OpenReadStream(TamanoMaximoBytes);
+            _resultado = await ImportacionApi.ConfirmarAsync(stream, _archivo.Name, mapeo);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _importando = false; }
+    }
+}
