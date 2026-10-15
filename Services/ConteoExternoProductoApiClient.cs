@@ -30,6 +30,22 @@ public class ConteoExternoProductoApiClient
         return await respuesta.Content.ReadFromJsonAsync<List<ConteoExternoProductoDto>>(cancellationToken: ct) ?? [];
     }
 
+    // Autocompletado por código o nombre (hasta `max` coincidencias).
+    public async Task<List<ConteoExternoProductoBusquedaDto>> BuscarAsync(string texto, int max = 6, CancellationToken ct = default)
+    {
+        var respuesta = await _http.GetAsync($"api/conteo-externo/productos/buscar?texto={Uri.EscapeDataString(texto)}&max={max}", ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return await respuesta.Content.ReadFromJsonAsync<List<ConteoExternoProductoBusquedaDto>>(cancellationToken: ct) ?? [];
+    }
+
+    // Unidad, costo, almacén habitual y lotes conocidos del producto elegido.
+    public async Task<ConteoExternoSugerenciasDto> ObtenerSugerenciasAsync(int id, CancellationToken ct = default)
+    {
+        var respuesta = await _http.GetAsync($"api/conteo-externo/productos/{id}/sugerencias", ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<ConteoExternoSugerenciasDto>(cancellationToken: ct))!;
+    }
+
     public async Task<List<string>> ListarFamiliasAsync(CancellationToken ct = default)
     {
         var respuesta = await _http.GetAsync("api/conteo-externo/productos/familias", ct);

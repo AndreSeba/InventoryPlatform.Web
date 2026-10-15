@@ -44,6 +44,21 @@ public class ConteoExternoSesionApiClient
         await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
     }
 
+    // Transcripción ágil: la cantidad FINAL de la línea (Enter pasa a la siguiente en la pantalla).
+    public async Task RegistrarCantidadFinalAsync(int lineaId, ConteoExternoCantidadFinalDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PutAsJsonAsync($"api/conteo-externo/sesiones/lineas/{lineaId}/cantidad-final", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+    }
+
+    // Producto sobrante: catálogo (si es nuevo) + existencia 0 + línea de la sesión, todo o nada.
+    public async Task<ConteoExternoLineaDto> AgregarSobranteAsync(int sesionId, AgregarSobranteConteoExternoDto dto, CancellationToken ct = default)
+    {
+        var respuesta = await _http.PostAsJsonAsync($"api/conteo-externo/sesiones/{sesionId}/sobrantes", dto, ct);
+        await ApiClientHelper.LanzarSiHayErrorAsync(respuesta, ct);
+        return (await respuesta.Content.ReadFromJsonAsync<ConteoExternoLineaDto>(cancellationToken: ct))!;
+    }
+
     public async Task ActualizarObservacionAsync(int lineaId, ActualizarObservacionConteoExternoDto dto, CancellationToken ct = default)
     {
         var respuesta = await _http.PutAsJsonAsync($"api/conteo-externo/sesiones/lineas/{lineaId}/observacion", dto, ct);

@@ -1,5 +1,7 @@
 @page "/conteo-externo/sesiones/{Id:int}"
 @inject ConteoExternoSesionApiClient SesionApi
+@inject ConteoExternoProductoApiClient ProductoApi
+@inject ConteoExternoUnidadApiClient UnidadApi
 @inject NavigationManager Nav
 @inject AuthState AuthState
 @inject IJSRuntime JS
@@ -33,6 +35,7 @@ else
             <button type="button" class="btn btn-secondary" disabled="@_descargando" @onclick="DescargarExcel"><Icon Name="download" Size="16" />@(_descargando ? "Generando…" : "Descargar KPIs (Excel)")</button>
             @if (_sesion.Estado == EstadoConteoExternoSesion.EnCurso && AuthState.HasPermission(Permisos.ConteoExternoGestionar))
             {
+                <button type="button" class="btn btn-secondary" @onclick="AbrirSobrante">+ Producto sobrante</button>
                 <button type="button" class="btn btn-primary" disabled="@_cerrando" @onclick="Cerrar">@(_cerrando ? "Cerrando…" : "Cerrar sesión")</button>
             }
         </div>
@@ -55,25 +58,52 @@ else
         </div>
     }
 
-    <div class="table-wrap" style="margin-top:16px">
+    @if (_cantidadError is not null)
+    {
+        <p class="dialog-error" style="margin-top:12px">@_cantidadError</p>
+    }
+    @if (PuedeContar)
+    {
+        <p class="text-muted" style="font-size:12px;margin-top:12px">
+            Clic en <strong>Contado</strong>, escribí la cantidad final y <strong>Enter</strong> para pasar al siguiente (↑/↓ para moverte, Esc cancela).
+            Doble clic en un lote: detalle con ubicaciones y reconteos.
+        </p>
+    }
+
+    <div class="table-wrap" style="margin-top:8px">
         <table class="table">
             <thead><tr><th>Producto</th><th>Almacén</th><th>Lote</th><th>Existencia</th><th>Contado</th><th>Diferencia</th><th>Dif. valor (Bs)</th><th>Observación</th><th></th></tr></thead>
             <tbody>
                 @foreach (var l in _sesion.Lineas)
                 {
-                    <tr>
+                    <tr @key="l.Id" @ondblclick="() => AbrirConteo(l)">
                         <td>@l.ProductoCodigo <span class="text-muted">— @l.ProductoNombre</span></td>
                         <td class="text-muted" title="@l.AlmacenCodigo">@l.AlmacenNombre</td>
                         <td class="text-muted">@(l.Lote ?? "—")</td>
                         <td>@l.ExistenciaSistema @l.UnidadCodigo</td>
-                        <td>@(l.TotalContado?.ToString() ?? "Sin contar")</td>
+                        @if (_editandoId == l.Id)
+                        {
+                            <td>
+                                <input class="input" style="width:110px;text-align:right" type="text" inputmode="decimal" autocomplete="off"
+                                       onfocus="this.select()" @ref="_editor" @bind="_editTexto" @bind:event="oninput"
+                                       @onkeydown="e => AlTeclearEditor(e, l)" @onfocusout="() => AlSalirEditor(l)" />
+                            </td>
+                        }
+                        else if (PuedeContar)
+                        {
+                            <td style="cursor:text" title="Clic para escribir la cantidad" @onclick="() => IniciarEdicion(l)">@(l.TotalContado?.ToString() ?? "Sin contar")</td>
+                        }
+                        else
+                        {
+                            <td>@(l.TotalContado?.ToString() ?? "Sin contar")</td>
+                        }
                         <td class="@ClaseDiferencia(l.Diferencia)">@(l.Diferencia?.ToString("0.####") ?? "—")</td>
                         <td class="@ClaseDiferencia(l.Diferencia)">@(l.DiferenciaValor?.ToString("0.00") ?? "—")</td>
                         <td class="text-muted">@(l.Observacion ?? "—")</td>
                         <td>
-                            @if (_sesion.Estado == EstadoConteoExternoSesion.EnCurso && AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            @if (PuedeContar)
                             {
-                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Contar" @onclick="() => AbrirConteo(l)"><Icon Name="edit" Size="16" /></button>
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Detalle (ubicaciones y reconteos)" @onclick="() => AbrirConteo(l)"><Icon Name="edit" Size="16" /></button>
                             }
                         </td>
                     </tr>
@@ -134,6 +164,106 @@ else
     <Actions>
         <button type="button" class="btn btn-ghost" @onclick="CerrarDialogoConteo">Cancelar</button>
         <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="GuardarConteo">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+<Dialog OnClose="CerrarSobrante" Visible="_sobranteAbierto" Title="Producto sobrante (no está en el sistema)">
+    <Body>
+        <p class="text-muted" style="font-size:12px;margin-bottom:12px">
+            Escribí el código o parte del nombre: si el producto ya está en el catálogo se traen solos sus datos.
+            Se agrega el lote a Existencias con existencia 0 y se suma a esta sesión: lo que cuentes saldrá como diferencia positiva.
+        </p>
+        <div class="field">
+            <label for="cesb-buscar">Código o nombre</label>
+            <input class="input" id="cesb-buscar" autocomplete="off" value="@_sobBusqueda" @oninput="AlBuscarProducto" />
+            @if (_sobResultados.Count > 0)
+            {
+                <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);margin-top:4px;overflow:hidden">
+                    @foreach (var r in _sobResultados)
+                    {
+                        <button type="button" class="btn btn-ghost" style="display:block;width:100%;text-align:left;border-radius:0" @onclick="() => ElegirProductoAsync(r)">
+                            @r.Codigo <span class="text-muted">— @r.Nombre</span>
+                        </button>
+                    }
+                </div>
+            }
+            @if (_sobProducto is not null)
+            {
+                <p class="text-muted" style="font-size:12px;margin-top:4px">✔ @_sobProducto.Codigo — @_sobProducto.Nombre (@_sobProducto.Familia)</p>
+            }
+            else if (_sobEsNuevo)
+            {
+                <p class="text-muted" style="font-size:12px;margin-top:4px">Código nuevo (no está en el catálogo): completá nombre y familia.</p>
+            }
+        </div>
+
+        @if (_sobEsNuevo)
+        {
+            <div class="field">
+                <label for="cesb-nombre">Nombre</label>
+                <input class="input" id="cesb-nombre" @bind="_sobNombre" maxlength="200" />
+            </div>
+            <div class="field">
+                <label for="cesb-familia">Familia</label>
+                <input class="input" id="cesb-familia" @bind="_sobFamilia" maxlength="100" />
+            </div>
+        }
+
+        <div class="field">
+            <label for="cesb-almacen">Almacén (código)</label>
+            <input class="input" id="cesb-almacen" list="cesb-almacenes" @bind="_sobAlmacen" maxlength="30" />
+            <datalist id="cesb-almacenes">
+                @foreach (var a in AlmacenesDeLaSesion)
+                {
+                    <option value="@a"></option>
+                }
+            </datalist>
+        </div>
+        <div class="field">
+            <label for="cesb-lote">Lote</label>
+            <input class="input" id="cesb-lote" list="cesb-lotes" @bind="_sobLote" maxlength="50" />
+            <datalist id="cesb-lotes">
+                @foreach (var lote in _sobLotes)
+                {
+                    <option value="@lote"></option>
+                }
+            </datalist>
+        </div>
+        <div class="field">
+            <label for="cesb-unidad">Unidad</label>
+            <select class="input" id="cesb-unidad" @bind="_sobUnidad" disabled="@_sobUnidadFija">
+                <option value="">— elegí —</option>
+                @foreach (var u in _unidades)
+                {
+                    <option value="@u.Codigo">@u.Codigo</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="cesb-costo">Costo unitario (Bs)</label>
+            <input class="input" id="cesb-costo" type="number" step="any" @bind="_sobCosto" disabled="@_sobCostoFijo" />
+            @if (_sobCostoFijo)
+            {
+                <p class="text-muted" style="font-size:12px;margin-top:4px">El costo es único por producto y ya está cargado.</p>
+            }
+        </div>
+        <div class="field">
+            <label for="cesb-ub">Ubicación (opcional)</label>
+            <input class="input" id="cesb-ub" @bind="_sobUbicacion" maxlength="40" />
+        </div>
+        <div class="field">
+            <label for="cesb-cant">Cantidad contada (opcional)</label>
+            <input class="input" id="cesb-cant" type="number" step="any" @bind="_sobContada" />
+        </div>
+
+        @if (_sobError is not null)
+        {
+            <p class="dialog-error">@_sobError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="CerrarSobrante">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_sobGuardando" @onclick="GuardarSobranteAsync">@(_sobGuardando ? "Guardando…" : "Agregar y contar")</button>
     </Actions>
 </Dialog>
 
@@ -205,6 +335,7 @@ else
 
     private void AbrirConteo(ConteoExternoLineaDto linea)
     {
+        _editandoId = null;
         _lineaActual = linea;
         _numeroConteo = linea.ConteoVigente ?? 1;
         _observacion = linea.Observacion ?? "";
@@ -251,6 +382,262 @@ else
         finally
         {
             _guardando = false;
+        }
+    }
+
+
+    // ---- transcripción ágil (columna Contado) ----
+    private bool PuedeContar => _sesion is not null && _sesion.Estado == EstadoConteoExternoSesion.EnCurso
+                                && AuthState.HasPermission(Permisos.ConteoExternoGestionar);
+
+    private int? _editandoId;
+    private string _editTexto = "";
+    private ElementReference _editor;
+    private bool _enfocarEditor;
+    private bool _guardandoEdicion;
+    private string? _cantidadError;
+
+    // Una línea con varias ubicaciones o reconteos NO se edita en la celda (se pisaría información):
+    // se abre el detalle. El backend lo vuelve a verificar (RegistrarCantidadFinalAsync).
+    private static bool TieneDetalle(ConteoExternoLineaDto l) => l.Registros.Count > 1 || l.ConteoVigente > 1;
+
+    private void IniciarEdicion(ConteoExternoLineaDto linea)
+    {
+        _cantidadError = null;
+        if (TieneDetalle(linea))
+        {
+            AbrirConteo(linea);
+            return;
+        }
+        _editandoId = linea.Id;
+        _editTexto = linea.TotalContado?.ToString("0.####") ?? "";
+        _enfocarEditor = true;
+    }
+
+    private async Task AlTeclearEditor(KeyboardEventArgs e, ConteoExternoLineaDto linea)
+    {
+        switch (e.Key)
+        {
+            case "Enter":
+            case "ArrowDown":
+                await GuardarEdicionAsync(linea, 1);
+                break;
+            case "ArrowUp":
+                await GuardarEdicionAsync(linea, -1);
+                break;
+            case "Escape":
+                _editandoId = null;
+                break;
+        }
+    }
+
+    // Clic en otra parte: se guarda lo escrito (sin mover). Si ya se está guardando por Enter, no hace nada.
+    private async Task AlSalirEditor(ConteoExternoLineaDto linea)
+    {
+        if (_editandoId != linea.Id || _guardandoEdicion) return;
+        await GuardarEdicionAsync(linea, 0);
+    }
+
+    // Guarda la cantidad final de la línea y se mueve a la siguiente (+1), anterior (-1) o se queda (0).
+    // Texto vacío = no cambia nada (no borra). Se acepta coma o punto como separador decimal.
+    private async Task GuardarEdicionAsync(ConteoExternoLineaDto linea, int mover)
+    {
+        if (_guardandoEdicion || _sesion is null) return;
+        _guardandoEdicion = true;
+        _cantidadError = null;
+        try
+        {
+            var texto = _editTexto.Trim().Replace(',', '.');
+            if (texto.Length > 0)
+            {
+                if (!decimal.TryParse(texto, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var cantidad))
+                {
+                    _cantidadError = $"“{_editTexto}” no es un número válido.";
+                    _enfocarEditor = true;
+                    return;
+                }
+                // Sin cambios no se escribe nada (evita registros de auditoría repetidos al solo pasar de largo).
+                if (linea.TotalContado != cantidad)
+                    await SesionApi.RegistrarCantidadFinalAsync(linea.Id, new ConteoExternoCantidadFinalDto(cantidad));
+            }
+
+            // Destino: la siguiente (o anterior) línea que NO tenga detalle; las que tienen varias ubicaciones o
+            // reconteos se saltan (se editan con doble clic) para no abrir un diálogo en medio de la transcripción.
+            int? destino = null;
+            if (mover != 0)
+            {
+                var lineas = _sesion.Lineas;
+                var posicion = lineas.FindIndex(x => x.Id == linea.Id);
+                for (var i = posicion + mover; i >= 0 && i < lineas.Count; i += mover)
+                {
+                    if (TieneDetalle(lineas[i])) continue;
+                    destino = lineas[i].Id;
+                    break;
+                }
+            }
+
+            _editandoId = null;
+            await CargarAsync();
+
+            if (destino is not null)
+            {
+                var siguiente = _sesion?.Lineas.FirstOrDefault(x => x.Id == destino);
+                if (siguiente is not null) IniciarEdicion(siguiente);
+            }
+        }
+        catch (ApiException ex)
+        {
+            _cantidadError = ex.Message;
+            _enfocarEditor = true;       // se queda en la celda para corregir
+        }
+        finally
+        {
+            _guardandoEdicion = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_enfocarEditor && _editandoId is not null)
+        {
+            _enfocarEditor = false;
+            try { await _editor.FocusAsync(); } catch (InvalidOperationException) { /* la celda ya se re-renderizó */ }
+        }
+    }
+
+    // ---- producto sobrante ----
+    private bool _sobranteAbierto;
+    private bool _sobGuardando;
+    private string? _sobError;
+    private string _sobBusqueda = "";
+    private List<ConteoExternoProductoBusquedaDto> _sobResultados = [];
+    private ConteoExternoSugerenciasDto? _sobProducto;     // producto del catálogo elegido (null = nuevo o sin elegir)
+    private bool _sobEsNuevo;
+    private string _sobNombre = "", _sobFamilia = "", _sobAlmacen = "", _sobLote = "", _sobUnidad = "", _sobUbicacion = "";
+    private decimal? _sobCosto, _sobContada;
+    private bool _sobUnidadFija, _sobCostoFijo;
+    private List<string> _sobLotes = [];
+    private List<ConteoExternoUnidadDto> _unidades = [];
+    private int _busquedaVersion;
+
+    private IEnumerable<string> AlmacenesDeLaSesion =>
+        _sesion?.Lineas.Select(l => l.AlmacenCodigo).Distinct().OrderBy(a => a) ?? Enumerable.Empty<string>();
+
+    private async Task AbrirSobrante()
+    {
+        _sobError = null;
+        _sobBusqueda = _sobNombre = _sobFamilia = _sobAlmacen = _sobLote = _sobUnidad = _sobUbicacion = "";
+        _sobResultados = [];
+        _sobProducto = null;
+        _sobEsNuevo = _sobUnidadFija = _sobCostoFijo = false;
+        _sobCosto = _sobContada = null;
+        _sobLotes = [];
+        try
+        {
+            _unidades = await UnidadApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _sobError = ex.Message;
+        }
+        _sobranteAbierto = true;
+    }
+
+    private void CerrarSobrante() => _sobranteAbierto = false;
+
+    // Autocompletado: cada tecla busca (código o parte del nombre). Una respuesta vieja no pisa a una más nueva.
+    private async Task AlBuscarProducto(ChangeEventArgs e)
+    {
+        _sobBusqueda = e.Value?.ToString() ?? "";
+        _sobProducto = null;
+        _sobUnidadFija = _sobCostoFijo = false;
+        var version = ++_busquedaVersion;
+        var texto = _sobBusqueda.Trim();
+        if (texto.Length < 2)
+        {
+            _sobResultados = [];
+            _sobEsNuevo = false;
+            return;
+        }
+        try
+        {
+            var encontrados = await ProductoApi.BuscarAsync(texto);
+            if (version != _busquedaVersion) return;
+            _sobResultados = encontrados;
+            // Código exacto (con o sin ceros a la izquierda): se elige solo y se traen todos los datos.
+            var exacto = encontrados.FirstOrDefault(p => NormalizarCodigo(p.Codigo) == NormalizarCodigo(texto));
+            if (exacto is not null)
+                await ElegirProductoAsync(exacto);
+            else
+                _sobEsNuevo = encontrados.Count == 0;       // sin coincidencias: producto nuevo
+        }
+        catch (ApiException ex)
+        {
+            _sobError = ex.Message;
+        }
+    }
+
+    private static string NormalizarCodigo(string codigo)
+    {
+        var limpio = codigo.Trim().ToUpperInvariant();
+        var sinCeros = limpio.TrimStart('0');
+        return sinCeros.Length > 0 ? sinCeros : limpio;
+    }
+
+    // Trae unidad, costo, almacén habitual y lotes conocidos. El lote NO se rellena (es lo único que cambia cada vez).
+    private async Task ElegirProductoAsync(ConteoExternoProductoBusquedaDto elegido)
+    {
+        try
+        {
+            var sug = await ProductoApi.ObtenerSugerenciasAsync(elegido.Id);
+            _busquedaVersion++;
+            _sobProducto = sug;
+            _sobBusqueda = sug.Codigo;
+            _sobResultados = [];
+            _sobEsNuevo = false;
+            _sobLotes = sug.Lotes;
+            if (string.IsNullOrWhiteSpace(_sobAlmacen) && sug.AlmacenHabitual is not null)
+                _sobAlmacen = sug.AlmacenHabitual;
+            _sobUnidadFija = sug.UnidadCodigo is not null;
+            if (sug.UnidadCodigo is not null) _sobUnidad = sug.UnidadCodigo;
+            _sobCostoFijo = sug.CostoReferencia is not null;
+            if (sug.CostoReferencia is not null) _sobCosto = sug.CostoReferencia;
+        }
+        catch (ApiException ex)
+        {
+            _sobError = ex.Message;
+        }
+    }
+
+    private async Task GuardarSobranteAsync()
+    {
+        if (_sobGuardando) return;
+        _sobGuardando = true;
+        _sobError = null;
+        try
+        {
+            var dto = new AgregarSobranteConteoExternoDto(
+                _sobBusqueda.Trim(),
+                _sobEsNuevo ? _sobNombre : null,
+                _sobEsNuevo ? _sobFamilia : null,
+                _sobAlmacen,
+                _sobLote,
+                string.IsNullOrWhiteSpace(_sobUnidad) ? null : _sobUnidad,
+                _sobCostoFijo ? null : _sobCosto,
+                string.IsNullOrWhiteSpace(_sobUbicacion) ? null : _sobUbicacion,
+                _sobContada);
+
+            await SesionApi.AgregarSobranteAsync(Id, dto);
+            _sobranteAbierto = false;
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _sobError = ex.Message;
+        }
+        finally
+        {
+            _sobGuardando = false;
         }
     }
 
