@@ -1,0 +1,239 @@
+@page "/conteo-externo/existencias"
+@inject ConteoExternoExistenciaApiClient ExistenciaApi
+@inject ConteoExternoProductoApiClient ProductoApi
+@inject AuthState AuthState
+
+<PageTitle>Existencias — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Existencias (Conteo Externo)</h1>
+        <p class="text-muted" style="margin-top:-6px">
+            Stock por producto/almacén/lote, cargado a mano. La unidad de cada producto queda fija con su primer lote.
+        </p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva" disabled="@(_productos is null || _productos.Count == 0)">+ Nueva existencia</button>
+    }
+</div>
+
+<div class="card" style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+    <div class="field" style="min-width:220px">
+        <label for="cee-prod">Producto</label>
+        <select class="input" id="cee-prod" @bind="_filtroProductoId" @bind:after="CargarAsync">
+            <option value="0">Todos</option>
+            @foreach (var p in _productos ?? [])
+            {
+                <option value="@p.Id">@p.Codigo — @p.Nombre</option>
+            }
+        </select>
+    </div>
+    <div class="field" style="min-width:160px">
+        <label for="cee-alm">Almacén</label>
+        <input class="input" id="cee-alm" @bind="_filtroAlmacen" @bind:event="oninput" @onkeyup="CargarAsync" placeholder="Código de almacén…" />
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_existencias is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:16px">
+        <table class="table">
+            <thead><tr><th>Producto</th><th>Almacén</th><th>Lote</th><th>Cantidad</th><th>Unidad</th><th>Costo (por producto)</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var e in _existencias)
+                {
+                    <tr>
+                        <td>@e.ProductoCodigo <span class="text-muted">— @e.ProductoNombre</span></td>
+                        <td class="text-muted" title="@e.AlmacenCodigo">@e.AlmacenNombre</td>
+                        <td class="text-muted">@(e.Lote ?? "—")</td>
+                        <td>@e.CantidadSistema</td>
+                        <td class="text-muted">@(e.UnidadCodigo ?? "—")</td>
+                        <td class="text-muted">@(e.CostoReferencia?.ToString("0.00") ?? "—")</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            {
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(e)"><Icon Name="edit" Size="16" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (_existencias.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-muted">No hay existencias que coincidan con el filtro.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva existencia" : "Editar existencia")">
+    <Body>
+        @if (_editandoId is null)
+        {
+            <div class="field">
+                <label for="ceef-prod">Producto</label>
+                <select class="input" id="ceef-prod" @bind="_productoId">
+                    @foreach (var p in _productos ?? [])
+                    {
+                        <option value="@p.Id">@p.Codigo — @p.Nombre@(p.UnidadCodigo is not null ? $" ({p.UnidadCodigo})" : "")</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="ceef-alm">Almacén</label>
+                <input class="input" id="ceef-alm" @bind="_almacenCodigo" placeholder="PT-01" maxlength="30" />
+            </div>
+            <div class="field">
+                <label for="ceef-lote">Lote (opcional)</label>
+                <input class="input" id="ceef-lote" @bind="_lote" maxlength="50" />
+            </div>
+            <div class="field">
+                <label for="ceef-unidad">Unidad</label>
+                <input class="input" id="ceef-unidad" @bind="_unidadCodigo" placeholder="CAJ" maxlength="10" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Si el producto ya tiene una unidad fijada (por un lote anterior), tiene que coincidir con esa.
+                </p>
+            </div>
+        }
+        <div class="field">
+            <label for="ceef-cant">Cantidad</label>
+            <input class="input" id="ceef-cant" type="number" step="any" min="0" @bind="_cantidad" />
+        </div>
+        <p class="text-muted" style="font-size:12px">
+            El costo es único por producto (no por almacén/lote) — se edita desde el Catálogo, no acá.
+        </p>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activa (destildar para eliminarla)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ConteoExternoExistenciaDto>? _existencias;
+    private List<ConteoExternoProductoDto>? _productos;
+    private string? _error;
+
+    private int _filtroProductoId;
+    private string _filtroAlmacen = "";
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private int _productoId;
+    private string _almacenCodigo = "";
+    private string _lote = "";
+    private string _unidadCodigo = "";
+    private decimal _cantidad;
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _productos = await ProductoApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _productos = [];
+        }
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _existencias = await ExistenciaApi.ListarAsync(
+                _filtroProductoId > 0 ? _filtroProductoId : null,
+                string.IsNullOrWhiteSpace(_filtroAlmacen) ? null : _filtroAlmacen);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _existencias = [];
+        }
+    }
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _productoId = _productos?.FirstOrDefault()?.Id ?? 0;
+        _almacenCodigo = "";
+        _lote = "";
+        _unidadCodigo = _productos?.FirstOrDefault()?.UnidadCodigo ?? "";
+        _cantidad = 0;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(ConteoExternoExistenciaDto e)
+    {
+        _editandoId = e.Id;
+        _cantidad = e.CantidadSistema;
+        _activo = e.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_almacenCodigo)) { _dialogError = "Ingrese un código de almacén."; return; }
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_unidadCodigo)) { _dialogError = "Ingrese una unidad."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await ExistenciaApi.CrearAsync(new CrearConteoExternoExistenciaDto(_productoId, _almacenCodigo, string.IsNullOrWhiteSpace(_lote) ? null : _lote, _cantidad, _unidadCodigo));
+            else
+                await ExistenciaApi.ActualizarAsync(_editandoId.Value, new ActualizarConteoExternoExistenciaDto(_cantidad, _activo));
+
+            Cerrar();
+            _productos = await ProductoApi.ListarAsync();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

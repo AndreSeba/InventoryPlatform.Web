@@ -98,6 +98,7 @@
                 <div class="rail-section">Conteo Externo</div>
                 <RailLink Href="/conteo-externo/catalogo" IconName="package" Label="Catálogo" CurrentPath="@_path" />
                 <RailLink Href="/conteo-externo/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/existencias" IconName="box" Label="Existencias" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -219,6 +220,7 @@
         var p when p.StartsWith("/accesos") => "Revisión de accesos",
         var p when p.StartsWith("/conteo-externo/catalogo") => "Catálogo (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/unidades") => "Unidades (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/existencias") => "Existencias (Conteo Externo)",
         _ => "Inicio",
     };
 

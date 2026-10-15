@@ -450,6 +450,11 @@ de conteo físico totalmente independiente del resto del sistema, ver el detalle
   por separado en este módulo).
 - La unidad y el costo de referencia de un producto aparecen vacíos ("—") hasta que la
   Fase 2 (existencias) les asigne un valor.
+- **`/conteo-externo/existencias`** (Fase 2, `ConteoExternoExistenciaApiClient`): alta
+  manual de stock por producto/almacén/lote. **Sin campo de costo** — el costo es único
+  por producto, se edita desde `/conteo-externo/catalogo`. El formulario de alta pide la
+  unidad (solo la primera vez por producto; si ya está fijada, tiene que coincidir o el
+  backend la rechaza con 409).
 - **Sin verificar por compilación todavía** (sin SDK de .NET en el entorno donde se escribió).
 
 ## Lo que NO hacer
