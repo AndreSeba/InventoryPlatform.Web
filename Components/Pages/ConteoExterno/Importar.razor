@@ -1,4 +1,4 @@
-@page "/conteo-externo/importar"
+﻿@page "/conteo-externo/importar"
 @inject ConteoExternoImportacionApiClient ImportacionApi
 
 <PageTitle>Importar desde Excel — Conteo Externo</PageTitle>
@@ -7,7 +7,7 @@
     <div>
         <h1>Importar existencias desde Excel</h1>
         <p class="text-muted" style="margin-top:-6px">
-            Para el Excel de un sistema externo, con sus propias columnas — elegí el archivo y después decidí qué columna es cada cosa.
+            Para el Excel de un sistema externo, con sus propias columnas — elegí el archivo: las columnas se proponen solas por el nombre del encabezado; revisá la vista previa y corregí lo que haga falta.
         </p>
     </div>
 </div>
@@ -191,9 +191,60 @@
             _vistaPrevia = await ImportacionApi.VistaPreviaAsync(stream, _archivo.Name);
             _colCodigo = _colNombre = _colFamilia = _colAlmacen = _colLote = _colCantidad = _colUnidad = _colCosto = 0;
             _filaInicioDatos = 2;
+            ProponerMapeo(_vistaPrevia.Encabezados);
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _cargandoVistaPrevia = false; }
+    }
+
+    // Propone la columna de cada dato por el nombre del encabezado (el usuario puede cambiarla). Se normaliza sin
+    // tildes ni mayúsculas; gana la primera columna que cumpla la regla de mayor prioridad. Nada se propone dos veces.
+    private void ProponerMapeo(IReadOnlyList<string> encabezados)
+    {
+        var claves = encabezados.Select(Normalizar).ToList();
+        var usadas = new HashSet<int>();
+
+        int Buscar(Func<string, bool> regla)
+        {
+            for (var i = 0; i < claves.Count; i++)
+            {
+                if (usadas.Contains(i) || claves[i].Length == 0 || !regla(claves[i])) continue;
+                usadas.Add(i);
+                return i + 1;          // columnas 1-based, como se ven en la vista previa
+            }
+            return 0;
+        }
+
+        // Varias reglas por dato, de mayor a menor prioridad: se prueba la primera, y si no hay columna, la siguiente.
+        int Primero(params Func<string, bool>[] reglas)
+        {
+            foreach (var regla in reglas)
+            {
+                var columna = Buscar(regla);
+                if (columna > 0) return columna;
+            }
+            return 0;
+        }
+
+        // Nombre y familia primero, para que "codigo" no se coma una columna "descripcion producto".
+        _colNombre = Primero(h => h.Contains("nombre") && h.Contains("prod"), h => h.Contains("descrip") || h.Contains("nombre"));
+        _colFamilia = Buscar(h => h.Contains("familia") || h.Contains("linea") || h.Contains("categoria"));
+        _colCodigo = Buscar(h => h.Contains("codigo") || h.Contains("material") || h.Contains("id_prod") || h.Contains("idprod") || h == "producto" || h == "sku");
+        _colAlmacen = Primero(h => h.Contains("almacen") && (h.Contains("id") || h.Contains("cod")), h => h.Contains("almacen"));
+        _colLote = Buscar(h => h.Contains("lote"));
+        _colCantidad = Buscar(h => h.Contains("existencia") || h.Contains("cantidad") || h.Contains("stock") || h.Contains("saldo"));
+        _colUnidad = Buscar(h => h.Contains("unidad") || h == "um" || h == "uom");
+        _colCosto = Buscar(h => h.Contains("costo") || h.Contains("precio"));
+    }
+
+    private static string Normalizar(string texto)
+    {
+        var descompuesto = (texto ?? string.Empty).Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in descompuesto)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        return sb.ToString().Replace(' ', '_');
     }
 
     private async Task ConfirmarAsync()
