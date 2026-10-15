@@ -3,6 +3,8 @@
 
 <PageTitle>Importar desde Excel — Conteo Externo</PageTitle>
 
+<p style="margin:0 0 8px"><a href="/conteo-externo/existencias">← Volver a Existencias por lote</a></p>
+
 <div class="page-head">
     <div>
         <h1>Importar existencias desde Excel</h1>
@@ -111,6 +113,7 @@
             @_resultado.ProductosCreados producto(s) nuevo(s) · @_resultado.ExistenciasCreadas existencia(s) nueva(s) ·
             @_resultado.ExistenciasActualizadas existencia(s) actualizada(s) · @_resultado.FilasOmitidas fila(s) omitida(s)
         </p>
+        <p><a class="btn btn-primary" href="/conteo-externo/existencias">Ver existencias</a></p>
         @if (_resultado.Advertencias.Count > 0)
         {
             <p class="text-muted">Advertencias:</p>

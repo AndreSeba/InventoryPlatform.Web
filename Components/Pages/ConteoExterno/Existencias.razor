@@ -1,4 +1,4 @@
-@page "/conteo-externo/existencias"
+﻿@page "/conteo-externo/existencias"
 @inject ConteoExternoExistenciaApiClient ExistenciaApi
 @inject ConteoExternoProductoApiClient ProductoApi
 @inject AuthState AuthState
@@ -7,14 +7,19 @@
 
 <div class="page-head">
     <div>
-        <h1>Existencias (Conteo Externo)</h1>
+        <h1>Existencias por lote</h1>
         <p class="text-muted" style="margin-top:-6px">
-            Stock por producto/almacén/lote, cargado a mano. La unidad de cada producto queda fija con su primer lote.
+            Stock del sistema por producto, almacén y lote. Se carga con «Importar desde Excel…» (el archivo de SAP) o a mano con «+ Agregar lote». La unidad de cada producto queda fija con su primer lote.
         </p>
     </div>
     @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
     {
-        <button type="button" class="btn btn-primary" @onclick="AbrirNueva" disabled="@(_productos is null || _productos.Count == 0)">+ Nueva existencia</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn btn-secondary" href="/conteo-externo/unidades">Unidades…</a>
+            <a class="btn btn-secondary" href="/conteo-externo/almacenes">Nombres de almacén…</a>
+            <a class="btn btn-primary" href="/conteo-externo/importar">Importar desde Excel…</a>
+            <button type="button" class="btn btn-secondary" @onclick="AbrirNueva" disabled="@(_productos is null || _productos.Count == 0)">+ Agregar lote</button>
+        </div>
     }
 </div>
 

@@ -529,6 +529,16 @@ código deshabilitado al editar, "eliminar" = destildar «Activo»). Reglas del 
   todo de punta a punta (no se pudo compilar en el entorno donde se escribió).
 - **Sin verificar por compilación todavía.**
 
+### Menú de Conteo Externo = las 3 pestañas de la app de escritorio (2026-10-15)
+
+El rail «Conteo Externo» tiene solo **Catálogo**, **Existencias por lote** y **Conteo físico**, como la app de Python de Fagal
+(antes eran 7 entradas sueltas). Lo demás se alcanza desde ahí, no desde el menú:
+- **Existencias por lote** → botones «Unidades…» (`/conteo-externo/unidades`), «Nombres de almacén…»
+  (`/conteo-externo/almacenes`), **«Importar desde Excel…»** (`/conteo-externo/importar`, con «← Volver» y «Ver existencias»
+  al terminar) y «+ Agregar lote». No volver a poner «Importar Excel» como entrada propia del menú: importar es una acción de Existencias.
+- **Conteo físico** (`/conteo-externo/sesiones`) → «KPIs de todas las sesiones» (`/conteo-externo/kpis`, con «← Volver»).
+Las rutas no cambiaron, solo el menú y los accesos.
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

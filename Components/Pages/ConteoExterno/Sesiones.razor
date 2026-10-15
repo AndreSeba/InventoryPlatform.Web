@@ -1,4 +1,4 @@
-@page "/conteo-externo/sesiones"
+﻿@page "/conteo-externo/sesiones"
 @inject ConteoExternoSesionApiClient SesionApi
 @inject ConteoExternoProductoApiClient ProductoApi
 @inject NavigationManager Nav
@@ -8,13 +8,16 @@
 
 <div class="page-head">
     <div>
-        <h1>Sesiones de conteo (Conteo Externo)</h1>
+        <h1>Conteo físico</h1>
         <p class="text-muted" style="margin-top:-6px">Cada sesión congela las existencias que coincidan con el filtro al momento de crearla.</p>
     </div>
-    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
-    {
-        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva sesión</button>
-    }
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn btn-secondary" href="/conteo-externo/kpis">KPIs de todas las sesiones</a>
+        @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+        {
+            <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva sesión</button>
+        }
+    </div>
 </div>
 
 @if (_error is not null)

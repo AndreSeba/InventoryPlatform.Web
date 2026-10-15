@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @inject NavigationManager Nav
 @inject AuthState AuthState
 @inject Microsoft.Extensions.Options.IOptions<FuncionesOptions> Funciones
@@ -97,12 +97,8 @@
             {
                 <div class="rail-section">Conteo Externo</div>
                 <RailLink Href="/conteo-externo/catalogo" IconName="package" Label="Catálogo" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/almacenes" IconName="warehouse" Label="Almacenes" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/existencias" IconName="box" Label="Existencias" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/sesiones" IconName="check-list" Label="Sesiones de conteo" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/kpis" IconName="history" Label="KPIs" CurrentPath="@_path" />
-                <RailLink Href="/conteo-externo/importar" IconName="upload-cloud" Label="Importar Excel" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/existencias" IconName="box" Label="Existencias por lote" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/sesiones" IconName="check-list" Label="Conteo físico" CurrentPath="@_path" />
             }
 
             <div class="rail-footer">
@@ -225,10 +221,10 @@
         var p when p.StartsWith("/conteo-externo/catalogo") => "Catálogo (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/unidades") => "Unidades (Conteo Externo)",
         var p when p.StartsWith("/conteo-externo/almacenes") => "Almacenes (Conteo Externo)",
-        var p when p.StartsWith("/conteo-externo/existencias") => "Existencias (Conteo Externo)",
-        var p when p.StartsWith("/conteo-externo/sesiones") => "Sesiones de conteo (Conteo Externo)",
-        var p when p.StartsWith("/conteo-externo/kpis") => "KPIs (Conteo Externo)",
-        var p when p.StartsWith("/conteo-externo/importar") => "Importar desde Excel (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/existencias") => "Existencias por lote",
+        var p when p.StartsWith("/conteo-externo/sesiones") => "Conteo físico",
+        var p when p.StartsWith("/conteo-externo/kpis") => "KPIs — Conteo físico",
+        var p when p.StartsWith("/conteo-externo/importar") => "Importar desde Excel — Existencias",
         _ => "Inicio",
     };
 
