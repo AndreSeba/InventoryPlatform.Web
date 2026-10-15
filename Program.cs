@@ -63,6 +63,10 @@ builder.Services.AddHttpClient<RevisionAccesoApiClient>(client => client.BaseAdd
 builder.Services.AddHttpClient<DevolucionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<NotificacionApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient<FirmaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+
+// Módulo de conteo independiente (ver CLAUDE.md).
+builder.Services.AddHttpClient<ConteoExternoUnidadApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<ConteoExternoProductoApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.Configure<FuncionesOptions>(builder.Configuration.GetSection(FuncionesOptions.SectionName));
 
 var app = builder.Build();

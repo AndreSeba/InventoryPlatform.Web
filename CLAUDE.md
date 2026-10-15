@@ -433,6 +433,25 @@ desde el nombre del usuario al pie del menú lateral. Reglas del backend en `Inv
   `SolicitudApi.ObtenerFirmasAsync`; si no se pueden pedir el formulario sale igual sin imagen. El bloque de firmas ocupa más alto que
   antes y la tabla (única zona `flex:1` del formulario de 250 mm) cede espacio: caben ~18 líneas reales por hoja en vez de ~21.
 
+## Módulo de conteo independiente (iniciado 2026-10-15)
+
+`/conteo-externo/catalogo` y `/conteo-externo/unidades` (`Components/Pages/ConteoExterno/`),
+`ConteoExternoProductoApiClient`/`ConteoExternoUnidadApiClient` — Fase 1 (de 6) de un módulo
+de conteo físico totalmente independiente del resto del sistema, ver el detalle completo
+(por qué existe, qué NO toca, plan de fases) en `InventoryPlatform/CLAUDE.md`.
+
+- **Nombrado genérico a propósito** (`ConteoExterno`, no el nombre de ningún cliente) —
+  pedido explícito del usuario, para poder reusar este sistema como base de otra cosa
+  el día de mañana sin arrastrar un nombre propio en la estructura.
+- **Nunca reusar `ProductoApiClient`/`UnidadApiClient`** acá — este módulo tiene su propio
+  catálogo de productos y de unidades, deliberadamente separado del resto del sistema.
+- Rail con sección propia "Conteo Externo" (ícono `package` para el catálogo, `ruler`
+  para unidades), gateada por un solo permiso `conteoexterno.ver` (no hay Ver/Crear/Editar
+  por separado en este módulo).
+- La unidad y el costo de referencia de un producto aparecen vacíos ("—") hasta que la
+  Fase 2 (existencias) les asigne un valor.
+- **Sin verificar por compilación todavía** (sin SDK de .NET en el entorno donde se escribió).
+
 ## Lo que NO hacer
 
 - ❌ No dupliques DTOs a mano — vienen de `Inventory.Application` por

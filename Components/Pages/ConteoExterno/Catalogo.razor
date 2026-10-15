@@ -1,0 +1,237 @@
+@page "/conteo-externo/catalogo"
+@inject ConteoExternoProductoApiClient ProductoApi
+@inject AuthState AuthState
+
+<PageTitle>Catálogo — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Catálogo (Conteo Externo)</h1>
+        <p class="text-muted" style="margin-top:-6px">
+            Productos propios de este módulo — independiente del catálogo general de Productos.
+            La unidad y el costo de referencia se completan al cargar existencias o importar datos.
+        </p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nuevo producto</button>
+    }
+</div>
+
+<div class="card" style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+    <div class="field" style="flex:1;min-width:220px">
+        <label for="cep-buscar">Buscar</label>
+        <input class="input" id="cep-buscar" @bind="_texto" @bind:event="oninput" @onkeyup="Filtrar" placeholder="Código o nombre…" />
+    </div>
+    <div class="field" style="min-width:180px">
+        <label for="cep-familia">Familia</label>
+        <select class="input" id="cep-familia" @bind="_familia" @bind:after="Filtrar">
+            <option value="">Todas</option>
+            @foreach (var f in _familias ?? [])
+            {
+                <option value="@f">@f</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_productos is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:16px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Nombre</th><th>Familia</th><th>Unidad</th><th>Costo ref.</th><th>Origen</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _productos)
+                {
+                    <tr>
+                        <td>@p.Codigo</td>
+                        <td class="text-muted">@p.Nombre</td>
+                        <td class="text-muted">@p.Familia</td>
+                        <td class="text-muted">@(p.UnidadCodigo ?? "—")</td>
+                        <td class="text-muted">@(p.CostoReferencia?.ToString("0.00") ?? "—")</td>
+                        <td><span class="tag tag-neutral">@OrigenTexto(p.Origen)</span></td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            {
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(p)"><Icon Name="edit" Size="16" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (_productos.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-muted">No hay productos que coincidan con el filtro.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nuevo producto" : "Editar producto")">
+    <Body>
+        <div class="field">
+            <label for="cepf-cod">Código</label>
+            @if (_editandoId is null)
+            {
+                <input class="input" id="cepf-cod" @bind="_codigo" placeholder="10101105" maxlength="30" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Tal como figura en el sistema de origen. No se puede cambiar después.
+                </p>
+            }
+            else
+            {
+                <input class="input" id="cepf-cod" value="@_codigo" disabled />
+            }
+        </div>
+        <div class="field">
+            <label for="cepf-nom">Nombre</label>
+            <input class="input" id="cepf-nom" @bind="_nombre" placeholder="Nombre del producto" />
+        </div>
+        <div class="field">
+            <label for="cepf-fam">Familia</label>
+            <input class="input" id="cepf-fam" @bind="_familia_form" placeholder="FAMILIA" />
+        </div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label for="cepf-costo">Costo de referencia</label>
+                <input class="input" id="cepf-costo" type="number" step="0.01" min="0" @bind="_costoReferencia" />
+            </div>
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activo (destildar para eliminarlo)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ConteoExternoProductoDto>? _productos;
+    private List<string>? _familias;
+    private string? _error;
+
+    private string _texto = "";
+    private string _familia = "";
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _codigo = "";
+    private string _nombre = "";
+    private string _familia_form = "";
+    private decimal? _costoReferencia;
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _familias = await ProductoApi.ListarFamiliasAsync();
+        }
+        catch (ApiException)
+        {
+            _familias = [];
+        }
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _productos = await ProductoApi.ListarAsync(_texto, _familia);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _productos = [];
+        }
+    }
+
+    private async Task Filtrar() => await CargarAsync();
+
+    private static string OrigenTexto(OrigenConteoExternoProducto origen) => origen switch
+    {
+        OrigenConteoExternoProducto.BaseDatos => "Carga inicial",
+        OrigenConteoExternoProducto.Importado => "Importado",
+        _ => "Manual",
+    };
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _nombre = "";
+        _familia_form = "";
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(ConteoExternoProductoDto p)
+    {
+        _editandoId = p.Id;
+        _codigo = p.Codigo;
+        _nombre = p.Nombre;
+        _familia_form = p.Familia;
+        _costoReferencia = p.CostoReferencia;
+        _activo = p.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingrese un código."; return; }
+        if (string.IsNullOrWhiteSpace(_nombre)) { _dialogError = "Ingrese un nombre."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await ProductoApi.CrearAsync(new CrearConteoExternoProductoDto(_codigo, _nombre, _familia_form));
+            else
+                await ProductoApi.ActualizarAsync(_editandoId.Value, new ActualizarConteoExternoProductoDto(_nombre, _familia_form, _costoReferencia, _activo));
+
+            Cerrar();
+            _familias = await ProductoApi.ListarFamiliasAsync();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

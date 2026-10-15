@@ -93,6 +93,13 @@
                 <RailLink Href="/auditoria" IconName="history" Label="Auditoría" CurrentPath="@_path" />
             }
 
+            @if (AuthState.HasPermission(Permisos.ConteoExternoVer))
+            {
+                <div class="rail-section">Conteo Externo</div>
+                <RailLink Href="/conteo-externo/catalogo" IconName="package" Label="Catálogo" CurrentPath="@_path" />
+                <RailLink Href="/conteo-externo/unidades" IconName="ruler" Label="Unidades" CurrentPath="@_path" />
+            }
+
             <div class="rail-footer">
                 <a class="rail-user rail-user-link" href="/perfil" title="Mi perfil y mi firma">
                     <span class="rail-user-name">@AuthState.NombreCompleto</span>
@@ -210,6 +217,8 @@
         var p when p.StartsWith("/auditoria") => "Auditoría",
         var p when p.StartsWith("/perfil") => "Mi perfil",
         var p when p.StartsWith("/accesos") => "Revisión de accesos",
+        var p when p.StartsWith("/conteo-externo/catalogo") => "Catálogo (Conteo Externo)",
+        var p when p.StartsWith("/conteo-externo/unidades") => "Unidades (Conteo Externo)",
         _ => "Inicio",
     };
 

@@ -1,0 +1,177 @@
+@page "/conteo-externo/unidades"
+@inject ConteoExternoUnidadApiClient UnidadApi
+@inject AuthState AuthState
+
+<PageTitle>Unidades — Conteo Externo</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1>Unidades (Conteo Externo)</h1>
+        <p class="text-muted" style="margin-top:-6px">Catálogo de unidades propio de este módulo — no es el de Productos/Movimientos.</p>
+    </div>
+    @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+    {
+        <button type="button" class="btn btn-primary" @onclick="AbrirNueva">+ Nueva unidad</button>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="dialog-error">@_error</p>
+}
+
+@if (_unidades is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <div class="table-wrap" style="margin-top:24px">
+        <table class="table">
+            <thead><tr><th>Código</th><th>Decimales permitidos</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _unidades)
+                {
+                    <tr>
+                        <td>@u.Codigo</td>
+                        <td class="text-muted">@u.DecimalesPermitidos</td>
+                        <td>
+                            @if (AuthState.HasPermission(Permisos.ConteoExternoGestionar))
+                            {
+                                <button type="button" class="btn btn-icon-outline btn-icon-outline-accent" title="Editar" @onclick="() => AbrirEditar(u)"><Icon Name="edit" Size="16" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Dialog OnClose="Cerrar" Visible="_dialogOpen" Title="@(_editandoId is null ? "Nueva unidad" : "Editar unidad")">
+    <Body>
+        <div class="field">
+            <label for="ceuf-cod">Código</label>
+            @if (_editandoId is null)
+            {
+                <input class="input" id="ceuf-cod" @bind="_codigo" placeholder="CAJ" maxlength="10" />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    Corto y en mayúsculas. No se puede cambiar después.
+                </p>
+            }
+            else
+            {
+                <input class="input" id="ceuf-cod" value="@_codigo" disabled />
+                <p class="text-muted" style="font-size:12px;margin-top:4px">
+                    El código no se puede cambiar. Si está mal, destildá «Activa» y creá una unidad nueva.
+                </p>
+            }
+        </div>
+        <div class="field">
+            <label for="ceuf-dec">Decimales permitidos</label>
+            <input class="input" id="ceuf-dec" type="number" min="0" max="4" @bind="_decimales" />
+            <p class="text-muted" style="font-size:12px;margin-top:4px">
+                Cuántos decimales admite una cantidad en esta unidad al cargar un conteo. 0 = solo enteros.
+            </p>
+        </div>
+        @if (_editandoId is not null)
+        {
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" @bind="_activo" />
+                    Activa (destildar para eliminarla)
+                </label>
+            </div>
+        }
+        @if (_dialogError is not null)
+        {
+            <p class="dialog-error">@_dialogError</p>
+        }
+    </Body>
+    <Actions>
+        <button type="button" class="btn btn-ghost" @onclick="Cerrar">Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled="@_guardando" @onclick="Guardar">@(_guardando ? "Guardando…" : "Guardar")</button>
+    </Actions>
+</Dialog>
+
+@code {
+    private List<ConteoExternoUnidadDto>? _unidades;
+    private string? _error;
+
+    private bool _dialogOpen;
+    private bool _guardando;
+    private string? _dialogError;
+    private int? _editandoId;
+    private string _codigo = "";
+    private int _decimales;
+    private bool _activo;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _unidades = await UnidadApi.ListarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _unidades = [];
+        }
+    }
+
+    private void AbrirNueva()
+    {
+        _editandoId = null;
+        _codigo = "";
+        _decimales = 0;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void AbrirEditar(ConteoExternoUnidadDto u)
+    {
+        _editandoId = u.Id;
+        _codigo = u.Codigo;
+        _decimales = u.DecimalesPermitidos;
+        _activo = u.Activo;
+        _dialogError = null;
+        _dialogOpen = true;
+    }
+
+    private void Cerrar()
+    {
+        _dialogOpen = false;
+        _codigo = "";
+        _dialogError = null;
+    }
+
+    private async Task Guardar()
+    {
+        if (_guardando) return;
+        if (_editandoId is null && string.IsNullOrWhiteSpace(_codigo)) { _dialogError = "Ingrese un código."; return; }
+
+        _guardando = true;
+        _dialogError = null;
+
+        try
+        {
+            if (_editandoId is null)
+                await UnidadApi.CrearAsync(new CrearConteoExternoUnidadDto(_codigo, _decimales));
+            else
+                await UnidadApi.ActualizarAsync(_editandoId.Value, new ActualizarConteoExternoUnidadDto(_decimales, _activo));
+
+            Cerrar();
+            await CargarAsync();
+        }
+        catch (ApiException ex)
+        {
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}
